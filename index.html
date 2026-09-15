@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#08081a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>GUY — Autonomous Coding Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="phone-frame">
+  <!-- Top Status Bar (Galaxy S25 mimic) -->
+  <div class="system-bar">
+    <span>09:41</span>
+    <div class="notch"></div>
+    <span class="sysicons">◐ ◑ ● 87%</span>
+  </div>
+
+  <!-- App Header Mobile -->
+  <header class="app-header">
+    <button class="icon-btn" id="menuBtn" aria-label="Menu">
+      <span class="hamburger"><i></i><i></i><i></i></span>
+    </button>
+    <div class="header-brand">
+      <div class="brand-mark">GUY</div>
+      <div class="brand-sub">AUTONOMOUS AGENT</div>
+    </div>
+    <div class="header-actions">
+      <span class="live-dot" id="headerLiveDot"></span>
+      <button class="icon-btn small" id="notifBtn" aria-label="Notifications">◉</button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="sidebar-top">
+          <div class="brand-block">
+            <div class="logo-row">
+              <div class="logo-guy">GUY</div>
+              <span class="ver">v0.4.2</span>
+            </div>
+            <div class="logo-caption">AUTONOMOUS CODING AGENT</div>
+            <div class="logo-sub">self-improving • solo • mobile</div>
+          </div>
+
+          <!-- Live Agent Status -->
+          <div class="status-card">
+            <div class="status-head">
+              <span class="status-label">AGENT STATUS</span>
+              <span class="status-pulse" id="agentPulse"></span>
+            </div>
+            <div class="status-main">
+              <span class="status-dot" id="sidebarStatusDot"></span>
+              <span class="status-text" id="agentStatusText">IDLE</span>
+              <span class="status-mode" id="agentMode">— awaiting task</span>
+            </div>
+            <div class="status-meta">
+              <span><b id="statUptime">00:14:22</b> uptime</span>
+              <span><b id="statTasks">17</b> tasks</span>
+            </div>
+            <div class="progress-rail"><div class="progress-fill" id="agentProgress" style="width: 0%"></div></div>
+          </div>
+
+          <!-- Activity Stats -->
+          <div class="stats-grid">
+            <div class="stat"><span class="stat-val" id="statLines">42.7k</span><span class="stat-lbl">lines gen</span></div>
+            <div class="stat"><span class="stat-val" id="statSkills">24</span><span class="stat-lbl">skills</span></div>
+            <div class="stat"><span class="stat-val" id="statPlugins">9</span><span class="stat-lbl">plugins</span></div>
+            <div class="stat"><span class="stat-val" id="statResearch">163</span><span class="stat-lbl">research</span></div>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item active" data-screen="workspace">
+            <span class="nav-icon">◧</span>
+            <span class="nav-label">Agent Workspace</span>
+            <span class="nav-badge" id="queueBadge">3</span>
+          </button>
+          <button class="nav-item" data-screen="skills">
+            <span class="nav-icon">⬢</span>
+            <span class="nav-label">Skills & Plugins</span>
+            <span class="nav-badge green">↗ 2</span>
+          </button>
+          <button class="nav-item" data-screen="settings">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">Settings & GitHub</span>
+            <span class="nav-dot" id="githubNavDot"></span>
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <!-- GitHub Indicator -->
+          <div class="github-card" id="githubCard">
+            <div class="github-head">
+              <span class="github-icon">◈</span>
+              <span class="github-title">GitHub</span>
+              <span class="github-status" id="githubStatus"><i></i> offline</span>
+            </div>
+            <div class="github-repo" id="githubRepoLabel">not connected</div>
+            <div class="github-branch" id="githubBranchLabel">—</div>
+          </div>
+          <div class="device-tag">
+            <span>⬥ Optimized for Galaxy S25</span>
+            <span class="dim">360 × 780 • indigo / dayglow</span>
+          </div>
+          <button class="collapse-btn" id="collapseBtn">‹ Collapse</button>
+        </div>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" id="backdrop"></div>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- SCREEN 1: WORKSPACE -->
+      <section class="screen active" id="screen-workspace">
+        <!-- Task Submission -->
+        <div class="card accent">
+          <div class="card-head">
+            <span class="card-title">◉ TASK SUBMISSION</span>
+            <span class="card-meta">SOLO MODE • autonomous</span>
+          </div>
+          <div class="card-body">
+            <label class="field-label">Describe what you want built</label>
+            <textarea id="taskInput" rows="3" placeholder="e.g., Build a Python FastAPI service that scrapes Hacker News, caches to SQLite, and exposes /top?limit=10 with KV cache..."></textarea>
+            <div class="field-row">
+              <div class="field">
+                <span class="field-label small">TARGET LANGUAGE</span>
+                <div class="pill-group" id="langPills">
+                  <button class="pill active" data-lang="python">Python</button>
+                  <button class="pill" data-lang="javascript">JS / TS</button>
+                  <button class="pill" data-lang="kotlin">Kotlin</button>
+                </div>
+              </div>
+              <div class="field">
+                <span class="field-label small">PRIORITY</span>
+                <div class="pill-group">
+                  <button class="pill small active" data-pri="normal">Normal</button>
+                  <button class="pill small" data-pri="urgent">Urgent</button>
+                </div>
+              </div>
+            </div>
+            <div class="submit-row">
+              <label class="check"><input type="checkbox" id="autoResearch" checked><span>auto-research</span></label>
+              <label class="check"><input type="checkbox" id="autoIterate" checked><span>auto-iterate</span></label>
+              <button class="btn primary glow" id="deployBtn">▶ DEPLOY AGENT</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task Queue -->
+        <div class="card">
+          <div class="card-head collapsible" data-toggle="queueBody">
+            <span class="card-title">≡ TASK QUEUE</span>
+            <span class="card-actions">
+              <span class="count-pill" id="queueCount">4 queued</span>
+              <span class="chevron">⌃</span>
+            </span>
+          </div>
+          <div class="card-body no-pad" id="queueBody">
+            <div class="queue-list" id="queueList"></div>
+          </div>
+        </div>
+
+        <!-- Live Log Stream -->
+        <div class="card terminal">
+          <div class="card-head">
+            <span class="card-title">› LIVE LOG STREAM</span>
+            <span class="card-actions">
+              <span class="live-tag"><i></i> LIVE</span>
+              <button class="icon-btn tiny" id="pauseLogBtn">⏸</button>
+              <button class="icon-btn tiny" id="clearLogBtn">✕</button>
+            </span>
+          </div>
+          <div class="terminal-body" id="logStream"></div>
+          <div class="terminal-foot">
+            <span id="logStats">~ 1.2k lines • 3.4 kb/s</span>
+            <span class="dim">agent@GUY:~$</span>
+          </div>
+        </div>
+
+        <!-- Code Artifact Viewer -->
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">⬚ CODE ARTIFACT VIEWER</span>
+            <span class="card-actions">
+              <span class="artifact-meta" id="artifactMeta">python • v3 • 2 iterations</span>
+              <button class="icon-btn tiny" id="copyCodeBtn">⎘</button>
+            </span>
+          </div>
+          <div class="tabs" id="artifactTabs"></div>
+          <div class="code-wrap">
+            <pre class="code" id="codeBlock"><code></code></pre>
+          </div>
+          <div class="artifact-foot">
+            <div class="iteration-row" id="iterationRow"></div>
+            <div class="review-box" id="reviewBox"></div>
+          </div>
+        </div>
+
+        <!-- Research Panel -->
+        <div class="card research">
+          <div class="card-head">
+            <span class="card-title">◎ RESEARCH PANEL</span>
+            <span class="research-engine" id="researchEngineLabel">Tavily • live</span>
+          </div>
+          <div class="card-body">
+            <div class="research-query" id="researchQuery">
+              <span class="rq-label">CURRENT QUERY</span>
+              <span class="rq-text" id="researchQueryText">“Kotlin coroutines best practices 2024 + Flow vs Channel”</span>
+              <span class="rq-spin"></span>
+            </div>
+            <div class="research-results" id="researchResults"></div>
+            <div class="knowledge-bar">
+              <span>Knowledge expanded: <b id="knowledgeAdded">+3 snippets</b></span>
+              <span class="dim" id="researchStatus">expanding skill graph…</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2: SKILLS & PLUGINS -->
+      <section class="screen" id="screen-skills">
+        <div class="section-head">
+          <h2>Skills & Plugins Manager</h2>
+          <p>Agent creates and registers its own capabilities at runtime. Watch it evolve.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">⬢ SKILL PROFICIENCY GRID</span>
+            <span class="card-actions">
+              <span class="count-pill green">24 skills • avg 71%</span>
+              <button class="btn small ghost" id="acquireSkillBtn">+ ACQUIRE</button>
+            </span>
+          </div>
+          <div class="card-body">
+            <div class="skill-grid" id="skillGrid"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">◈ PLUGIN TABLE</span>
+            <span class="card-actions">
+              <span class="count-pill">9 installed • 6 active</span>
+            </span>
+          </div>
+          <div class="card-body no-pad">
+            <div class="plugin-table" id="pluginTable"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">⧖ ACQUISITION & EVOLUTION</span>
+            <span class="card-actions"><span class="dim small">last 7 sessions</span></span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap">
+              <canvas id="acqChart" width="360" height="140"></canvas>
+              <div class="chart-legend">
+                <span><i class="dot green"></i> skills</span>
+                <span><i class="dot indigo"></i> plugins</span>
+                <span><i class="dot amber"></i> research ops</span>
+              </div>
+            </div>
+            <div class="evolution-timeline" id="evolutionTimeline"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3: SETTINGS & GITHUB -->
+      <section class="screen" id="screen-settings">
+        <div class="section-head">
+          <h2>Settings & GitHub Integration</h2>
+          <p>Configure solo autonomous behavior, research and repository.</p>
+        </div>
+
+        <div class="card accent">
+          <div class="card-head">
+            <span class="card-title">◈ GITHUB REPO / BRANCH CONFIG</span>
+            <span class="github-status" id="settingsGithubStatus"><i></i> disconnected</span>
+          </div>
+          <div class="card-body">
+            <label class="field-label">Repository</label>
+            <input class="input" id="ghRepo" placeholder="thepotatoninjahost/Guy" value="thepotatoninjahost/Guy">
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label small">Branch</label>
+                <select class="input" id="ghBranch">
+                  <option>arena/01a0a37c-guy</option>
+                  <option>main</option>
+                  <option>develop</option>
+                  <option>agent/experimental</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label small">Mode</label>
+                <select class="input" id="ghMode">
+                  <option>Autonomous commits</option>
+                  <option>PR only</option>
+                  <option>Dry run</option>
+                </select>
+              </div>
+            </div>
+            <label class="field-label small">Personal Access Token <span class="dim">(stored locally)</span></label>
+            <div class="input-group">
+              <input class="input" id="ghToken" type="password" placeholder="ghp_••••••••••••••••••••">
+              <button class="btn small" id="toggleTokenBtn">◉</button>
+            </div>
+            <div class="field-row mt">
+              <label class="check"><input type="checkbox" id="ghAutoPush" checked><span>auto-push artifacts</span></label>
+              <label class="check"><input type="checkbox" id="ghCreateBranch"><span>create branch per task</span></label>
+            </div>
+            <button class="btn primary full mt" id="connectGhBtn">↯ CONNECT & TEST</button>
+            <div class="sync-row" id="syncRow">
+              <span><i class="dot green"></i> Last sync: never</span>
+              <span class="dim">• webhook idle</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">⟁ AGENT BEHAVIOR</span>
+            <span class="dim small">evolves per session</span>
+          </div>
+          <div class="card-body">
+            <div class="setting">
+              <div class="setting-head"><span>Autonomy level</span><span class="val" id="autonomyVal">8 / 10</span></div>
+              <input type="range" min="1" max="10" value="8" id="autonomyRange">
+              <div class="range-labels"><span>supervised</span><span>fully autonomous</span></div>
+            </div>
+            <div class="setting">
+              <div class="setting-head"><span>Max iterations per task</span><span class="val" id="iterVal">5</span></div>
+              <input type="range" min="1" max="10" value="5" id="iterRange">
+            </div>
+            <div class="setting">
+              <label class="field-label small">Code style & review</label>
+              <div class="pill-group">
+                <button class="pill small active">strict</button>
+                <button class="pill small">balanced</button>
+                <button class="pill small">rapid</button>
+              </div>
+            </div>
+            <div class="setting row">
+              <label class="check"><input type="checkbox" checked><span>Self-review before submit</span></label>
+              <label class="check"><input type="checkbox" checked><span>Live research injection</span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">◎ RESEARCH ENGINE</span>
+            <span class="dim small">live internet augmentation</span>
+          </div>
+          <div class="card-body">
+            <div class="engine-grid" id="engineGrid">
+              <button class="engine-card active" data-engine="tavily">
+                <span class="e-title">Tavily</span><span class="e-desc">agentic search • fast</span><span class="e-badge">active</span>
+              </button>
+              <button class="engine-card" data-engine="brave">
+                <span class="e-title">Brave Search</span><span class="e-desc">web + news</span><span class="e-badge">—</span>
+              </button>
+              <button class="engine-card" data-engine="exa">
+                <span class="e-title">Exa AI</span><span class="e-desc">semantic deep dive</span><span class="e-badge">—</span>
+              </button>
+              <button class="engine-card" data-engine="serper">
+                <span class="e-title">Serper</span><span class="e-desc">Google SERP</span><span class="e-badge">—</span>
+              </button>
+            </div>
+            <div class="setting mt">
+              <div class="setting-head"><span>Research depth per task</span><span class="val">3 queries avg</span></div>
+              <input type="range" min="1" max="5" value="3" id="researchDepth">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">⬡ API KEYS PANEL</span>
+            <span class="dim small">local only • encrypted at rest</span>
+          </div>
+          <div class="card-body">
+            <div class="key-row">
+              <span class="key-label">OpenAI</span>
+              <div class="input-group small"><input class="input" type="password" value="sk-proj-...4f8a" placeholder="sk-..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state ok">● active</span>
+            </div>
+            <div class="key-row">
+              <span class="key-label">Anthropic</span>
+              <div class="input-group small"><input class="input" type="password" placeholder="sk-ant-..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state">○ not set</span>
+            </div>
+            <div class="key-row">
+              <span class="key-label">Research API</span>
+              <div class="input-group small"><input class="input" type="password" value="tvly-...9c2e"><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state ok">● active</span>
+            </div>
+            <div class="key-row">
+              <span class="key-label">GitHub PAT</span>
+              <div class="input-group small"><input class="input" type="password" id="apiGhToken" placeholder="ghp_..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state warn" id="apiGhState">○ not set</span>
+            </div>
+            <div class="secure-note">🔒 Keys never leave device. Persistence: localStorage • export disabled for solo security.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Bottom Nav (S25 thumb zone) -->
+  <nav class="bottom-nav">
+    <button class="bnav-item active" data-screen="workspace"><span>◧</span><b>Workspace</b></button>
+    <button class="bnav-item" data-screen="skills"><span>⬢</span><b>Skills</b></button>
+    <button class="bnav-item" data-screen="settings"><span>⚙</span><b>Settings</b></button>
+  </nav>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
