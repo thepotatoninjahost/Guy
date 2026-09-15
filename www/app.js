@@ -144,15 +144,15 @@ function appendLog(html, level='info'){
   if(stats) stats.textContent = `${stream.children.length} lines • ${state.agent.research} research`;
 }
 function setAgentStatus(text, mode, cls, progress){
-  $('#agentStatusText').textContent = text;
-  $('#agentMode').textContent = mode;
-  $('#sidebarStatusDot').className = 'status-dot '+cls;
+  const aT = $('#agentStatusText'); if(aT) aT.textContent = text;
+  const aM = $('#agentMode'); if(aM) aM.textContent = mode;
+  const sDot = $('#sidebarStatusDot'); if(sDot) sDot.className = 'status-dot '+cls;
   const dot = $('#headerLiveDot');
   if(dot){
     dot.style.background = cls==='coding'? 'var(--amber)': cls==='research'? '#38bdf8': cls==='review'? '#c084fc':'var(--glow)';
     dot.style.boxShadow = cls==='idle'? '0 0 8px var(--glow)': `0 0 8px ${dot.style.background}`;
   }
-  $('#agentProgress').style.width = progress+'%';
+  const progEl = $('#agentProgress'); if(progEl) progEl.style.width = progress+'%';
   const pulse = $('#agentPulse');
   if(pulse) pulse.style.background = cls==='idle'? 'var(--glow)': cls==='coding'? 'var(--amber)':'#38bdf8';
   state.agent.status = text.toLowerCase();
@@ -1153,25 +1153,30 @@ function updateProviderUI(){
 // ---------- Navigation & Sidebar ----------
 function setScreen(id){
   $$('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-'+id).classList.add('active');
-  $$('.nav-item,.bnav-item').forEach(b=> b.classList.toggle('active', b.dataset.screen===id));
-  $('#sidebar').classList.remove('open');
-  $('#backdrop').classList.remove('show');
+  const tgt = document.getElementById('screen-'+id); if(tgt) tgt.classList.add('active');
+  $$('.nav-item,.bnav-item,.bnav').forEach(b=> b.classList.toggle('active', b.dataset.screen===id));
+  const sb = $('#sidebar'); if(sb) sb.classList.remove('open');
+  const bd = $('#backdrop'); if(bd) bd.classList.remove('show');
   window.scrollTo({top:0,behavior:'smooth'});
   if(id==='skills') drawChart();
 }
-$$('.nav-item,.bnav-item').forEach(b=> b.addEventListener('click', ()=> setScreen(b.dataset.screen)));
-$('#menuBtn')?.addEventListener('click', ()=>{
-  $('#sidebar').classList.toggle('open');
-  $('#backdrop').classList.toggle('show', $('#sidebar').classList.contains('open'));
+$$('.nav-item,.bnav-item,.bnav').forEach(b=> b.addEventListener('click', ()=> setScreen(b.dataset.screen)));
+const menuBtn = $('#menuBtn');
+if(menuBtn) menuBtn.addEventListener('click', ()=>{
+  const sb = $('#sidebar'); if(!sb) return;
+  sb.classList.toggle('open');
+  const bd = $('#backdrop'); if(bd) bd.classList.toggle('show', sb.classList.contains('open'));
 });
-$('#backdrop')?.addEventListener('click', ()=>{
-  $('#sidebar').classList.remove('open');
-  $('#backdrop').classList.remove('show');
+const backdrop = $('#backdrop');
+if(backdrop) backdrop.addEventListener('click', ()=>{
+  const sb=$('#sidebar'); if(sb) sb.classList.remove('open');
+  backdrop.classList.remove('show');
 });
-$('#collapseBtn')?.addEventListener('click', ()=>{
-  $('#sidebar').classList.toggle('collapsed');
-  $('#collapseBtn').textContent = $('#sidebar').classList.contains('collapsed') ? '› Expand' : '‹ Collapse';
+const collapseBtn = $('#collapseBtn');
+if(collapseBtn) collapseBtn.addEventListener('click', ()=>{
+  const sb=$('#sidebar'); if(!sb) return;
+  sb.classList.toggle('collapsed');
+  collapseBtn.textContent = sb.classList.contains('collapsed') ? '› Expand' : '‹ Collapse';
 });
 $$('.card-head.collapsible').forEach(h=>{
   h.addEventListener('click', ()=>{
