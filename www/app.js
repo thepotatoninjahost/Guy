@@ -5,7 +5,8 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 // v0.6: clean storage — no mock data. Old mock key v050 is ignored.
-const STORAGE_KEY = 'guy_state_v060_real_clean';
+const STORAGE_KEY = 'guy_state_v070_real_pro';
+const LEGACY_KEYS_PRO = ['guy_state_v060_real_clean','guy_state_v050_real','guy_state_v042','guy_state_v2_real'];
 const LEGACY_KEYS = ['guy_state_v050_real','guy_state_v042','guy_state_v2_real'];
 const LOG_MAX = 220;
 
@@ -13,8 +14,8 @@ const LOG_MAX = 220;
 // Empty on first install. Skills/plugins/history only appear when YOU create them via real tasks or real LLM.
 // If you saw 8 skills and evolution chart on first launch before — that was mock, now removed.
 const defaultState = {
-  version: '0.6.0-real-clean',
-  github: { repo: 'thepotatoninjahost/Guy', branch: 'arena/01a0a37c-guy', connected: false, token: '', lastSync: null },
+  version: '0.7.0-real-pro',
+  github: { repo: 'thepotatoninjahost/Guy', branch: 'arena/01a0a37c-guy', connected: false, token: '', lastSync: null, autoPR: false },
   settings: {
     autonomy: 8,
     maxIterations: 5,
@@ -24,12 +25,19 @@ const defaultState = {
     selfReview: true,
     researchEngine: 'tavily',
     researchDepth: 3,
-    provider: 'openai', // openai | anthropic
+    provider: 'openai', // openai | anthropic | gemini | groq | openrouter | together
     model: 'gpt-4o-mini',
+    temperature: 0.2,
+    maxTokens: 1400,
+    systemPrompt: '',
   },
   keys: {
     openai: '',
     anthropic: '',
+    gemini: '',
+    groq: '',
+    openrouter: '',
+    together: '',
     tavily: '',
     brave: '',
     exa: '',
@@ -52,14 +60,34 @@ const defaultState = {
 
 function loadState(){
   try{
-    // if legacy mock storage exists and new clean doesn't, ignore legacy — start clean
     let raw = localStorage.getItem(STORAGE_KEY);
+    // migrate from v060 if present and real (has tasksDone or skills)
     if(!raw){
-      // do NOT migrate mock legacy automatically — check if legacy has real user tasks, otherwise fresh
-      // For now, start fresh (user requested no mocks). If legacy had real tasksDone>0, user can manually export.
-      // Optionally wipe legacy mock keys
-      try{ LEGACY_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v && v.includes('Python AsyncIO')) localStorage.removeItem(k); }); }catch{}
-      return structuredClone(defaultState);
+      try{
+        for(const lk of (typeof LEGACY_KEYS_PRO!=='undefined'? LEGACY_KEYS_PRO : LEGACY_KEYS)){
+          const v = localStorage.getItem(lk);
+          if(v){
+            try{
+              const parsedLegacy = JSON.parse(v);
+              // if legacy was mock-only (8 skills named Python AsyncIO and no real tasks), ignore and wipe
+              const isMockLegacy = parsedLegacy.skills && parsedLegacy.skills.length===8 && parsedLegacy.skills.some(s=>s.name==='Python AsyncIO') && (parsedLegacy.tasks||[]).length===0;
+              if(isMockLegacy){ localStorage.removeItem(lk); continue; }
+              // if legacy has any real tasks or user keys, migrate it to new key
+              if((parsedLegacy.tasks && parsedLegacy.tasks.length>0) || (parsedLegacy.keys && Object.values(parsedLegacy.keys).some(Boolean))){
+                localStorage.setItem(STORAGE_KEY, v);
+                raw = v;
+                break;
+              } else {
+                // empty legacy, just ignore
+                localStorage.removeItem(lk);
+              }
+            }catch{}
+          }
+        }
+      }catch{}
+      // also clean any remaining mock keys
+      try{ (typeof LEGACY_KEYS_PRO!=='undefined'? LEGACY_KEYS_PRO : LEGACY_KEYS).forEach(k=>{ const v=localStorage.getItem(k); if(v && v.includes('Python AsyncIO')) localStorage.removeItem(k); }); }catch{}
+      if(!raw) return structuredClone(defaultState);
     }
     const parsed = JSON.parse(raw);
     const merged = structuredClone(defaultState);
@@ -165,15 +193,13 @@ function setAgentStatus(text, mode, cls, progress){
   saveState();
 }
 function updateStats(){
-  const t = $('#statTasks'); if(t) t.textContent = state.agent.tasksDone;
-  const l = $('#statLines'); if(l) l.textContent = state.agent.lines>1000 ? (state.agent.lines/1000).toFixed(1)+'k' : String(state.agent.lines);
-  const s = $('#statSkills'); if(s) s.textContent = state.skills.length;
-  const p = $('#statPlugins'); if(p) p.textContent = state.plugins.filter(pl=>pl.enabled).length;
-  const r = $('#statResearch'); if(r) r.textContent = state.agent.research;
-  const u = $('#statUptime'); if(u) u.textContent = fmtUptime(state.agent.uptimeSec);
-  // also keep header skill count in sync if present
-  const sk2 = document.getElementById('statSkills');
-  if(sk2) sk2.textContent = String(state.skills.length);
+  const t = document.getElementById('statTasks'); if(t) t.textContent = state.agent.tasksDone;
+  const l = document.getElementById('statLines'); if(l) l.textContent = state.agent.lines>1000 ? (state.agent.lines/1000).toFixed(1)+'k' : String(state.agent.lines);
+  const s = document.getElementById('statSkills'); if(s) s.textContent = state.skills.length;
+  const p = document.getElementById('statPlugins'); if(p) p.textContent = state.plugins.filter(pl=>pl.enabled).length;
+  const r = document.getElementById('statResearch'); if(r) r.textContent = state.agent.research;
+  const u = document.getElementById('statUptime'); if(u) u.textContent = fmtUptime(state.agent.uptimeSec);
+  const ab = document.getElementById('autonomyBadge'); if(ab) ab.textContent = 'Lv ' + (state.settings.autonomy || 8);
 }
 function fmtUptime(s){
   const h=String(Math.floor(s/3600)).padStart(2,'0');
@@ -212,14 +238,35 @@ async function fetchJson(url, opts){
   return r.json();
 }
 
-// ---------- LLM (real) ----------
+// ---------- LLM (real) — Pro: 6 providers ----------
 function getActiveProvider(){
-  const hasOpenAI = !!state.keys.openai;
-  const hasAnthropic = !!state.keys.anthropic;
-  if(state.settings.provider==='anthropic' && hasAnthropic) return 'anthropic';
-  if(hasOpenAI) return 'openai';
-  if(hasAnthropic) return 'anthropic';
+  const k = state.keys;
+  const has = {
+    openai: !!k.openai,
+    anthropic: !!k.anthropic,
+    gemini: !!k.gemini,
+    groq: !!k.groq,
+    openrouter: !!k.openrouter,
+    together: !!k.together,
+  };
+  const pref = state.settings.provider;
+  if(pref && has[pref]) return pref;
+  // auto-pick first available, priority: openai > anthropic > gemini > groq > openrouter > together
+  for(const pr of ['openai','anthropic','gemini','groq','openrouter','together']){
+    if(has[pr]) return pr;
+  }
   return null;
+}
+function getProviderModelDefault(provider){
+  const m = {
+    openai: 'gpt-4o-mini',
+    anthropic: 'claude-3-5-sonnet-20240620',
+    gemini: 'gemini-1.5-pro',
+    groq: 'llama-3-70b-8192',
+    openrouter: 'openai/gpt-4o-mini',
+    together: 'meta-llama/Llama-3-70b-chat-hf'
+  };
+  return m[provider] || 'gpt-4o-mini';
 }
 function heuristicGenerate(task, researchSnippets=[]){
   const t = `${task.title} ${task.desc}`;
@@ -233,38 +280,43 @@ function heuristicGenerate(task, researchSnippets=[]){
   }
   return base + `// ${task.title} — heuristic web component\nclass GuyComponent extends HTMLElement {\n  connectedCallback(){\n    this.attachShadow({mode:'open'}).innerHTML = \`<div style="font:12px monospace;padding:8px;border:1px solid #00ff88;color:#e2e8f0;">\${document.title} — ${task.desc.slice(0,60)} — Research: ${researchCtx.slice(0,40)}</div>\`;\n  }\n}\ncustomElements.define('guy-'+'${task.id.slice(-4)}', GuyComponent);\n`;
 }
-async function callLLM({system, user, maxTokens=1400, temperature=0.2}){
+async function callLLM({system, user, maxTokens, temperature}){
   const provider = getActiveProvider();
-  if(!provider) return null; // signal heuristic — not an error, real fallback
-  const model = state.settings.model || (provider==='openai' ? 'gpt-4o-mini' : 'claude-3-5-sonnet-20240620');
-  if(provider==='openai'){
-    const url = 'https://api.openai.com/v1/chat/completions';
-    const body = JSON.stringify({
-      model,
-      messages: [
-        {role:'system', content: system},
-        {role:'user', content: user}
-      ],
-      temperature,
-      max_tokens: maxTokens,
-    });
-    const data = await fetchJson(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.keys.openai}`}, body });
+  if(!provider) return null; // heuristic fallback
+  // inject Pro system prompt if set
+  const sysPrompt = state.settings.systemPrompt ? state.settings.systemPrompt + "\n\n" + system : system;
+  const temp = typeof temperature==='number' ? temperature : (state.settings.temperature ?? 0.2);
+  const tokens = maxTokens || state.settings.maxTokens || 1400;
+  const model = state.settings.model || getProviderModelDefault(provider);
+  // OpenAI-compatible providers
+  if(provider==='openai' || provider==='groq' || provider==='openrouter' || provider==='together'){
+    let url, key, headers={ 'Content-Type':'application/json' };
+    if(provider==='openai'){ url='https://api.openai.com/v1/chat/completions'; key=state.keys.openai; headers['Authorization']=`Bearer ${key}`; }
+    else if(provider==='groq'){ url='https://api.groq.com/openai/v1/chat/completions'; key=state.keys.groq; headers['Authorization']=`Bearer ${key}`; }
+    else if(provider==='openrouter'){ url='https://openrouter.ai/api/v1/chat/completions'; key=state.keys.openrouter; headers['Authorization']=`Bearer ${key}`; headers['HTTP-Referer']='https://guy.agent'; headers['X-Title']='GUY Pro'; }
+    else if(provider==='together'){ url='https://api.together.xyz/v1/chat/completions'; key=state.keys.together; headers['Authorization']=`Bearer ${key}`; }
+    const body = JSON.stringify({ model, messages: [ {role:'system', content: sysPrompt}, {role:'user', content: user} ], temperature: temp, max_tokens: tokens });
+    const data = await fetchJson(url, { method:'POST', headers, body });
     const content = data.choices?.[0]?.message?.content;
-    if(!content) throw new Error('Empty LLM response');
+    if(!content) throw new Error('Empty LLM response ('+provider+')');
     return content;
-  } else {
+  } else if(provider==='anthropic'){
     const url = 'https://api.anthropic.com/v1/messages';
-    const body = JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system,
-      messages: [{role:'user', content: user}]
-    });
+    const body = JSON.stringify({ model, max_tokens: tokens, system: sysPrompt, messages: [{role:'user', content: user}], temperature: temp });
     const data = await fetchJson(url, { method:'POST', headers:{'Content-Type':'application/json','x-api-key': state.keys.anthropic, 'anthropic-version':'2023-06-01'}, body });
     const content = data.content?.[0]?.text;
     if(!content) throw new Error('Empty Anthropic response');
     return content;
+  } else if(provider==='gemini'){
+    const key = state.keys.gemini;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+    const body = JSON.stringify({ contents: [{ role:'user', parts: [{ text: sysPrompt + "\n\nUSER:\n" + user }]}], generationConfig: { temperature: temp, maxOutputTokens: tokens } });
+    const data = await fetchJson(url, { method:'POST', headers:{'Content-Type':'application/json'}, body });
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!content) throw new Error('Empty Gemini response');
+    return content;
   }
+  throw new Error('Unknown provider '+provider);
 }
 
 // ---------- Research (real) ----------
@@ -277,7 +329,17 @@ async function performResearch(query, lang){
     appendLog('Researcher plugin disabled — skipping research', 'warn');
     return [];
   }
-  // check key
+  // check key — pro: wikipedia needs no key, directly use free live wikipedia
+  if(engine==='wikipedia'){
+    try{
+      appendLog(`Researching via Wikipedia (free) for "${query}"…`, 'research');
+      setAgentStatus('RESEARCHING','Wikipedia','research', 18);
+      const wiki = await fetchJson(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`, {headers:{}});
+      const hits = (wiki.query?.search||[]).slice(0, depth).map(x=> ({ source:'wikipedia.org • live', title: x.title, snippet: x.snippet.replace(/<[^>]+>/g,'').slice(0,260), relevance:'—', url:`https://en.wikipedia.org/wiki/${encodeURIComponent(x.title)}` }));
+      if(hits.length){ appendLog(`Wikipedia → ${hits.length} results`, 'research'); return hits; }
+    }catch(e){ appendLog(`Wikipedia failed: ${e.message}`, 'warn'); }
+    return [];
+  }
   const keyMap = { tavily: state.keys.tavily, brave: state.keys.brave, exa: state.keys.exa, serper: state.keys.serper };
   const key = keyMap[engine];
   if(!key){
@@ -856,12 +918,15 @@ $('#copyCodeBtn')?.addEventListener('click', ()=>{
 
 // skills & plugins rendering (real, no mocks)
 function renderSkills(){
-  const grid = $('#skillGrid');
+  const grid = document.getElementById('skillGrid');
   if(!grid) return;
+  const filtered = skillFilterCat==='all' ? state.skills : state.skills.filter(s=> (s.cat||'').toLowerCase()===skillFilterCat);
   if(state.skills.length===0){
     grid.innerHTML = `<div style="padding:18px;text-align:center;color:var(--faint);font-size:12px;line-height:1.6">No skills yet — deploy a real task on Workspace. <br>Skills are generated from real task history (LLM or heuristic) and level up as you ship. <br><span style="color:var(--muted)">Requires an LLM API key for AI-proposed skills, or heuristic will create generic ones.</span></div>`;
+  } else if(filtered.length===0){
+    grid.innerHTML = `<div style="padding:18px;text-align:center;color:var(--faint);font-size:12px">No ${skillFilterCat} skills yet — try All.</div>`;
   } else {
-    grid.innerHTML = state.skills.map(s=>`
+    grid.innerHTML = filtered.map(s=>`
       <div class="skill-card ${s.pct>=88?'evolving':''}">
         <div class="skill-top">
           <div>
@@ -1030,53 +1095,67 @@ async function handleConnectGh(){
 
 // ---------- Research UI ----------
 function renderResearch(){
-  const wrap = $('#researchResults');
+  const wrap = document.getElementById('researchResults');
   if(!wrap) return;
   if(state.researchResults.length===0){
-    wrap.innerHTML = `<div style="padding:10px;text-align:center;color:var(--text-faint);font-size:11px">No live results yet. Run a task with auto-research and a Research API key (Settings → API Keys). Engine: ${state.settings.researchEngine}.</div>`;
+    wrap.innerHTML = `<div style="padding:14px;text-align:center;color:var(--faint);font-size:11px;line-height:1.5">No live results yet. Run a task with auto-research.<br>Pro: add Tavily/Brave/Exa key for web, or use Wikipedia (free) — set in Settings → Research Engine.</div>`;
     return;
   }
-  wrap.innerHTML = state.researchResults.map(r=>`
+  wrap.innerHTML = state.researchResults.map((r,i)=>`
     <div class="r-card">
       <div class="r-head"><span class="r-source">${escapeHtml(r.source)}</span><span class="r-relevance">${escapeHtml(r.relevance)} match</span></div>
       <div class="r-title">${escapeHtml(r.title)}</div>
       <div class="r-snippet">${escapeHtml(r.snippet)}</div>
-      ${r.url? `<div style="font-size:9px;color:var(--text-faint);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.url)}</div>`:''}
+      ${r.url? `<div class="r-actions"><button class="r-btn" data-open="${i}">↗ Open</button><button class="r-btn" data-copy="${i}">⎘ Copy</button><span style="font-size:9px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escapeHtml(r.url)}</span></div>`:''}
     </div>
   `).join('');
+  wrap.querySelectorAll('[data-open]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const r=state.researchResults[parseInt(b.dataset.open)];
+      if(r && r.url){ try{ if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){ window.Capacitor.Plugins.Browser.open({url:r.url}); } else { window.open(r.url,'_blank'); } }catch{ window.open(r.url,'_blank'); } }
+    });
+  });
+  wrap.querySelectorAll('[data-copy]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const r=state.researchResults[parseInt(b.dataset.copy)];
+      if(r){ try{ await navigator.clipboard.writeText(r.snippet + (r.url ? "\n"+r.url : "")); toast('Copied'); }catch{ toast('Copy failed','error'); } }
+    });
+  });
+  const qText = document.getElementById('researchQueryText');
+  if(qText && state.researchResults.length) qText.textContent = state.researchResults[0]?.title?.slice(0,60) || 'Live results';
 }
 
 // ---------- Settings wiring (real) — fixed for mobile HTML (seg-btn + .key) ----------
 function wireSettings(){
-  const ir = $('#iterRange'); if(ir){ ir.value = state.settings.maxIterations; const iv=$('#iterVal'); if(iv) iv.textContent = String(state.settings.maxIterations); ir.addEventListener('input', e=>{ state.settings.maxIterations = parseInt(e.target.value); const iv2=$('#iterVal'); if(iv2) iv2.textContent = e.target.value; saveState(); }); }
-  // research engine — new HTML uses #engineGrid .seg-btn[data-engine]
-  const eg = $('#engineGrid');
+  const ir = document.getElementById('iterRange'); if(ir){ ir.value = state.settings.maxIterations; const iv=document.getElementById('iterVal'); if(iv) iv.textContent = String(state.settings.maxIterations); ir.addEventListener('input', e=>{ state.settings.maxIterations = parseInt(e.target.value); const iv2=document.getElementById('iterVal'); if(iv2) iv2.textContent = e.target.value; saveState(); }); }
+  const tr = document.getElementById('tempRange'); if(tr){ tr.value = state.settings.temperature ?? 0.2; const tv=document.getElementById('tempVal'); if(tv) tv.textContent = String(state.settings.temperature ?? 0.2); tr.addEventListener('input', e=>{ state.settings.temperature = parseFloat(e.target.value); const tv2=document.getElementById('tempVal'); if(tv2) tv2.textContent = e.target.value; saveState(); }); }
+  const tkr = document.getElementById('tokensRange'); if(tkr){ tkr.value = state.settings.maxTokens ?? 1400; const tkv=document.getElementById('tokensVal'); if(tkv) tkv.textContent = String(state.settings.maxTokens ?? 1400); tkr.addEventListener('input', e=>{ state.settings.maxTokens = parseInt(e.target.value); const tkv2=document.getElementById('tokensVal'); if(tkv2) tkv2.textContent = e.target.value; saveState(); }); }
+  const sp = document.getElementById('systemPromptInput'); if(sp){ sp.value = state.settings.systemPrompt || ''; sp.addEventListener('change', e=>{ state.settings.systemPrompt = e.target.value; saveState(); }); sp.addEventListener('input', e=>{ state.settings.systemPrompt = e.target.value; }); }
+  const autoPR = document.getElementById('ghAutoPR'); if(autoPR){ autoPR.checked = !!state.github.autoPR; autoPR.addEventListener('change', e=>{ state.github.autoPR = e.target.checked; saveState(); }); }
+  const eg = document.getElementById('engineGrid');
   if(eg){
-    $$('#engineGrid .seg-btn').forEach(c=>{
-      c.classList.toggle('active', c.dataset.engine===state.settings.researchEngine);
-    });
-    eg.addEventListener('click', e=>{
-      const card = e.target.closest('.seg-btn');
-      if(!card || !card.dataset.engine) return;
-      $$('#engineGrid .seg-btn').forEach(c=>c.classList.remove('active'));
-      card.classList.add('active');
-      state.settings.researchEngine = card.dataset.engine;
-      const lbl=$('#researchEngineLabel'); if(lbl) lbl.textContent = (card.dataset.engine==='tavily'?'Tavily': card.dataset.engine==='brave'?'Brave Search': card.dataset.engine==='exa'?'Exa AI':'Serper')+' • live';
-      saveState();
-      appendLog(`Research engine → ${state.settings.researchEngine}`, 'sys');
-      toast(`Research engine: ${state.settings.researchEngine}`);
-    });
+    document.querySelectorAll('#engineGrid .seg-btn').forEach(c=> c.classList.toggle('active', c.dataset.engine===state.settings.researchEngine));
+    if(!eg.dataset.wired){ eg.dataset.wired='1';
+      eg.addEventListener('click', e=>{
+        const card = e.target.closest('.seg-btn');
+        if(!card || !card.dataset.engine) return;
+        document.querySelectorAll('#engineGrid .seg-btn').forEach(c=>c.classList.remove('active'));
+        card.classList.add('active');
+        state.settings.researchEngine = card.dataset.engine;
+        const lbl=document.getElementById('researchEngineLabel'); if(lbl) lbl.textContent = card.dataset.engine + ' • live';
+        saveState();
+        appendLog(`Research engine → ${state.settings.researchEngine}`, 'sys');
+        toast(`Research: ${state.settings.researchEngine}`);
+      });
+    }
   }
-  const arChk = $('#autoResearch'); if(arChk){ arChk.checked = state.settings.autoResearch; arChk.addEventListener('change', e=>{ state.settings.autoResearch = e.target.checked; saveState(); }); }
-  const aiChk = $('#autoIterate'); if(aiChk){ aiChk.checked = state.settings.autoIterate; aiChk.addEventListener('change', e=>{ state.settings.autoIterate = e.target.checked; saveState(); }); }
-
-  // API keys — new HTML uses .key rows + ids key_openai etc + inputs inside .key
-  const keyIds = ['openai','anthropic','tavily','brave','exa','serper','github'];
+  const arChk = document.getElementById('autoResearch'); if(arChk){ arChk.checked = state.settings.autoResearch; if(!arChk.dataset.wired){ arChk.dataset.wired='1'; arChk.addEventListener('change', e=>{ state.settings.autoResearch = e.target.checked; saveState(); }); } }
+  const aiChk = document.getElementById('autoIterate'); if(aiChk){ aiChk.checked = state.settings.autoIterate; if(!aiChk.dataset.wired){ aiChk.dataset.wired='1'; aiChk.addEventListener('change', e=>{ state.settings.autoIterate = e.target.checked; saveState(); }); } }
+  const keyIds = ['openai','anthropic','gemini','groq','openrouter','together','tavily','brave','exa','serper','github'];
   keyIds.forEach(id=>{
     const inp = document.getElementById(`key_${id}`);
     if(inp){
       if(state.keys[id]) inp.value = state.keys[id];
-      // avoid double-binding if already wired
       if(!inp.dataset.wired){
         inp.dataset.wired='1';
         inp.addEventListener('input', e=>{
@@ -1095,15 +1174,10 @@ function wireSettings(){
       const st=document.getElementById(`state_${id}`); if(st) st.textContent = state.keys[id] ? '●' : '○';
     }
   });
-  // mirror ghToken ↔ key_github (both exist in mobile HTML, keep in sync)
-  const ghTok = $('#ghToken');
+  const ghTok = document.getElementById('ghToken');
   const ghKey = document.getElementById('key_github');
   if(ghTok && ghKey){
-    // sync initial
-    if(state.keys.github){
-      ghTok.value = state.keys.github;
-      ghKey.value = state.keys.github;
-    }
+    if(state.keys.github){ ghTok.value = state.keys.github; ghKey.value = state.keys.github; }
     if(!ghTok.dataset.wired){
       ghTok.dataset.wired='1';
       ghTok.addEventListener('input', e=>{
@@ -1116,76 +1190,86 @@ function wireSettings(){
       ghTok.addEventListener('change', e=>{ state.keys.github=e.target.value.trim(); state.github.token=state.keys.github; saveState(); updateGithubUI(); validateKey('github'); });
     }
   }
-  // toggle visibility — mobile has #toggleTokenBtn and per-key eye would be next focus, but we have simple buttons
-  const tog = $('#toggleTokenBtn');
+  const tog = document.getElementById('toggleTokenBtn');
   if(tog && !tog.dataset.wired){
     tog.dataset.wired='1';
     tog.addEventListener('click', ()=>{
-      const inp = $('#ghToken'); if(inp) inp.type = inp.type==='password'?'text':'password';
+      const inp = document.getElementById('ghToken'); if(inp) inp.type = inp.type==='password'?'text':'password';
       const inp2 = document.getElementById('key_github'); if(inp2 && inp) inp2.type = inp.type;
     });
   }
-  // provider pills — new HTML uses #providerPills .seg-btn[data-provider]
-  const pp = $('#providerPills');
+  const pp = document.getElementById('providerPills');
   if(pp){
-    $$('#providerPills .seg-btn').forEach(p=> p.classList.toggle('active', p.dataset.provider===state.settings.provider));
+    document.querySelectorAll('#providerPills .seg-btn').forEach(p=> p.classList.toggle('active', p.dataset.provider===state.settings.provider));
     if(!pp.dataset.wired){
       pp.dataset.wired='1';
       pp.addEventListener('click', e=>{
         const b=e.target.closest('.seg-btn'); if(!b || !b.dataset.provider) return;
-        $$('#providerPills .seg-btn').forEach(p=>p.classList.remove('active'));
+        document.querySelectorAll('#providerPills .seg-btn').forEach(p=>p.classList.remove('active'));
         b.classList.add('active');
         state.settings.provider=b.dataset.provider;
+        const mi=document.getElementById('modelInput');
+        if(mi && !mi.value) mi.value = getProviderModelDefault(b.dataset.provider);
         saveState(); updateProviderUI();
         appendLog(`LLM provider → ${state.settings.provider}`, 'sys');
       });
     }
   }
-  const mi = $('#modelInput');
+  const mi = document.getElementById('modelInput');
   if(mi){
-    mi.value = state.settings.model;
+    mi.value = state.settings.model || getProviderModelDefault(state.settings.provider);
     if(!mi.dataset.wired){
       mi.dataset.wired='1';
-      mi.addEventListener('change', e=>{ state.settings.model=e.target.value.trim()|| (state.settings.provider==='anthropic'?'claude-3-5-sonnet-20240620':'gpt-4o-mini'); saveState(); });
+      mi.addEventListener('change', e=>{ state.settings.model=e.target.value.trim()|| getProviderModelDefault(state.settings.provider); saveState(); });
       mi.addEventListener('input', e=>{ state.settings.model=e.target.value.trim(); saveState(); });
     }
   }
-  const testBtn = $('#testLLMBtn');
+  const testBtn = document.getElementById('testLLMBtn');
   if(testBtn && !testBtn.dataset.wired){
     testBtn.dataset.wired='1';
     testBtn.addEventListener('click', async ()=>{
       const btn=testBtn; btn.textContent='⟳ TESTING…'; btn.disabled=true;
       try{
-        if(!getActiveProvider()) throw new Error('No LLM key set — add OpenAI or Anthropic key first');
-        const r = await callLLM({system:'You are a test. Reply with "GUY_OK" in one word.', user:'ping', maxTokens:10});
+        if(!getActiveProvider()) throw new Error('No LLM key set — add any provider key first');
+        const r = await callLLM({system:'You are a test. Reply with "GUY_PRO_OK" in one word.', user:'ping', maxTokens:10});
         if(!r) throw new Error('No provider — heuristic');
-        appendLog(`LLM test OK: ${r.slice(0,120)}`, 'sys');
+        appendLog(`LLM test OK (${getActiveProvider()}): ${r.slice(0,120)}`, 'sys');
         toast(`LLM OK: ${r.slice(0,80)}`);
       }catch(e){ appendLog(`LLM test failed: ${e.message}`, 'error'); toast(`LLM failed: ${e.message}`, 'error'); }
-      finally{ btn.textContent='Test LLM'; btn.disabled=false; }
+      finally{ btn.textContent='↯ Test LLM (pro)'; btn.disabled=false; }
     });
   }
-  const clearBtn = $('#clearKeysBtn');
+  const clearBtn = document.getElementById('clearKeysBtn');
   if(clearBtn && !clearBtn.dataset.wired){
     clearBtn.dataset.wired='1';
     clearBtn.addEventListener('click', ()=>{
       if(!confirm('Clear all API keys from this device?')) return;
-      state.keys = {openai:'',anthropic:'',tavily:'',brave:'',exa:'',serper:'',github:''};
+      state.keys = {openai:'',anthropic:'',gemini:'',groq:'',openrouter:'',together:'',tavily:'',brave:'',exa:'',serper:'',github:''};
       state.github.token=''; state.github.connected=false;
       saveState(); updateGithubUI();
-      ['openai','anthropic','tavily','brave','exa','serper','github'].forEach(id=>{
+      keyIds.forEach(id=>{
         const inp=document.getElementById(`key_${id}`); if(inp) inp.value='';
         const st=document.getElementById(`state_${id}`); if(st) st.textContent='○';
       });
       const gh=document.getElementById('ghToken'); if(gh) gh.value='';
-      keyIds.forEach(id=>{ const st=document.getElementById(`state_${id}`); if(st) st.textContent='○'; });
       toast('Keys cleared');
       appendLog('All API keys cleared', 'warn');
+    });
+  }
+  const exportKeysBtn = document.getElementById('exportKeysBtn');
+  if(exportKeysBtn && !exportKeysBtn.dataset.wired){
+    exportKeysBtn.dataset.wired='1';
+    exportKeysBtn.addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify({keys: state.keys, settings: state.settings}, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='guy-backup-pro.json'; a.click(); URL.revokeObjectURL(url);
+      toast('Backup downloaded');
     });
   }
   updateProviderUI();
   updateGithubUI();
 }
+
 async function validateKey(id){
   const val = state.keys[id];
   const row = document.getElementById(`key_${id}`)?.closest('.key') || document.getElementById('ghToken')?.closest('.key');
@@ -1214,6 +1298,15 @@ async function validateKey(id){
       await fetchJson('https://api.exa.ai/search', { method:'POST', headers:{'Content-Type':'application/json','x-api-key': val}, body: JSON.stringify({query:'test', numResults:1})});
     } else if(id==='serper'){
       await fetchJson('https://google.serper.dev/search', { method:'POST', headers:{'Content-Type':'application/json','X-API-KEY': val}, body: JSON.stringify({q:'test'})});
+    } else if(id==='gemini'){
+      // Gemini list models
+      await fetchJson(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(val)}`, { headers:{} });
+    } else if(id==='groq'){
+      await fetchJson('https://api.groq.com/openai/v1/models', { headers:{'Authorization':`Bearer ${val}`}});
+    } else if(id==='openrouter'){
+      await fetchJson('https://openrouter.ai/api/v1/models', { headers:{'Authorization':`Bearer ${val}`}});
+    } else if(id==='together'){
+      await fetchJson('https://api.together.xyz/v1/models', { headers:{'Authorization':`Bearer ${val}`}});
     }
     if(stateEl){ stateEl.textContent='●'; stateEl.className='kstate ok'; }
     appendLog(`Key ${id} validated`, 'sys');
@@ -1366,6 +1459,174 @@ function startUptime(){
 }
 
 // ---------- Init ----------
+// ---------- Pro Helpers — voice, chips, skill filter, plugin install, exports ----------
+let skillFilterCat = 'all';
+function wireProChips(){
+  const chips = document.getElementById('templateChips');
+  if(!chips || chips.dataset.wired) return;
+  chips.dataset.wired='1';
+  const tpl = {
+    python: "Python FastAPI that caches HN top posts to SQLite with TTL, plus /health and pytest",
+    ts: "TypeScript Web Component sparkline that renders data array as SVG, shadow DOM, no deps",
+    kotlin: "Kotlin Flow debounce search with 300ms, coroutines, StateFlow, ViewModel sample",
+    py2: "Python CLI todo with argparse, JSON store, pytest, ruff + mypy strict"
+  };
+  chips.addEventListener('click', e=>{
+    const btn = e.target.closest('.chip'); if(!btn) return;
+    const key = btn.dataset.tpl;
+    const val = tpl[key] || btn.textContent;
+    const ta = document.getElementById('taskInput');
+    if(ta){ ta.value = val; ta.focus(); toast(`Template: ${key}`); }
+    // haptic
+    try{ if(navigator.vibrate) navigator.vibrate(20); }catch{}
+  });
+}
+function wireVoice(){
+  const btn = document.getElementById('voiceBtn');
+  const ta = document.getElementById('taskInput');
+  if(!btn || !ta || btn.dataset.wired) return;
+  btn.dataset.wired='1';
+  let rec=null, listening=false;
+  btn.addEventListener('click', ()=>{
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ toast('Voice not supported on this device', 'warn'); return; }
+    if(listening){
+      try{ rec.stop(); }catch{}
+      return;
+    }
+    rec = new SR();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = ()=>{ listening=true; btn.classList.add('recording'); btn.textContent='●'; toast('Listening… speak now'); };
+    rec.onend = ()=>{ listening=false; btn.classList.remove('recording'); btn.textContent='🎤'; };
+    rec.onresult = e=>{ const t=e.results[0][0].transcript; ta.value = (ta.value ? ta.value+' ' : '') + t; ta.focus(); toast('Voice captured'); };
+    rec.onerror = e=>{ toast('Voice error: '+e.error, 'error'); btn.classList.remove('recording'); btn.textContent='🎤'; listening=false; };
+    try{ rec.start(); }catch(e){ toast('Voice failed: '+e.message,'error'); }
+  });
+}
+function applySkillFilter(){
+  const grid = document.getElementById('skillGrid');
+  if(!grid) return;
+  // re-render with filter
+  renderSkills();
+}
+function wireSkillFilter(){
+  const f = document.getElementById('skillFilter');
+  if(!f || f.dataset.wired) return;
+  f.dataset.wired='1';
+  f.addEventListener('click', e=>{
+    const b=e.target.closest('.seg-btn'); if(!b) return;
+    f.querySelectorAll('.seg-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    skillFilterCat = b.dataset.filter || 'all';
+    applySkillFilter();
+  });
+}
+function wirePluginPro(){
+  const btn = document.getElementById('installPluginBtn');
+  const inp = document.getElementById('pluginUrlInput');
+  if(btn && inp && !btn.dataset.wired){
+    btn.dataset.wired='1';
+    btn.addEventListener('click', async ()=>{
+      const url = inp.value.trim();
+      if(!url || !url.includes('/')) { toast('Enter owner/repo or github.com/owner/repo','warn'); return; }
+      const repo = url.replace(/^https?:\/\/github\.com\//,'').replace(/#.*/,'').trim();
+      btn.textContent='⟳'; btn.disabled=true;
+      try{
+        appendLog(`Fetching plugin ${repo}…`, 'sys');
+        // try fetch README via GitHub API (needs no auth for public, but use token if present)
+        let readme=''; let desc=repo;
+        try{
+          const token = state.keys.github || state.github.token;
+          const headers = token ? { Authorization: `Bearer ${token}`, Accept:'application/vnd.github+json'} : {Accept:'application/vnd.github+json'};
+          const info = await fetchJson(`https://api.github.com/repos/${repo}`, {headers});
+          desc = info.description || desc;
+          try{
+            const rm = await fetchJson(`https://api.github.com/repos/${repo}/readme`, {headers});
+            if(rm.content) readme = atob(rm.content.replace(/\n/g,'')).slice(0,800);
+          }catch{}
+        }catch(e){ appendLog(`GitHub fetch warn: ${e.message}`,'warn'); }
+        // propose via LLM if available, else heuristic
+        let name = repo.split('/').pop().replace(/[-_]/g,' ');
+        name = name.split(' ').map(w=>w[0]?.toUpperCase()+w.slice(1)).join(' ');
+        if(getActiveProvider()){
+          try{
+            const prompt={ system:'You are plugin registrar. Return JSON {name,desc,ver}. Name concise.', user:`Repo: ${repo}\nDesc: ${desc}\nReadme: ${readme.slice(0,600)}\nExisting plugins: ${state.plugins.map(p=>p.name).join(', ')}` };
+            const raw = await callLLM({...prompt, maxTokens:300});
+            const m=raw.match(/\{[\s\S]*\}/); if(m){ const j=JSON.parse(m[0]); if(j.name) name=j.name; if(j.desc) desc=j.desc; }
+          }catch{}
+        }
+        if(state.plugins.find(p=>p.name.toLowerCase()===name.toLowerCase())) throw new Error('Plugin already installed');
+        const pl={ name, desc: desc.slice(0,120), ver:'0.1.0', enabled:true, author: repo, installs:'—', hooks:['codegen'] };
+        state.plugins.push(pl); saveState(); renderPlugins(); drawChart();
+        addEvolution(`Plugin "${pl.name}" installed`, `From ${repo}`);
+        appendLog(`Plugin "${pl.name}" installed from ${repo}`, 'sys');
+        toast(`Installed ${pl.name}`);
+        inp.value='';
+      }catch(e){ appendLog(`Plugin install failed: ${e.message}`,'error'); toast(e.message,'error'); }
+      finally{ btn.textContent='Install'; btn.disabled=false; }
+    });
+  }
+  const expBtn=document.getElementById('exportSkillsBtn');
+  if(expBtn && !expBtn.dataset.wired){
+    expBtn.dataset.wired='1';
+    expBtn.addEventListener('click', ()=>{
+      if(state.skills.length===0){ toast('No skills to export','warn'); return; }
+      const blob=new Blob([JSON.stringify({skills:state.skills, plugins:state.plugins, history:state.history}, null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='guy-skills-pro.json'; a.click(); URL.revokeObjectURL(url);
+      toast('Skills exported');
+    });
+  }
+  const clearBtn=document.getElementById('clearSkillsBtn');
+  if(clearBtn && !clearBtn.dataset.wired){
+    clearBtn.dataset.wired='1';
+    clearBtn.addEventListener('click', ()=>{
+      if(!confirm('Clear all skills/plugins/evolution? (keeps tasks)')) return;
+      state.skills=[]; state.plugins=[]; state.evolution=[]; state.history={sessions:[]};
+      saveState(); renderSkills(); renderPlugins(); renderEvolution(); drawChart(); updateStats();
+      toast('Cleared');
+    });
+  }
+}
+function wireExports(){
+  const exportLog=document.getElementById('exportLogBtn');
+  if(exportLog && !exportLog.dataset.wired){
+    exportLog.dataset.wired='1';
+    exportLog.addEventListener('click', ()=>{
+      const s=document.getElementById('logStream');
+      const text=[...s.children].map(l=>l.textContent).join('\n');
+      const blob=new Blob([text],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='guy-logs.txt'; a.click(); URL.revokeObjectURL(url);
+      toast('Logs exported');
+    });
+  }
+  const shareBtn=document.getElementById('shareCodeBtn');
+  if(shareBtn && !shareBtn.dataset.wired){
+    shareBtn.dataset.wired='1';
+    shareBtn.addEventListener('click', async ()=>{
+      const code=document.querySelector('#codeBlock code')?.textContent||'';
+      if(!code || code.includes('No artifact')){ toast('No code to share','warn'); return; }
+      if(navigator.share){
+        try{ await navigator.share({title:'GUY Code', text:code}); toast('Shared'); }catch{}
+      } else {
+        await navigator.clipboard.writeText(code); toast('Copied for sharing');
+      }
+    });
+  }
+  const exportCode=document.getElementById('exportCodeBtn');
+  if(exportCode && !exportCode.dataset.wired){
+    exportCode.dataset.wired='1';
+    exportCode.addEventListener('click', ()=>{
+      const code=document.querySelector('#codeBlock code')?.textContent||'';
+      if(!code || code.includes('No artifact')){ toast('No code','warn'); return; }
+      const lang=currentLang||'txt';
+      const ext=lang==='python'?'py':lang==='kotlin'?'kt':'ts';
+      const blob=new Blob([code],{type:'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`guy-${Date.now()}.${ext}`; a.click(); URL.revokeObjectURL(url);
+      toast('Exported');
+    });
+  }
+}
+
 function init(){
   // ensure currentLang from pills (mobile uses seg-btn)
   const activePill = document.querySelector('#langPills .seg-btn.active');
@@ -1381,6 +1642,11 @@ function init(){
   drawChart();
   wireSettings();
   wireTaskSubmission();
+  wireProChips();
+  wireVoice();
+  wireSkillFilter();
+  wirePluginPro();
+  wireExports();
   // prefill keys
   persistKeysToState();
   // show initial status
