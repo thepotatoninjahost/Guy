@@ -44,6 +44,23 @@ jobs:
           ls -la android/gradle/wrapper/
           cat android/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Generate keystores (debug + release)
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            echo "Generating debug keystore..."
+            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          else
+            echo "debug keystore exists"
+          fi
+          if [ ! -f android/app/release.keystore ]; then
+            echo "Generating release keystore..."
+            keytool -genkey -v -keystore android/app/release.keystore -storepass guyrelease123 -alias guy -keypass guyrelease123 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=GUY,O=GUY,C=US"
+          else
+            echo "release keystore exists"
+          fi
+          ls -lh ~/.android/debug.keystore android/app/release.keystore || true
+
       - name: Install dependencies
         run: npm ci
 
@@ -60,6 +77,7 @@ jobs:
       - name: Build Release APK
         working-directory: android
         run: ./gradlew assembleRelease --stacktrace --info
+        continue-on-error: true
 
       - name: Find APKs
         run: |

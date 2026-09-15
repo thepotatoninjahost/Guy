@@ -17,21 +17,33 @@ android {
         }
     }
     signingConfigs {
+        debug {
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
         release {
-            // Auto-generated keystore for GitHub Actions — falls back to debug keystore if release keystore missing
-            // CI will generate android/app/release.keystore via: keytool -genkeypair
+            // CI generates android/app/release.keystore; fallback to debug keystore
             def ksFile = file('release.keystore')
+            def dbgFile = file(System.getProperty('user.home') + '/.android/debug.keystore')
             if (ksFile.exists()) {
                 storeFile ksFile
                 storePassword System.getenv('KEYSTORE_PASSWORD') ?: 'guyrelease123'
                 keyAlias System.getenv('KEY_ALIAS') ?: 'guy'
                 keyPassword System.getenv('KEY_PASSWORD') ?: 'guyrelease123'
-            } else {
-                // use debug keystore so release APK is installable even without dedicated keystore
-                storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            } else if (dbgFile.exists()) {
+                storeFile dbgFile
                 storePassword 'android'
                 keyAlias 'androiddebugkey'
                 keyPassword 'android'
+            } else {
+                // last resort: create dummy that will be generated before build by CI keytool step
+                // point to release.keystore with defaults; CI ensures it exists before gradle runs
+                storeFile ksFile
+                storePassword 'guyrelease123'
+                keyAlias 'guy'
+                keyPassword 'guyrelease123'
             }
         }
     }
