@@ -1,0 +1,12 @@
+{
+  "appId": "com.guy.agent",
+  "appName": "GUY",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0a0a1f"
+  }
+}

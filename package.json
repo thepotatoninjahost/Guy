@@ -1,0 +1,29 @@
+{
+  "name": "guy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "sync": "npx cap copy && npx cap sync android",
+    "build": "npx cap copy && npx cap sync android",
+    "android:debug": "npx cap sync && cd android && ./gradlew assembleDebug",
+    "android:release": "npx cap sync && cd android && ./gradlew assembleRelease"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thepotatoninjahost/Guy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thepotatoninjahost/Guy/issues"
+  },
+  "homepage": "https://github.com/thepotatoninjahost/Guy#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}

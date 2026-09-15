@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GUY</string>
+    <string name="title_activity_main">GUY</string>
+    <string name="package_name">com.guy.agent</string>
+    <string name="custom_url_scheme">com.guy.agent</string>
+</resources>

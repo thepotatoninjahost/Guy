@@ -1,0 +1,127 @@
+name: Build GUY Android APK
+
+on:
+  push:
+    branches: ["arena/01a0a37c-guy", "main", "master"]
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Capacitor assets
+        run: npx cap sync android
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Build Release APK (unsigned)
+        working-directory: android
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Find APKs
+        run: |
+          ls -lh android/app/build/outputs/apk/debug/ || true
+          ls -lh android/app/build/outputs/apk/release/ || true
+
+      - name: Upload Debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: guy-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload Release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: guy-release-apk
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 30
+
+      - name: Create GitHub Release with APKs
+        if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: guy-v1.0.${{ github.run_number }}
+          name: "GUY v1.0.${{ github.run_number }} — Galaxy S25 APK"
+          body: |
+            **GUY — Autonomous Coding Agent APK**
+
+            Built for Samsung Galaxy S25 (360×780, deep indigo/dayglow green).
+            
+            **Install:**
+            1. Download `GUY-debug.apk` or `GUY-release-unsigned.apk` below
+            2. On phone: Settings → Security → Allow unknown sources / Install unknown apps → Enable for your browser/files
+            3. Open the APK to install
+            4. Launch **GUY**
+
+            **Features:**
+            - 3 screens: Agent Workspace, Skills & Plugins, Settings & GitHub
+            - Live log stream, task queue, code viewer, research panel
+            - Solo autonomous loop with skill evolution
+            - Python / JS-TS / Kotlin targeting
+
+            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }}
+          files: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
+          generate_release_notes: false
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Also create a stable "latest" release tag for easy download link
+      - name: Update latest tag
+        if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk ./GUY-debug.apk || true
+          cp android/app/build/outputs/apk/release/app-release-unsigned.apk ./GUY-release.apk || true
+          ls -lh ./*.apk || true
+        continue-on-error: true
+
+      - name: Publish to latest release
+        if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "GUY — Latest APK (auto)"
+          body: |
+            Latest automated build of GUY for Galaxy S25. Download `GUY-debug.apk` below and install.
+          files: |
+            GUY-debug.apk
+            GUY-release.apk
+          token: ${{ secrets.GITHUB_TOKEN }}
