@@ -17,23 +17,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Setup Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # Android SDK is preinstalled on ubuntu-latest; verify and accept licenses
+      - name: Verify Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la $ANDROID_HOME 2>&1 | head -n 50
+          sdkmanager --list 2>&1 | head -n 100 || $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list 2>&1 | head -n 100 || true
+          java -version
+          echo "--- gradle wrapper ---"
+          ls -la android/gradle/wrapper/
+          cat android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Install dependencies
         run: npm ci
@@ -46,16 +55,19 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --info
 
-      - name: Build Release APK (unsigned)
+      - name: Build Release APK
         working-directory: android
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease --stacktrace --info
 
       - name: Find APKs
         run: |
+          echo "=== DEBUG ==="
           ls -lh android/app/build/outputs/apk/debug/ || true
+          echo "=== RELEASE ==="
           ls -lh android/app/build/outputs/apk/release/ || true
+          du -h android/app/build/outputs/apk/*/* 2>&1 | head -n 20
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -63,15 +75,27 @@ jobs:
           name: guy-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+          if-no-files-found: error
 
       - name: Upload Release APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: guy-release-apk
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
+          if-no-files-found: warn
 
-      - name: Create GitHub Release with APKs
+      - name: Prepare APKs for release
+        if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk ./GUY-debug.apk
+          cp android/app/build/outputs/apk/release/app-release.apk ./GUY-release.apk 2>/dev/null || cp android/app/build/outputs/apk/release/app-release-unsigned.apk ./GUY-release.apk 2>/dev/null || true
+          ls -lh ./*.apk
+          # also copy with versioned names for release
+          cp ./GUY-debug.apk ./guy-debug.apk || true
+          cp ./GUY-release.apk ./guy-release.apk || true
+
+      - name: Create Versioned Release
         if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
@@ -83,7 +107,7 @@ jobs:
             Built for Samsung Galaxy S25 (360×780, deep indigo/dayglow green).
             
             **Install:**
-            1. Download `GUY-debug.apk` or `GUY-release-unsigned.apk` below
+            1. Download `GUY-debug.apk` (signed, install-ready) below
             2. On phone: Settings → Security → Allow unknown sources / Install unknown apps → Enable for your browser/files
             3. Open the APK to install
             4. Launch **GUY**
@@ -97,23 +121,14 @@ jobs:
             Commit: ${{ github.sha }}
             Branch: ${{ github.ref_name }}
           files: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/release/app-release-unsigned.apk
+            GUY-debug.apk
+            GUY-release.apk
           generate_release_notes: false
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Also create a stable "latest" release tag for easy download link
-      - name: Update latest tag
-        if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
-        run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk ./GUY-debug.apk || true
-          cp android/app/build/outputs/apk/release/app-release-unsigned.apk ./GUY-release.apk || true
-          ls -lh ./*.apk || true
-        continue-on-error: true
-
-      - name: Publish to latest release
+      - name: Publish to latest tag
         if: github.ref == 'refs/heads/arena/01a0a37c-guy' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
@@ -121,6 +136,8 @@ jobs:
           name: "GUY — Latest APK (auto)"
           body: |
             Latest automated build of GUY for Galaxy S25. Download `GUY-debug.apk` below and install.
+
+            Direct link: `https://github.com/thepotatoninjahost/Guy/releases/download/latest/GUY-debug.apk`
           files: |
             GUY-debug.apk
             GUY-release.apk
