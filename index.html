@@ -42,10 +42,10 @@
           <div class="brand-block">
             <div class="logo-row">
               <div class="logo-guy">GUY</div>
-              <span class="ver">v0.4.2</span>
+              <span class="ver">v0.5.0-real</span>
             </div>
-            <div class="logo-caption">AUTONOMOUS CODING AGENT</div>
-            <div class="logo-sub">self-improving • solo • mobile</div>
+            <div class="logo-caption">AUTONOMOUS CODING AGENT • REAL</div>
+            <div class="logo-sub">no mocks • live LLM • live research</div>
           </div>
 
           <!-- Live Agent Status -->
@@ -384,31 +384,66 @@
 
         <div class="card">
           <div class="card-head">
-            <span class="card-title">⬡ API KEYS PANEL</span>
-            <span class="dim small">local only • encrypted at rest</span>
+            <span class="card-title">⬡ API KEYS PANEL — REAL</span>
+            <span class="dim small">live • no mocks</span>
           </div>
           <div class="card-body">
+            <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.18);border-radius:10px;padding:8px;margin-bottom:10px;font-size:10px;line-height:1.5;color:#cbd5e1">
+              <b style="color:var(--glow)">REAL MODE</b> — All LLM/research/GitHub calls are live. Add keys below. No simulated data. <a href="#" onclick="document.getElementById('key_openai').focus();return false" style="color:#38bdf8">Add OpenAI key →</a>
+            </div>
+            <div class="field-row" style="margin-bottom:8px">
+              <div class="field">
+                <label class="field-label small">LLM PROVIDER</label>
+                <div class="pill-group" id="providerPills">
+                  <button class="pill small active" data-provider="openai">OpenAI</button>
+                  <button class="pill small" data-provider="anthropic">Anthropic</button>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label small">MODEL</label>
+                <input class="input" id="modelInput" placeholder="gpt-4o-mini" value="gpt-4o-mini" style="font-size:11px">
+              </div>
+            </div>
             <div class="key-row">
               <span class="key-label">OpenAI</span>
-              <div class="input-group small"><input class="input" type="password" value="sk-proj-...4f8a" placeholder="sk-..."><button class="btn tiny ghost">◉</button></div>
-              <span class="key-state ok">● active</span>
+              <div class="input-group small"><input class="input" type="password" id="key_openai" placeholder="sk-proj-... or sk-..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_openai">○ not set</span>
             </div>
             <div class="key-row">
               <span class="key-label">Anthropic</span>
-              <div class="input-group small"><input class="input" type="password" placeholder="sk-ant-..."><button class="btn tiny ghost">◉</button></div>
-              <span class="key-state">○ not set</span>
+              <div class="input-group small"><input class="input" type="password" id="key_anthropic" placeholder="sk-ant-..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_anthropic">○ not set</span>
             </div>
             <div class="key-row">
-              <span class="key-label">Research API</span>
-              <div class="input-group small"><input class="input" type="password" value="tvly-...9c2e"><button class="btn tiny ghost">◉</button></div>
-              <span class="key-state ok">● active</span>
+              <span class="key-label">Tavily</span>
+              <div class="input-group small"><input class="input" type="password" id="key_tavily" placeholder="tvly-..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_tavily">○ not set</span>
+            </div>
+            <div class="key-row">
+              <span class="key-label">Brave</span>
+              <div class="input-group small"><input class="input" type="password" id="key_brave" placeholder="BSA..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_brave">○ not set</span>
+            </div>
+            <div class="key-row">
+              <span class="key-label">Exa</span>
+              <div class="input-group small"><input class="input" type="password" id="key_exa" placeholder="exa_..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_exa">○ not set</span>
+            </div>
+            <div class="key-row">
+              <span class="key-label">Serper</span>
+              <div class="input-group small"><input class="input" type="password" id="key_serper" placeholder="serper key"><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_serper">○ not set</span>
             </div>
             <div class="key-row">
               <span class="key-label">GitHub PAT</span>
-              <div class="input-group small"><input class="input" type="password" id="apiGhToken" placeholder="ghp_..."><button class="btn tiny ghost">◉</button></div>
-              <span class="key-state warn" id="apiGhState">○ not set</span>
+              <div class="input-group small"><input class="input" type="password" id="key_github" placeholder="ghp_..."><button class="btn tiny ghost">◉</button></div>
+              <span class="key-state" id="state_github">○ not set</span>
             </div>
-            <div class="secure-note">🔒 Keys never leave device. Persistence: localStorage • export disabled for solo security.</div>
+            <div class="secure-note">🔒 Keys stored only in localStorage on device. Every request hits the real API — no mock timers. <br><b style="color:var(--amber)">Add at least one LLM key to enable real code generation.</b></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn small" id="testLLMBtn">↯ TEST LLM</button>
+              <button class="btn small ghost" id="clearKeysBtn">Clear all</button>
+            </div>
           </div>
         </div>
       </section>
