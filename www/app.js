@@ -4,12 +4,16 @@
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const STORAGE_KEY = 'guy_state_v050_real';
+// v0.6: clean storage — no mock data. Old mock key v050 is ignored.
+const STORAGE_KEY = 'guy_state_v060_real_clean';
+const LEGACY_KEYS = ['guy_state_v050_real','guy_state_v042','guy_state_v2_real'];
 const LOG_MAX = 220;
 
-// ---------- State ----------
+// ---------- State (REAL, NO MOCKS) ----------
+// Empty on first install. Skills/plugins/history only appear when YOU create them via real tasks or real LLM.
+// If you saw 8 skills and evolution chart on first launch before — that was mock, now removed.
 const defaultState = {
-  version: '0.5.0-real',
+  version: '0.6.0-real-clean',
   github: { repo: 'thepotatoninjahost/Guy', branch: 'arena/01a0a37c-guy', connected: false, token: '', lastSync: null },
   settings: {
     autonomy: 8,
@@ -33,59 +37,59 @@ const defaultState = {
     github: ''
   },
   agent: { status: 'idle', mode: 'awaiting task', progress: 0, uptimeSec: 0, tasksDone: 0, lines: 0, skills: 0, research: 0, currentTaskId: null },
-  tasks: [], // {id,title,desc,lang,status,progress,eta,createdAt,startedAt,finishedAt,iterations:[{ver,code,review}],research:[],artifacts:{tabs:[],files:{}}}
-  skills: [
-    { name:'Python AsyncIO', cat:'python', pct: 48, trend:'+0%' },
-    { name:'FastAPI & Pydantic', cat:'python', pct: 44, trend:'+0%' },
-    { name:'JS Toolchain (Vite/TS)', cat:'javascript', pct: 46, trend:'+0%' },
-    { name:'React / DOM', cat:'javascript', pct: 42, trend:'+0%' },
-    { name:'Kotlin Coroutines', cat:'kotlin', pct: 38, trend:'+0%' },
-    { name:'Kotlin Flow & Channels', cat:'kotlin', pct: 36, trend:'+0%' },
-    { name:'SQLite & Caching', cat:'infra', pct: 40, trend:'+0%' },
-    { name:'Code Review AI', cat:'agent', pct: 52, trend:'+0%' },
-  ],
-  plugins: [
-    { name:'Researcher', desc:'Live research aggregator (Tavily/Brave/Exa/Serper)', ver:'3.1.0', enabled:true, author:'guy/core', installs:'—', hooks:['research'] },
-    { name:'Verifier', desc:'Self-review: lint, test, security scan via LLM', ver:'2.0.4', enabled:true, author:'guy/core', installs:'—', hooks:['review'] },
-    { name:'Skill Forge', desc:'Auto-generates new skills from task history via LLM', ver:'0.6.0', enabled:true, author:'guy/core', installs:'—', hooks:['evolve'] },
-    { name:'GH Sync', desc:'Branch, commit, PR automation via GitHub API', ver:'1.4.2', enabled:true, author:'guy/core', installs:'—', hooks:['github'] },
-    { name:'Evolver', desc:'Cross-session capability evolution tracker', ver:'0.9.1', enabled:true, author:'guy/core', installs:'—', hooks:['evolve'] },
-    { name:'PyLance', desc:'Python type + import helper (enables extra python prompts)', ver:'2.4.1', enabled:true, author:'guy/plugins', installs:'1.2k', hooks:['codegen'] },
-    { name:'TS Morph', desc:'AST refactor hints for TS', ver:'1.9.0', enabled:true, author:'guy/plugins', installs:'892', hooks:['codegen'] },
-    { name:'Kotliner', desc:'Kotlin DSL + gradle hints', ver:'0.8.3', enabled:true, author:'community', installs:'521', hooks:['codegen'] },
-  ],
+  tasks: [],
+  skills: [], // REAL: empty until you deploy a real task — no fake 48% Python AsyncIO
+  plugins: [], // REAL: empty until agent registers one via LLM (or core hooks auto-register on first research/review). No prefilled 8.
   researchResults: [],
-  artifacts: { // current viewer
-    python: { tabs:['main.py'], files:{'main.py':''}, review:'' },
-    javascript: { tabs:['index.ts'], files:{'index.ts':''}, review:'' },
-    kotlin: { tabs:['Main.kt'], files:{'Main.kt':''}, review:'' },
+  artifacts: { // current viewer — empty until real generation
+    python: { tabs:[], files:{}, review:'' },
+    javascript: { tabs:[], files:{}, review:'' },
+    kotlin: { tabs:[], files:{}, review:'' },
   },
-  history: { sessions: [ { at: Date.now(), skills: 8, plugins: 8, research: 0 } ] },
-  evolution: [
-    { title:'GUY initialized — real mode', desc:'No mocks. All LLM/research/GitHub calls are live. Add API keys in Settings to enable full autonomy.', time:'now • session #1', dot:'green' }
-  ]
+  history: { sessions: [] }, // REAL: no fake session
+  evolution: [] // REAL: no fake "GUY initialized" — appears only after real task
 };
 
 function loadState(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return structuredClone(defaultState);
+    // if legacy mock storage exists and new clean doesn't, ignore legacy — start clean
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw){
+      // do NOT migrate mock legacy automatically — check if legacy has real user tasks, otherwise fresh
+      // For now, start fresh (user requested no mocks). If legacy had real tasksDone>0, user can manually export.
+      // Optionally wipe legacy mock keys
+      try{ LEGACY_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v && v.includes('Python AsyncIO')) localStorage.removeItem(k); }); }catch{}
+      return structuredClone(defaultState);
+    }
     const parsed = JSON.parse(raw);
-    // migrate: ensure new fields exist
     const merged = structuredClone(defaultState);
     Object.assign(merged, parsed);
     merged.settings = {...defaultState.settings, ...(parsed.settings||{})};
     merged.keys = {...defaultState.keys, ...(parsed.keys||{})};
     merged.github = {...defaultState.github, ...(parsed.github||{})};
     merged.agent = {...defaultState.agent, ...(parsed.agent||{})};
-    // keep arrays if present
-    if(parsed.skills) merged.skills = parsed.skills;
-    if(parsed.plugins) merged.plugins = parsed.plugins;
     if(parsed.tasks) merged.tasks = parsed.tasks;
-    if(parsed.evolution) merged.evolution = parsed.evolution;
-    if(parsed.history) merged.history = parsed.history;
+    // skills/plugins: if they look like mock seed (8 with Python AsyncIO), drop them and use empty
+    const mockNames = ['Python AsyncIO','FastAPI & Pydantic','JS Toolchain (Vite/TS)','React / DOM','Kotlin Coroutines','Kotlin Flow & Channels','SQLite & Caching','Code Review AI'];
+    if(parsed.skills && Array.isArray(parsed.skills)){
+      const isMock = parsed.skills.length===8 && mockNames.every(n=> parsed.skills.some(s=>s.name===n));
+      merged.skills = isMock ? [] : parsed.skills;
+    }
+    if(parsed.plugins && Array.isArray(parsed.plugins)){
+      const isMockPlugins = parsed.plugins.length===8 && parsed.plugins.some(p=>p.name==='Researcher');
+      merged.plugins = isMockPlugins ? [] : parsed.plugins;
+    }
+    if(parsed.evolution && Array.isArray(parsed.evolution)){
+      const isMockEvo = parsed.evolution.length===1 && parsed.evolution[0].title?.includes('GUY initialized');
+      merged.evolution = isMockEvo ? [] : parsed.evolution;
+    }
+    if(parsed.history && parsed.history.sessions && parsed.history.sessions.length===1 && parsed.history.sessions[0].skills===8) {
+      merged.history = { sessions: [] };
+    } else if(parsed.history) merged.history = parsed.history;
     if(parsed.artifacts) merged.artifacts = parsed.artifacts;
     if(parsed.researchResults) merged.researchResults = parsed.researchResults;
+    // sanitize counts
+    if(merged.skills.length===0) merged.agent.skills=0;
     return merged;
   }catch(e){ console.warn('loadState failed',e); return structuredClone(defaultState); }
 }
@@ -161,12 +165,15 @@ function setAgentStatus(text, mode, cls, progress){
   saveState();
 }
 function updateStats(){
-  $('#statTasks').textContent = state.agent.tasksDone;
-  $('#statLines').textContent = state.agent.lines>1000 ? (state.agent.lines/1000).toFixed(1)+'k' : String(state.agent.lines);
-  $('#statSkills').textContent = state.skills.length;
-  $('#statPlugins').textContent = state.plugins.filter(p=>p.enabled).length;
-  $('#statResearch').textContent = state.agent.research;
-  $('#statUptime').textContent = fmtUptime(state.agent.uptimeSec);
+  const t = $('#statTasks'); if(t) t.textContent = state.agent.tasksDone;
+  const l = $('#statLines'); if(l) l.textContent = state.agent.lines>1000 ? (state.agent.lines/1000).toFixed(1)+'k' : String(state.agent.lines);
+  const s = $('#statSkills'); if(s) s.textContent = state.skills.length;
+  const p = $('#statPlugins'); if(p) p.textContent = state.plugins.filter(pl=>pl.enabled).length;
+  const r = $('#statResearch'); if(r) r.textContent = state.agent.research;
+  const u = $('#statUptime'); if(u) u.textContent = fmtUptime(state.agent.uptimeSec);
+  // also keep header skill count in sync if present
+  const sk2 = document.getElementById('statSkills');
+  if(sk2) sk2.textContent = String(state.skills.length);
 }
 function fmtUptime(s){
   const h=String(Math.floor(s/3600)).padStart(2,'0');
@@ -264,7 +271,9 @@ async function callLLM({system, user, maxTokens=1400, temperature=0.2}){
 async function performResearch(query, lang){
   const engine = state.settings.researchEngine || 'tavily';
   const depth = state.settings.researchDepth || 3;
-  if(!state.plugins.find(p=>p.name==='Researcher')?.enabled){
+  // If plugins exist and Researcher explicitly disabled, skip. If no plugins (fresh install, no mocks), allow research.
+  const researcher = state.plugins.find(p=>p.name==='Researcher');
+  if(researcher && !researcher.enabled){
     appendLog('Researcher plugin disabled — skipping research', 'warn');
     return [];
   }
@@ -393,8 +402,11 @@ async function generateCode(task, researchResults, iteration, prevCode, prevRevi
   return parsed;
 }
 async function reviewCode(code, lang){
-  if(!state.plugins.find(p=>p.name==='Verifier')?.enabled || !state.settings.selfReview){
-    return { verdict:'skip', note:'self-review disabled' };
+  const verifier = state.plugins.find(p=>p.name==='Verifier');
+  if((verifier && !verifier.enabled) || !state.settings.selfReview){
+    if(!state.settings.selfReview) return { verdict:'skip', note:'self-review disabled' };
+    // if verifier exists and disabled, respect it; if no plugins yet (fresh), allow heuristic review
+    if(verifier && !verifier.enabled) return { verdict:'skip', note:'verifier disabled' };
   }
   // heuristic lint fallback (real, no mock) if no LLM
   const provider = getActiveProvider();
@@ -439,7 +451,9 @@ async function reviewCode(code, lang){
 
 // ---------- Skills & Plugins (real evolution via LLM) ----------
 async function evolveSkillsFromTask(task, finalCode){
-  if(!state.plugins.find(p=>p.name==='Skill Forge')?.enabled) return;
+  const sf = state.plugins.find(p=>p.name==='Skill Forge');
+  if(sf && !sf.enabled) return;
+  // if no plugins yet, allow evolution (core feature)
   const hasLLM = !!getActiveProvider();
   if(hasLLM){
     try{
@@ -472,6 +486,16 @@ async function evolveSkillsFromTask(task, finalCode){
     }catch(e){ appendLog(`LLM skill evolution failed, falling back to heuristic: ${e.message}`, 'warn'); }
   }
   // heuristic fallback (real, deterministic, per-task)
+  // heuristic: if no skills yet, create first one (fresh install)
+  if(state.skills.length===0){
+    const firstName = task.lang==='python' ? 'Python Foundations' : task.lang==='javascript' ? 'JS/TS Essentials' : 'Kotlin Basics';
+    const ns = { name: firstName, cat: task.lang, pct: 28, trend:'new' };
+    state.skills.push(ns);
+    appendLog(`New skill acquired: "${ns.name}" (${ns.pct}%) via heuristic — first task`, 'sys');
+    addEvolution(`Acquired "${ns.name}"`, `Heuristic: first ${task.lang} task → new skill at 28%`);
+    saveState(); renderSkills(); drawChart();
+    return;
+  }
   let target = state.skills.find(s=>s.cat===task.lang) || state.skills.find(s=>s.pct===Math.min(...state.skills.map(x=>x.pct)));
   if(target){
     const gain = 3;
@@ -493,7 +517,8 @@ async function evolveSkillsFromTask(task, finalCode){
   }
 }
 async function maybeGeneratePlugin(task, finalCode){
-  if(!state.plugins.find(p=>p.name==='Evolver')?.enabled) return;
+  const ev = state.plugins.find(p=>p.name==='Evolver');
+  if(ev && !ev.enabled) return;
   if(Math.random()>0.6) return; // only sometimes
   try{
     const prompt = {
@@ -547,7 +572,8 @@ async function testGitHubConnection(){
   return { user, repoData };
 }
 async function pushToGitHub(task, files){
-  if(!state.plugins.find(p=>p.name==='GH Sync')?.enabled){
+  const gh = state.plugins.find(p=>p.name==='GH Sync');
+  if(gh && !gh.enabled){
     appendLog('GH Sync plugin disabled — skipping push', 'warn');
     return;
   }
@@ -766,7 +792,7 @@ function renderQueue(){
       const t=state.tasks.find(x=>x.id===b.dataset.view);
       if(t){
         currentLang = t.lang;
-        $$('#langPills .pill').forEach(p=>p.classList.toggle('active', p.dataset.lang===currentLang));
+        $$('#langPills .seg-btn').forEach(p=>p.classList.toggle('active', p.dataset.lang===currentLang));
         if(t.artifacts) state.artifacts[t.lang]=t.artifacts;
         renderArtifactForLang(t.lang);
         toast(`Viewing ${t.title}`);
@@ -783,6 +809,17 @@ function renderArtifactForLang(lang){
   const data = state.artifacts[lang];
   if(!data || !data.tabs) return;
   const tabsEl = $('#artifactTabs');
+  if(!tabsEl) return;
+  if(data.tabs.length===0){
+    tabsEl.innerHTML = `<span style="padding:8px 12px;font-size:11px;color:var(--faint)">No artifact — deploy a task</span>`;
+    const codeEl = document.querySelector('#codeBlock code');
+    if(codeEl) codeEl.textContent = `// No artifact — deploy a task above.
+// Agent will: 1) live research (Wikipedia + Tavily if key) 2) LLM/heuristic code 3) lint review 4) iterate 5) push if GH connected
+// Try: "FastAPI cache", "TS sparkline component", "Kotlin Flow debounce"`;
+    const meta = document.getElementById('artifactMeta'); if(meta) meta.textContent = `${lang} • 0 files`;
+    const rv = document.getElementById('reviewBox'); if(rv) rv.innerHTML = `<span style="color:var(--faint)">No review yet — run a task</span>`;
+    return;
+  }
   tabsEl.innerHTML = data.tabs.map((t,i)=>`<button class="tab ${i===currentTabIndex?'active':''}" data-i="${i}">${escapeHtml(t)}</button>`).join('');
   tabsEl.querySelectorAll('.tab').forEach(b=>{
     b.addEventListener('click', ()=>{ currentTabIndex = parseInt(b.dataset.i); renderArtifactForLang(lang); });
@@ -817,33 +854,42 @@ $('#copyCodeBtn')?.addEventListener('click', ()=>{
   navigator.clipboard.writeText(txt).then(()=> toast('Code copied')).catch(()=> toast('Copy failed', 'error'));
 });
 
-// skills & plugins rendering (real)
+// skills & plugins rendering (real, no mocks)
 function renderSkills(){
   const grid = $('#skillGrid');
   if(!grid) return;
-  grid.innerHTML = state.skills.map(s=>`
-    <div class="skill-card ${s.pct>=88?'evolving':''}">
-      <div class="skill-top">
-        <div>
-          <div class="skill-name">${escapeHtml(s.name)}</div>
-          <div class="skill-cat">${escapeHtml(s.cat)}</div>
+  if(state.skills.length===0){
+    grid.innerHTML = `<div style="padding:18px;text-align:center;color:var(--faint);font-size:12px;line-height:1.6">No skills yet — deploy a real task on Workspace. <br>Skills are generated from real task history (LLM or heuristic) and level up as you ship. <br><span style="color:var(--muted)">Requires an LLM API key for AI-proposed skills, or heuristic will create generic ones.</span></div>`;
+  } else {
+    grid.innerHTML = state.skills.map(s=>`
+      <div class="skill-card ${s.pct>=88?'evolving':''}">
+        <div class="skill-top">
+          <div>
+            <div class="skill-name">${escapeHtml(s.name)}</div>
+            <div class="skill-cat">${escapeHtml(s.cat)}</div>
+          </div>
+          <span class="skill-lvl ${s.pct>=90?'max':''}">Lv ${Math.floor(s.pct/10)}</span>
         </div>
-        <span class="skill-lvl ${s.pct>=90?'max':''}">Lv ${Math.floor(s.pct/10)}</span>
+        <div class="skill-bar"><div class="skill-fill" style="width:${s.pct}%"></div></div>
+        <div class="skill-foot">
+          <span>${s.pct}% proficiency</span>
+          <span class="skill-trend">${escapeHtml(s.trend)}</span>
+        </div>
       </div>
-      <div class="skill-bar"><div class="skill-fill" style="width:${s.pct}%"></div></div>
-      <div class="skill-foot">
-        <span>${s.pct}% proficiency</span>
-        <span class="skill-trend">${escapeHtml(s.trend)}</span>
-      </div>
-    </div>
-  `).join('');
-  // update header count
-  const h = document.querySelector('#screen-skills .count-pill.green');
-  if(h) h.textContent = `${state.skills.length} skills • avg ${Math.round(state.skills.reduce((a,b)=>a+b.pct,0)/state.skills.length)||0}%`;
+    `).join('');
+  }
+  const pc = document.getElementById('pluginCount');
+  if(pc) pc.textContent = `${state.skills.length} skills`;
 }
 function renderPlugins(){
   const table = $('#pluginTable');
   if(!table) return;
+  if(state.plugins.length===0){
+    table.innerHTML = `<div style="padding:18px;text-align:center;color:var(--faint);font-size:12px;line-height:1.6">No plugins yet — plugins are registered by the agent when a real task suggests reusable capability (via LLM proposal). <br>Core hooks (research/review/evolve) work without a plugin row.</div>`;
+    const pc2 = document.getElementById('pluginCount');
+    if(pc2) pc2.textContent = `0`;
+    return;
+  }
   table.innerHTML = state.plugins.map(p=>`
     <div class="plugin-row">
       <div class="p-info">
@@ -868,18 +914,22 @@ function renderPlugins(){
       }
     });
   });
-  const cnt = document.querySelector('#screen-skills .count-pill:not(.green)');
-  if(cnt) cnt.textContent = `${state.plugins.length} installed • ${state.plugins.filter(p=>p.enabled).length} active`;
+  const pc = document.getElementById('pluginCount');
+  if(pc) pc.textContent = `${state.plugins.length}`;
 }
 function addEvolution(title, desc){
-  state.evolution.unshift({ title, desc, time: `just now • session #${state.history.sessions.length}` });
+  state.evolution.unshift({ title, desc, time: `just now • session #${Math.max(1,state.history.sessions.length)} • ${new Date().toLocaleTimeString()}` });
   while(state.evolution.length>6) state.evolution.pop();
   saveState(); renderEvolution();
 }
 function renderEvolution(){
   const tl = $('#evolutionTimeline');
   if(!tl) return;
-  tl.innerHTML = state.evolution.map(e=> `<div class="evo-item"><span class="evo-dot" style="background:${e.dot==='amber'?'var(--amber)':'var(--glow)'}"></span><div class="evo-content"><div class="evo-title">${escapeHtml(e.title)}</div><div class="evo-desc">${escapeHtml(e.desc)}</div><div class="evo-time">${escapeHtml(e.time)}</div></div></div>`).join('');
+  if(state.evolution.length===0){
+    tl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--faint);font-size:11px;border:1px dashed rgba(255,255,255,0.08);border-radius:12px">No evolution yet — run a real task. Timeline tracks real completions, skill gains, and plugin registrations.</div>`;
+    return;
+  }
+  tl.innerHTML = state.evolution.map(e=> `<div class="evo-item" style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span class="evo-dot" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;background:${e.dot==='amber'?'var(--amber)':'var(--glow)'}"></span><div class="evo-content" style="flex:1"><div class="evo-title" style="font-size:12px;font-weight:700">${escapeHtml(e.title)}</div><div class="evo-desc" style="font-size:11px;color:var(--muted)">${escapeHtml(e.desc)}</div><div class="evo-time" style="font-size:10px;color:var(--faint)">${escapeHtml(e.time)}</div></div></div>`).join('');
 }
 function drawChart(){
   const c = document.getElementById('acqChart');
@@ -887,6 +937,13 @@ function drawChart(){
   const ctx = c.getContext('2d');
   const w=c.width, h=c.height;
   ctx.clearRect(0,0,w,h);
+  if(state.history.sessions.length===0){
+    ctx.fillStyle='#64748b'; ctx.font='11px JetBrains Mono';
+    ctx.textAlign='center';
+    ctx.fillText('No history yet — completes will graph here', w/2, h/2);
+    ctx.textAlign='left';
+    return;
+  }
   ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
   for(let i=0;i<4;i++){ const y=14+i*32; ctx.beginPath(); ctx.moveTo(28,y); ctx.lineTo(w-10,y); ctx.stroke(); }
   const sess = state.history.sessions.slice(-7);
@@ -922,20 +979,24 @@ function drawChart(){
   ctx.fillStyle='#64748b'; ctx.font='9px JetBrains Mono'; ctx.fillText('S'+(state.history.sessions.length-6),30,h-6); ctx.fillText('S'+state.history.sessions.length, w-30, h-6);
 }
 
-// ---------- GitHub UI (real) ----------
+// ---------- GitHub UI (real) — mobile header pills + settings ----------
 function updateGithubUI(){
   const connected = state.github.connected;
   const dot = connected? 'on':'';
-  const gs = $('#githubStatus'); if(gs){ gs.className='github-status '+dot; gs.innerHTML=`<i></i> ${connected?'connected':'offline'}`; }
-  const sgs = $('#settingsGithubStatus'); if(sgs){ sgs.className='github-status '+dot; sgs.innerHTML=`<i></i> ${connected?'connected':'offline'}`; }
-  const nav = $('#githubNavDot'); if(nav) nav.className='nav-dot '+(connected?'on':'');
-  const rl = $('#githubRepoLabel'); if(rl) rl.textContent = state.github.repo + (connected?'':' (not connected)');
-  const bl = $('#githubBranchLabel'); if(bl) bl.textContent = state.github.branch;
-  const ghRepo = $('#ghRepo'); if(ghRepo) ghRepo.value = state.github.repo;
-  const ghBranch = $('#ghBranch'); if(ghBranch) ghBranch.value = state.github.branch;
-  const syncRow = $('#syncRow');
-  if(syncRow) syncRow.innerHTML = connected && state.github.lastSync ? `<span><i class="dot green"></i> Last sync: ${new Date(state.github.lastSync).toLocaleTimeString()} • ${state.github.branch}</span><span class="dim">• live</span>` : `<span><i class="dot green" style="background:var(--text-faint)"></i> Last sync: never</span><span class="dim">• setup PAT to enable</span>`;
-  const apiSt = $('#apiGhState'); if(apiSt){ apiSt.textContent = (state.keys.github||state.github.token)? '● active':'○ not set'; apiSt.className='key-state '+((state.keys.github||state.github.token)?'ok':''); }
+  const gs = document.getElementById('githubStatus'); if(gs){ gs.className='github-status '+dot; gs.innerHTML=`<i></i> ${connected?'connected':'offline'}`; }
+  const sgs = document.getElementById('settingsGithubStatus'); if(sgs){ sgs.textContent = connected?'connected':'offline'; sgs.style.color = connected?'var(--glow)':'var(--faint)'; }
+  const nav = document.getElementById('githubNavDot'); if(nav){ nav.style.background = connected ? 'var(--glow)' : 'var(--faint)'; nav.style.boxShadow = connected ? '0 0 8px var(--glow)' : 'none'; const pill=document.getElementById('ghPill'); if(pill) pill.classList.toggle('on', connected); }
+  const pillText = document.getElementById('ghPillText'); if(pillText) pillText.textContent = connected ? 'connected' : 'offline';
+  const rl = document.getElementById('githubRepoLabel'); if(rl) rl.textContent = state.github.repo + (connected?'':' (not connected)');
+  const bl = document.getElementById('githubBranchLabel'); if(bl) bl.textContent = state.github.branch;
+  const ghRepo = document.getElementById('ghRepo'); if(ghRepo) ghRepo.value = state.github.repo;
+  const ghBranch = document.getElementById('ghBranch'); if(ghBranch) ghBranch.value = state.github.branch;
+  const syncRow = document.getElementById('syncRow');
+  if(syncRow) syncRow.textContent = connected && state.github.lastSync ? `Last sync: ${new Date(state.github.lastSync).toLocaleTimeString()} • ${state.github.branch} • live` : `Last sync: never • setup PAT to enable`;
+  const apiSt = document.getElementById('apiGhState'); if(apiSt){ apiSt.textContent = (state.keys.github||state.github.token)? '● active':'○ not set'; }
+  // also sync key input if present
+  const keyGh = document.getElementById('key_github'); if(keyGh && !keyGh.value && state.keys.github) keyGh.value = state.keys.github;
+  const ghTok = document.getElementById('ghToken'); if(ghTok && !ghTok.value && state.keys.github) ghTok.value = state.keys.github;
   updateStats(); saveState();
 }
 async function handleConnectGh(){
@@ -985,128 +1046,155 @@ function renderResearch(){
   `).join('');
 }
 
-// ---------- Settings wiring (real) ----------
+// ---------- Settings wiring (real) — fixed for mobile HTML (seg-btn + .key) ----------
 function wireSettings(){
-  // autonomy
-  const ar = $('#autonomyRange'); if(ar){ ar.value = state.settings.autonomy; ar.addEventListener('input', e=>{ state.settings.autonomy = parseInt(e.target.value); $('#autonomyVal').textContent = e.target.value+' / 10'; saveState(); }); $('#autonomyVal').textContent = state.settings.autonomy+' / 10'; }
-  const ir = $('#iterRange'); if(ir){ ir.value = state.settings.maxIterations; ir.addEventListener('input', e=>{ state.settings.maxIterations = parseInt(e.target.value); $('#iterVal').textContent = e.target.value; saveState(); }); $('#iterVal').textContent = state.settings.maxIterations; }
-  const rd = $('#researchDepth'); if(rd){ rd.value = state.settings.researchDepth; rd.addEventListener('input', e=>{ state.settings.researchDepth = parseInt(e.target.value); saveState(); }); }
-  // research engine
-  $$('.engine-card').forEach(c=>{
-    if(c.dataset.engine===state.settings.researchEngine) c.classList.add('active'); else c.classList.remove('active');
-  });
-  $('#engineGrid')?.addEventListener('click', e=>{
-    const card = e.target.closest('.engine-card');
-    if(!card) return;
-    $$('.engine-card').forEach(c=>c.classList.remove('active'));
-    card.classList.add('active');
-    state.settings.researchEngine = card.dataset.engine;
-    $('#researchEngineLabel').textContent = (card.dataset.engine==='tavily'?'Tavily': card.dataset.engine==='brave'?'Brave Search': card.dataset.engine==='exa'?'Exa AI':'Serper')+' • live';
-    saveState();
-    appendLog(`Research engine → ${state.settings.researchEngine}`, 'sys');
-    toast(`Research engine: ${state.settings.researchEngine}`);
-  });
-  // checkboxes
+  const ir = $('#iterRange'); if(ir){ ir.value = state.settings.maxIterations; const iv=$('#iterVal'); if(iv) iv.textContent = String(state.settings.maxIterations); ir.addEventListener('input', e=>{ state.settings.maxIterations = parseInt(e.target.value); const iv2=$('#iterVal'); if(iv2) iv2.textContent = e.target.value; saveState(); }); }
+  // research engine — new HTML uses #engineGrid .seg-btn[data-engine]
+  const eg = $('#engineGrid');
+  if(eg){
+    $$('#engineGrid .seg-btn').forEach(c=>{
+      c.classList.toggle('active', c.dataset.engine===state.settings.researchEngine);
+    });
+    eg.addEventListener('click', e=>{
+      const card = e.target.closest('.seg-btn');
+      if(!card || !card.dataset.engine) return;
+      $$('#engineGrid .seg-btn').forEach(c=>c.classList.remove('active'));
+      card.classList.add('active');
+      state.settings.researchEngine = card.dataset.engine;
+      const lbl=$('#researchEngineLabel'); if(lbl) lbl.textContent = (card.dataset.engine==='tavily'?'Tavily': card.dataset.engine==='brave'?'Brave Search': card.dataset.engine==='exa'?'Exa AI':'Serper')+' • live';
+      saveState();
+      appendLog(`Research engine → ${state.settings.researchEngine}`, 'sys');
+      toast(`Research engine: ${state.settings.researchEngine}`);
+    });
+  }
   const arChk = $('#autoResearch'); if(arChk){ arChk.checked = state.settings.autoResearch; arChk.addEventListener('change', e=>{ state.settings.autoResearch = e.target.checked; saveState(); }); }
   const aiChk = $('#autoIterate'); if(aiChk){ aiChk.checked = state.settings.autoIterate; aiChk.addEventListener('change', e=>{ state.settings.autoIterate = e.target.checked; saveState(); }); }
-  // API keys
-  const keyIds = ['openai','anthropic','tavily','brave','exa','serper'];
-  // map UI: we have 4 rows in HTML, need to wire all. Add missing inputs dynamically if not present.
-  const keysPanel = document.querySelector('#screen-settings .card:last-child .card-body');
-  // Ensure inputs have ids
-  const rows = $$('.key-row');
-  // assign ids if missing
-  const labelToId = { 'OpenAI':'openai', 'Anthropic':'anthropic', 'Research API':'tavily', 'GitHub PAT':'github' };
-  rows.forEach(row=>{
-    const label = row.querySelector('.key-label')?.textContent?.trim();
-    const id = labelToId[label];
-    const inp = row.querySelector('input');
-    if(id && inp && !inp.id) inp.id = `key_${id}`;
-    if(inp && state.keys[id]) inp.value = state.keys[id];
-  });
-  // wire events
-  keyIds.concat(['github']).forEach(id=>{
-    const inp = document.getElementById(`key_${id}`) || document.getElementById(id === 'github' ? 'apiGhToken' : '');
+
+  // API keys — new HTML uses .key rows + ids key_openai etc + inputs inside .key
+  const keyIds = ['openai','anthropic','tavily','brave','exa','serper','github'];
+  keyIds.forEach(id=>{
+    const inp = document.getElementById(`key_${id}`);
     if(inp){
       if(state.keys[id]) inp.value = state.keys[id];
-      inp.addEventListener('change', e=>{
-        state.keys[id] = e.target.value.trim();
-        if(id==='github'){ state.github.token = state.keys.github; persistKeysToState(); updateGithubUI(); }
-        saveState();
-        // validate
-        validateKey(id);
-      });
-      inp.addEventListener('blur', ()=> validateKey(id));
+      // avoid double-binding if already wired
+      if(!inp.dataset.wired){
+        inp.dataset.wired='1';
+        inp.addEventListener('input', e=>{
+          state.keys[id] = e.target.value.trim();
+          if(id==='github'){ state.github.token = state.keys.github; persistKeysToState(); updateGithubUI(); }
+          saveState();
+          const st=document.getElementById(`state_${id}`); if(st) st.textContent = state.keys[id] ? '●' : '○';
+        });
+        inp.addEventListener('change', e=>{
+          state.keys[id] = e.target.value.trim();
+          if(id==='github'){ state.github.token = state.keys.github; persistKeysToState(); updateGithubUI(); }
+          saveState(); validateKey(id);
+        });
+        inp.addEventListener('blur', ()=> { const st=document.getElementById(`state_${id}`); if(st) st.textContent = state.keys[id] ? '●' : '○'; });
+      }
+      const st=document.getElementById(`state_${id}`); if(st) st.textContent = state.keys[id] ? '●' : '○';
     }
   });
-  // also wire #ghToken to keys.github
+  // mirror ghToken ↔ key_github (both exist in mobile HTML, keep in sync)
   const ghTok = $('#ghToken');
-  if(ghTok){
-    if(state.keys.github) ghTok.value = state.keys.github;
-    ghTok.addEventListener('change', e=>{ state.keys.github = e.target.value.trim(); state.github.token = state.keys.github; saveState(); updateGithubUI(); validateKey('github'); });
+  const ghKey = document.getElementById('key_github');
+  if(ghTok && ghKey){
+    // sync initial
+    if(state.keys.github){
+      ghTok.value = state.keys.github;
+      ghKey.value = state.keys.github;
+    }
+    if(!ghTok.dataset.wired){
+      ghTok.dataset.wired='1';
+      ghTok.addEventListener('input', e=>{
+        state.keys.github = e.target.value.trim();
+        state.github.token = state.keys.github;
+        if(ghKey) ghKey.value = state.keys.github;
+        saveState(); updateGithubUI();
+        const st=document.getElementById('state_github'); if(st) st.textContent = state.keys.github ? '●' : '○';
+      });
+      ghTok.addEventListener('change', e=>{ state.keys.github=e.target.value.trim(); state.github.token=state.keys.github; saveState(); updateGithubUI(); validateKey('github'); });
+    }
   }
-  // toggle visibility
-  $$('.key-row .btn, #toggleTokenBtn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const inp = btn.previousElementSibling?.querySelector('input') || document.getElementById('ghToken');
-      if(inp){
-        const target = btn.closest('.key-row')?.querySelector('input') || inp;
-        if(target) target.type = target.type==='password'?'text':'password';
-      }
+  // toggle visibility — mobile has #toggleTokenBtn and per-key eye would be next focus, but we have simple buttons
+  const tog = $('#toggleTokenBtn');
+  if(tog && !tog.dataset.wired){
+    tog.dataset.wired='1';
+    tog.addEventListener('click', ()=>{
+      const inp = $('#ghToken'); if(inp) inp.type = inp.type==='password'?'text':'password';
+      const inp2 = document.getElementById('key_github'); if(inp2 && inp) inp2.type = inp.type;
     });
-  });
-  // provider pills
+  }
+  // provider pills — new HTML uses #providerPills .seg-btn[data-provider]
   const pp = $('#providerPills');
   if(pp){
-    $$('#providerPills .pill').forEach(p=> p.classList.toggle('active', p.dataset.provider===state.settings.provider));
-    pp.addEventListener('click', e=>{
-      const b=e.target.closest('.pill'); if(!b) return;
-      $$('#providerPills .pill').forEach(p=>p.classList.remove('active'));
-      b.classList.add('active');
-      state.settings.provider=b.dataset.provider;
-      saveState(); updateProviderUI();
-      appendLog(`LLM provider → ${state.settings.provider}`, 'sys');
-    });
+    $$('#providerPills .seg-btn').forEach(p=> p.classList.toggle('active', p.dataset.provider===state.settings.provider));
+    if(!pp.dataset.wired){
+      pp.dataset.wired='1';
+      pp.addEventListener('click', e=>{
+        const b=e.target.closest('.seg-btn'); if(!b || !b.dataset.provider) return;
+        $$('#providerPills .seg-btn').forEach(p=>p.classList.remove('active'));
+        b.classList.add('active');
+        state.settings.provider=b.dataset.provider;
+        saveState(); updateProviderUI();
+        appendLog(`LLM provider → ${state.settings.provider}`, 'sys');
+      });
+    }
   }
   const mi = $('#modelInput');
   if(mi){
     mi.value = state.settings.model;
-    mi.addEventListener('change', e=>{ state.settings.model=e.target.value.trim()|| (state.settings.provider==='anthropic'?'claude-3-5-sonnet-20240620':'gpt-4o-mini'); saveState(); });
+    if(!mi.dataset.wired){
+      mi.dataset.wired='1';
+      mi.addEventListener('change', e=>{ state.settings.model=e.target.value.trim()|| (state.settings.provider==='anthropic'?'claude-3-5-sonnet-20240620':'gpt-4o-mini'); saveState(); });
+      mi.addEventListener('input', e=>{ state.settings.model=e.target.value.trim(); saveState(); });
+    }
   }
-  $('#testLLMBtn')?.addEventListener('click', async ()=>{
-    const btn=$('#testLLMBtn'); btn.textContent='⟳ TESTING…'; btn.disabled=true;
-    try{
-      const r = await callLLM({system:'You are a test. Reply with "GUY_OK" in one word.', user:'ping', maxTokens:10});
-      appendLog(`LLM test OK: ${r.slice(0,120)}`, 'sys');
-      toast(`LLM OK: ${r.slice(0,80)}`);
-    }catch(e){ appendLog(`LLM test failed: ${e.message}`, 'error'); toast(`LLM failed: ${e.message}`, 'error'); }
-    finally{ btn.textContent='↯ TEST LLM'; btn.disabled=false; }
-  });
-  $('#clearKeysBtn')?.addEventListener('click', ()=>{
-    if(!confirm('Clear all API keys from this device?')) return;
-    state.keys = {openai:'',anthropic:'',tavily:'',brave:'',exa:'',serper:'',github:''};
-    state.github.token=''; state.github.connected=false;
-    saveState(); wireSettings(); updateGithubUI();
-    // clear inputs
-    ['openai','anthropic','tavily','brave','exa','serper','github'].forEach(id=>{
-      const inp=document.getElementById(`key_${id}`); if(inp) inp.value='';
+  const testBtn = $('#testLLMBtn');
+  if(testBtn && !testBtn.dataset.wired){
+    testBtn.dataset.wired='1';
+    testBtn.addEventListener('click', async ()=>{
+      const btn=testBtn; btn.textContent='⟳ TESTING…'; btn.disabled=true;
+      try{
+        if(!getActiveProvider()) throw new Error('No LLM key set — add OpenAI or Anthropic key first');
+        const r = await callLLM({system:'You are a test. Reply with "GUY_OK" in one word.', user:'ping', maxTokens:10});
+        if(!r) throw new Error('No provider — heuristic');
+        appendLog(`LLM test OK: ${r.slice(0,120)}`, 'sys');
+        toast(`LLM OK: ${r.slice(0,80)}`);
+      }catch(e){ appendLog(`LLM test failed: ${e.message}`, 'error'); toast(`LLM failed: ${e.message}`, 'error'); }
+      finally{ btn.textContent='Test LLM'; btn.disabled=false; }
     });
-    const gh=document.getElementById('ghToken'); if(gh) gh.value='';
-    toast('Keys cleared');
-    appendLog('All API keys cleared', 'warn');
-  });
-  // provider auto-select
+  }
+  const clearBtn = $('#clearKeysBtn');
+  if(clearBtn && !clearBtn.dataset.wired){
+    clearBtn.dataset.wired='1';
+    clearBtn.addEventListener('click', ()=>{
+      if(!confirm('Clear all API keys from this device?')) return;
+      state.keys = {openai:'',anthropic:'',tavily:'',brave:'',exa:'',serper:'',github:''};
+      state.github.token=''; state.github.connected=false;
+      saveState(); updateGithubUI();
+      ['openai','anthropic','tavily','brave','exa','serper','github'].forEach(id=>{
+        const inp=document.getElementById(`key_${id}`); if(inp) inp.value='';
+        const st=document.getElementById(`state_${id}`); if(st) st.textContent='○';
+      });
+      const gh=document.getElementById('ghToken'); if(gh) gh.value='';
+      keyIds.forEach(id=>{ const st=document.getElementById(`state_${id}`); if(st) st.textContent='○'; });
+      toast('Keys cleared');
+      appendLog('All API keys cleared', 'warn');
+    });
+  }
   updateProviderUI();
+  updateGithubUI();
 }
 async function validateKey(id){
   const val = state.keys[id];
-  const row = document.getElementById(`key_${id}`)?.closest('.key-row') || document.getElementById('apiGhToken')?.closest('.key-row');
-  const stateEl = row?.querySelector('.key-state');
+  const row = document.getElementById(`key_${id}`)?.closest('.key') || document.getElementById('ghToken')?.closest('.key');
+  const stateEl = document.getElementById(`state_${id}`) || row?.querySelector('.kstate');
   if(!val){
-    if(stateEl){ stateEl.textContent='○ not set'; stateEl.className='key-state'; }
+    if(stateEl){ stateEl.textContent='○'; stateEl.className='kstate'; }
     return;
   }
-  if(stateEl){ stateEl.textContent='⟳ testing…'; stateEl.className='key-state warn'; }
+  if(stateEl){ stateEl.textContent='⟳'; stateEl.className='kstate'; }
   try{
     if(id==='openai'){
       await fetchJson('https://api.openai.com/v1/models', { headers:{'Authorization':`Bearer ${val}`}});
@@ -1127,26 +1215,18 @@ async function validateKey(id){
     } else if(id==='serper'){
       await fetchJson('https://google.serper.dev/search', { method:'POST', headers:{'Content-Type':'application/json','X-API-KEY': val}, body: JSON.stringify({q:'test'})});
     }
-    if(stateEl){ stateEl.textContent='● active'; stateEl.className='key-state ok'; }
+    if(stateEl){ stateEl.textContent='●'; stateEl.className='kstate ok'; }
     appendLog(`Key ${id} validated`, 'sys');
   }catch(e){
-    if(stateEl){ stateEl.textContent='○ invalid'; stateEl.className='key-state warn'; }
+    if(stateEl){ stateEl.textContent='○'; stateEl.className='kstate warn'; }
     appendLog(`Key ${id} failed: ${e.message}`, 'warn');
   }
 }
 function updateProviderUI(){
+  // mobile: just highlight active provider pill; no per-row opacity needed, but keep subtle
   const prov = getActiveProvider();
-  const rows = $$('.key-row');
-  rows.forEach(r=>{
-    const label = r.querySelector('.key-label')?.textContent?.trim();
-    const id = label==='OpenAI'?'openai': label==='Anthropic'?'anthropic': null;
-    if(id){
-      const st = r.querySelector('.key-state');
-      if(st){
-        if(prov===id) st.style.opacity='1';
-        else st.style.opacity='0.6';
-      }
-    }
+  $$('#providerPills .seg-btn').forEach(b=>{
+    b.style.opacity = b.dataset.provider===prov ? '1' : '0.7';
   });
 }
 
@@ -1193,10 +1273,12 @@ $$('.card-head.collapsible').forEach(h=>{
 function wireTaskSubmission(){
   const langPills = $('#langPills');
   if(langPills){
+    // mobile uses .seg-btn
+    $$('#langPills .seg-btn').forEach(b=> b.classList.toggle('active', b.dataset.lang===currentLang));
     langPills.addEventListener('click', e=>{
-      const b = e.target.closest('.pill');
-      if(!b) return;
-      $$('#langPills .pill').forEach(p=>p.classList.remove('active'));
+      const b = e.target.closest('.seg-btn');
+      if(!b || !b.dataset.lang) return;
+      $$('#langPills .seg-btn').forEach(p=>p.classList.remove('active'));
       b.classList.add('active');
       currentLang = b.dataset.lang;
       renderArtifactForLang(currentLang);
@@ -1285,8 +1367,8 @@ function startUptime(){
 
 // ---------- Init ----------
 function init(){
-  // ensure currentLang from pills
-  const activePill = document.querySelector('#langPills .pill.active');
+  // ensure currentLang from pills (mobile uses seg-btn)
+  const activePill = document.querySelector('#langPills .seg-btn.active');
   if(activePill) currentLang = activePill.dataset.lang;
   renderQueue();
   initLogs();
@@ -1329,34 +1411,53 @@ function init(){
     const txt = $('#codeBlock code').textContent;
     navigator.clipboard.writeText(txt).then(()=> toast('Copied')).catch(()=> toast('Copy failed','error'));
   });
-  // acquire skill button — real via LLM
-  $('#acquireSkillBtn')?.addEventListener('click', async ()=>{
-    const btn = $('#acquireSkillBtn');
-    btn.textContent='⟳ RESEARCHING…'; btn.disabled=true;
-    try{
-      const topic = prompt('What skill to acquire? (e.g., "Rust async", "WebGL shaders")');
-      if(!topic){ btn.textContent='+ ACQUIRE'; btn.disabled=false; return; }
-      appendLog(`Acquiring skill: "${topic}" via LLM…`, 'sys');
-      const promptObj = {
-        system: 'You are Skill Forge. Given a topic, propose a skill object JSON: {"name":"...","cat":"python|javascript|kotlin|infra|research|agent","desc":"..."} Keep name concise.',
-        user: `Topic: ${topic}\nExisting: ${state.skills.map(s=>s.name).join(', ')}`
-      };
-      const raw = await callLLM({...promptObj, maxTokens:400});
-      const m = raw.match(/\{[\s\S]*\}/);
-      if(!m) throw new Error('LLM did not return JSON');
-      const j = JSON.parse(m[0]);
-      const newSkill = { name: j.name, cat: (j.cat||'agent').toLowerCase(), pct: 24, trend:'new', desc: j.desc||'' };
-      if(state.skills.find(s=>s.name===newSkill.name)) throw new Error('Skill already exists');
-      state.skills.push(newSkill);
-      saveState(); renderSkills(); drawChart();
-      addEvolution(`Acquired "${newSkill.name}"`, newSkill.desc||`Requested: ${topic}`);
-      appendLog(`Skill "${newSkill.name}" acquired`, 'sys');
-      toast(`Acquired ${newSkill.name}`);
-    }catch(e){
-      appendLog(`Acquire failed: ${e.message}`, 'error');
-      toast(`Failed: ${e.message}`, 'error');
-    } finally { btn.textContent='+ ACQUIRE'; btn.disabled=false; }
-  });
+  // acquire skill button — real via LLM, heuristic fallback if no key
+  const acquireBtn = document.getElementById('acquireSkillBtn');
+  if(acquireBtn && !acquireBtn.dataset.wired){
+    acquireBtn.dataset.wired='1';
+    acquireBtn.addEventListener('click', async ()=>{
+      const btn = acquireBtn;
+      const orig = btn.textContent;
+      btn.textContent='⟳…'; btn.disabled=true;
+      try{
+        const topic = prompt('What skill to acquire? (e.g., "Rust async", "WebGL shaders")');
+        if(!topic){ btn.textContent=orig; btn.disabled=false; return; }
+        if(!getActiveProvider()){
+          // heuristic — no LLM key needed
+          const name = topic.trim().slice(0,32);
+          if(state.skills.find(s=>s.name.toLowerCase()===name.toLowerCase())) throw new Error('Skill already exists');
+          const cat = /python|py/i.test(topic) ? 'python' : /kotlin/i.test(topic) ? 'kotlin' : /js|ts|javascript|react/i.test(topic) ? 'javascript' : 'agent';
+          const newSkill = { name, cat, pct: 18, trend:'new', desc: `Manually added — ${topic}` };
+          state.skills.push(newSkill);
+          saveState(); renderSkills(); drawChart();
+          addEvolution(`Acquired "${newSkill.name}"`, newSkill.desc);
+          appendLog(`Skill "${newSkill.name}" acquired via heuristic (no LLM key)`, 'sys');
+          toast(`Acquired ${newSkill.name}`);
+          return;
+        }
+        appendLog(`Acquiring skill: "${topic}" via LLM…`, 'sys');
+        const promptObj = {
+          system: 'You are Skill Forge. Given a topic, propose a skill object JSON: {"name":"...","cat":"python|javascript|kotlin|infra|research|agent","desc":"..."} Keep name concise.',
+          user: `Topic: ${topic}\nExisting: ${state.skills.map(s=>s.name).join(', ')}`
+        };
+        const raw = await callLLM({...promptObj, maxTokens:400});
+        if(!raw) throw new Error('No LLM key — use heuristic typing the name directly');
+        const m = raw.match(/\{[\s\S]*\}/);
+        if(!m) throw new Error('LLM did not return JSON');
+        const j = JSON.parse(m[0]);
+        const newSkill = { name: j.name, cat: (j.cat||'agent').toLowerCase(), pct: 24, trend:'new', desc: j.desc||'' };
+        if(state.skills.find(s=>s.name===newSkill.name)) throw new Error('Skill already exists');
+        state.skills.push(newSkill);
+        saveState(); renderSkills(); drawChart();
+        addEvolution(`Acquired "${newSkill.name}"`, newSkill.desc||`Requested: ${topic}`);
+        appendLog(`Skill "${newSkill.name}" acquired`, 'sys');
+        toast(`Acquired ${newSkill.name}`);
+      }catch(e){
+        appendLog(`Acquire failed: ${e.message}`, 'error');
+        toast(`Failed: ${e.message}`, 'error');
+      } finally { btn.textContent=orig; btn.disabled=false; }
+    });
+  }
 }
 document.addEventListener('DOMContentLoaded', init);
 document.addEventListener('visibilitychange', ()=>{ /* keep logs */ });

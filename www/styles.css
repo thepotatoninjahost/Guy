@@ -23,8 +23,8 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 .strip-fill{height:100%;background:linear-gradient(90deg,var(--glow),var(--blue));transition:width .5s}
 .strip-stats{display:flex;gap:10px;margin-top:8px;font-size:10px;color:var(--faint);flex-wrap:wrap}
 .strip-stats b{color:var(--text)}
-.main{flex:1;padding:12px 12px 84px;display:flex;flex-direction:column;gap:12px}
-.screen{display:none;flex-direction:column;gap:12px}
+.main{flex:1;padding:12px 12px calc(100px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+.screen{display:none;flex-direction:column;gap:12px;padding-bottom:12px}
 .screen.active{display:flex}
 .card{background:linear-gradient(180deg,rgba(17,17,42,0.92),rgba(12,12,30,0.98));border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.35)}
 .card.hero{border-color:rgba(0,255,136,0.18);box-shadow:0 0 0 1px rgba(0,255,136,0.06) inset}
