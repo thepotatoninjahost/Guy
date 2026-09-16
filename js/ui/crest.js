@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { state } from "../state.js";
-import { byId } from "../models.js";
+import { MODELS, byId } from "../models.js";
 import { select, headroom } from "../engine.js";
 import { fmtClock, fmtTok, escapeHtml } from "./render.js";
 
@@ -71,7 +71,7 @@ function renderStatus() {
 }
 
 function MODELS_KEYED() {
-  return Object.values(state.keys || {}).some((k) => (k || "").trim());
+  return MODELS.some((m) => (state.keys[m.id] || "").trim());
 }
 
 export function dutyModel() {

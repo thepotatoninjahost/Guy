@@ -1,6 +1,7 @@
 /* ============================================================
    GUY · GLASS HOUSE CONSOLE — js/models.js
-   THE MANIFEST — ten service lines, six providers.
+   THE MANIFEST — ten service lines, four providers.
+   Every line is FREE FOREVER — no trials, no expiring credits.
    Caps are the published free-tier defaults for 2026; the
    engine treats them as *proactive* guides. The *reactive*
    truth is the provider's 429, which always wins.
@@ -18,10 +19,6 @@ export const VENDORS = {
   openrouter: {
     label: "OpenRouter",
     base: "https://openrouter.ai/api/v1",
-  },
-  cerebras: {
-    label: "Cerebras",
-    base: "https://api.cerebras.ai/v1",
   },
   hf: {
     label: "HF Inference",
@@ -140,16 +137,16 @@ export const MODELS = [
     note: "code-tuned — 20 RPM · 50 RPD",
   },
   {
-    id: "cer-llama33-70b",
+    id: "gemini-3-flash",
     line: 9,
-    name: "Llama 3.3 70B (WSE)",
-    tier: "TRIAL",
-    provider: "cerebras",
-    model: "llama-3.3-70b",
-    ctx: 128000,
-    caps: { rpm: 5, tpm: 30000, rpd: 0, tpd: 1000000 },
-    quality: 4.0,
-    note: "$5 trial credits, 30-day burn, card required at signup — 5 RPM in trial",
+    name: "Gemini 3 Flash",
+    tier: "FREE",
+    provider: "gemini",
+    model: "gemini-3-flash",
+    ctx: 1048576,
+    caps: { rpm: 10, tpm: 250000, rpd: 1500, tpd: 0 },
+    quality: 4.7,
+    note: "10 RPM · 250K TPM · 1,500 RPD — the newest Flash, free tier is permanent",
   },
   {
     id: "hf-r1-8b",

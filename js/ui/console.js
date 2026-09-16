@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { state, addLog, scheduleSave, setBusy } from "../state.js";
-import { byId, estimateTokens, VENDORS } from "../models.js";
+import { MODELS, byId, estimateTokens, VENDORS } from "../models.js";
 import { dispatch, headroom, select } from "../engine.js";
 import { mdToHtml, toast, copyText, escapeHtml, fmtTok, fmtClockHM } from "./render.js";
 
@@ -429,7 +429,7 @@ export async function send(raw, force) {
   if (state.busy && !force) return;
   const text = String(raw || "").trim();
   if (!text) return;
-  const anyKey = Object.values(state.keys || {}).some((k) => (k || "").trim());
+  const anyKey = MODELS.some((m) => (state.keys[m.id] || "").trim());
   if (!anyKey) {
     toast("Store at least one line key in BAY 01 · CREDENTIALS first", "warn");
     if (window.__guy && window.__guy.bays) window.__guy.bays.openBay("a");

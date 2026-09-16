@@ -69,9 +69,9 @@ state.ledger[groq.id].feed = Array.from({ length: 30 }, () => ({ t: now - 70000,
 ok(engine.canAccept(groq, 64, new Date(now)) === true, "once the window slides past, the line is admitted again");
 
 console.log("\n— TPM ceiling —");
-const cere = byId("cer-llama33-70b"); // tpm 30000
-state.ledger[cere.id].feed = Array.from({ length: 10 }, () => ({ t: Date.now() - 1000, tok: 3000 }));
-ok(engine.canAccept(cere, 64) === false, "line at 30K tok/min refuses more tokens");
+const g3 = byId("gemini-3-flash"); // tpm 250000
+state.ledger[g3.id].feed = Array.from({ length: 10 }, () => ({ t: Date.now() - 1000, tok: 25000 }));
+ok(engine.canAccept(g3, 64) === false, "line at 250K tok/min refuses more tokens");
 
 console.log("\n— trips & backoff ladder —");
 const r1 = byId("groq-r1-70b");

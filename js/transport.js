@@ -1,7 +1,7 @@
 /* ============================================================
    GUY · GLASS HOUSE CONSOLE — js/transport.js
    The piping. Two dialects speak the same language here:
-     · OpenAI-compatible (Groq, OpenRouter, Cerebras, HF)
+     · OpenAI-compatible (Groq, OpenRouter, HF)
      · Google's native generateContent SSE
    Everything is streamed; errors are normalized into codes the
    engine understands: ABORT / NO_KEY / AUTH / MODEL / QUOTA /

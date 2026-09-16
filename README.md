@@ -10,7 +10,7 @@ The house is the metaphor, and the metaphor is load-bearing:
 | **The Glass Facade** | A dark, high-contrast interface built from large translucent, blurred glass panels over an ambient light field with a blueprint grid. Expansive structural borders — a bone-white double frame with brass corner brackets on every room. No sidebars; the whole stage is window wall. |
 | **The Sculpted Crest** | The header is not a flat bar. It is a live SVG rooftop profile — a concave quarter-pipe sweep, a skylight notch, a ridge, and a long flowing transition off the right edge — with nav tabs that sit at staggered heights and lose different-sized corners. Nothing on the roof sits on a straight grid. |
 | **The Hidden Infrastructure** | All of the technical back end — the ten API keys, the credit trackers, the manual model overrides, the work log — lives underground in the **Service Slab** (bottom of the frame): four garage-door bays that slide open into a raised glass sheet. The main view stays pure. |
-| **The Structural Logic** | A pristine rotation engine over **ten free AI model lines** (Gemini Flash free tier, Groq, OpenRouter `:free`, Cerebras trial, HF inference). It tracks token usage dynamically, scores every line, and the moment a free tier hits its ceiling it hands the same request, intact, to the next active line. |
+| **The Structural Logic** | A pristine rotation engine over **ten free-forever AI model lines** (Gemini Flash free tier, Groq, OpenRouter `:free`, HF inference). No trials, no expiring credits. It tracks token usage dynamically, scores every line, and the moment a free tier hits its ceiling it hands the same request, intact, to the next active line. |
 
 ---
 
@@ -29,13 +29,15 @@ python3 -m http.server 8000 --bind 0.0.0.0
 
 1. Open the **Service** tab (or press `Ctrl/Cmd+K`) → **BAY 01 · CREDENTIALS**.
 2. Paste a key per line. One Groq key can be `⇌`-synced across all three Groq lines, and likewise for the
-   three OpenRouter lines and the two Gemini lines. `PING` a line before you trust it — the LED goes green,
-   amber (throttled but valid), or red (bad key / retired model id).
+   three OpenRouter lines and the three Gemini lines (one Google key covers 01, 02 and 09). `PING` a line
+   before you trust it — the LED goes green, amber (throttled but valid), or red (bad key / retired model id).
 3. Back in the **Console**, type a build. The on-duty strip tells you which line is serving, the headroom
    ring shows how much of that line's window is left, and the workbench hint tells you which line rides
    the *next* turn.
 
 ## The ten lines (manifest defaults, 2026)
+
+Every line is **free forever** — no trials, no expiring credits, no card:
 
 | # | Line | Vendor | Endpoint id | Free-tier defaults |
 | --- | --- | --- | --- | --- |
@@ -47,7 +49,7 @@ python3 -m http.server 8000 --bind 0.0.0.0
 | 06 | Llama 4 Maverick | OpenRouter | `meta-llama/llama-4-maverick:free` | 20 RPM · 50 RPD* |
 | 07 | Llama 3.3 70B Instruct | OpenRouter | `meta-llama/llama-3.3-70b-instruct:free` | 20 RPM · 50 RPD* |
 | 08 | Qwen3 Coder | OpenRouter | `qwen/qwen3-coder:free` | 20 RPM · 50 RPD* |
-| 09 | Llama 3.3 70B (WSE) | Cerebras | `llama-3.3-70b` | trial: 5 RPM · 30K TPM |
+| 09 | Gemini 3 Flash | Google AI Studio | `gemini-3-flash` | 10 RPM · 250K TPM · 1,500 RPD |
 | 10 | DeepSeek R1 8B | HF Inference | `deepseek-ai/DeepSeek-R1-Distill-Llama-8B` | burst-limited |
 
 \* OpenRouter raises `:free` to 1,000 RPD if you have ever bought $10 of credits.
@@ -137,7 +139,7 @@ css/03-crest.css      the sculpted roof
 css/04-facade.css     the glass room, on-duty strip, feed, workbench
 css/05-fleet.css      ten service runs
 css/06-bays.css       the service slab and the raised bays
-js/models.js          the manifest — ten lines, six vendors, caps
+js/models.js          the manifest — ten free-forever lines, four vendors, caps
 js/state.js           foundation — keys, dials, ledger, log, thread (localStorage)
 js/engine.js          the rotation engine — headroom, scoring, trips, handoff dispatch
 js/transport.js       the piping — Gemini + OpenAI-compatible dialects, SSE, error normalization
