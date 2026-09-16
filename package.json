@@ -1,0 +1,27 @@
+{
+  "name": "guy-console",
+  "version": "1.0.0",
+  "description": "GUY — personal autonomous coding console",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node test/engine.test.mjs && node test/smoke.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thepotatoninjahost/Guy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thepotatoninjahost/Guy/issues"
+  },
+  "homepage": "https://github.com/thepotatoninjahost/Guy#readme",
+  "type": "module",
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  },
+  "private": "true"
+}

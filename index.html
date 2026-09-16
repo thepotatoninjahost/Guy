@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GUY — Autonomous Building Console</title>
+<meta name="description" content="A personal autonomous coding agent, housed in a glass facade with a sculpted crest and hidden service bays. Ten free model lines, one rotation engine.">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/01-tokens.css">
+<link rel="stylesheet" href="./css/02-base.css">
+<link rel="stylesheet" href="./css/03-crest.css">
+<link rel="stylesheet" href="./css/04-facade.css">
+<link rel="stylesheet" href="./css/05-fleet.css">
+<link rel="stylesheet" href="./css/06-bays.css">
+</head>
+<body>
+
+<div class="ambient" aria-hidden="true"></div>
+
+<!-- ============================================================
+     THE SCULPTED CREST — the rooftop
+     ============================================================ -->
+<header class="crest">
+  <div class="crest__bg" aria-hidden="true"></div>
+
+  <svg class="crest__line" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="roofFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="rgba(240,194,110,0.10)"/>
+        <stop offset="0.55" stop-color="rgba(140,170,220,0.05)"/>
+        <stop offset="1" stop-color="rgba(140,170,220,0)"/>
+      </linearGradient>
+    </defs>
+    <!-- the roof mass under the profile -->
+    <path d="M0 58 C130 60 210 92 305 126 L380 122 L418 146 L500 44 L560 44 L610 74 C780 100 1010 150 1230 138 C1320 132 1390 126 1440 122 L1440 200 L0 200 Z" fill="url(#roofFill)"/>
+    <!-- the profile, bone structural line -->
+    <path d="M0 58 C130 60 210 92 305 126 L380 122 L418 146 L500 44 L560 44 L610 74 C780 100 1010 150 1230 138 C1320 132 1390 126 1440 122" fill="none" stroke="rgba(233,226,207,0.78)" stroke-width="2"/>
+    <!-- the echo, brass soul -->
+    <path d="M0 74 C130 76 210 108 305 142 L380 138 L418 162 L500 60 L560 60 L610 90 C780 116 1010 166 1230 154 C1320 148 1390 142 1440 138" fill="none" stroke="rgba(240,194,110,0.45)" stroke-width="1"/>
+    <!-- skylight mullions hanging off the first sweep -->
+    <g stroke="rgba(233,226,207,0.35)" stroke-width="1">
+      <line x1="120" y1="67" x2="120" y2="83"/>
+      <line x1="168" y1="79" x2="168" y2="95"/>
+      <line x1="216" y1="91" x2="216" y2="107"/>
+    </g>
+    <!-- the horizon of the glass wall -->
+    <line x1="0" y1="186" x2="1440" y2="186" stroke="rgba(233,226,207,0.18)" stroke-width="1" stroke-dasharray="2 7"/>
+  </svg>
+
+  <div class="crest__sun" aria-hidden="true"></div>
+
+  <div class="crest__deck">
+    <div class="crest__brand">
+      <svg class="crest__mark" viewBox="0 0 44 44" aria-hidden="true">
+        <path d="M6 34 C16 34 24 38 30 44 L38 8 L40 8" fill="none" stroke="#f0c26e" stroke-width="2.5"/>
+        <line x1="4" y1="41" x2="40" y2="41" stroke="rgba(233,226,207,0.6)" stroke-width="1.5"/>
+      </svg>
+      <div>
+        <div class="crest__name">GU<b>Y</b></div>
+        <div class="crest__sub">Autonomous Building Console</div>
+      </div>
+    </div>
+
+    <nav class="crest__nav" aria-label="primary">
+      <button class="tab" type="button" data-view="console" style="--lift:0px; --cut:14px" aria-current="true">Console</button>
+      <button class="tab" type="button" data-view="fleet" style="--lift:12px; --cut:26px">Fleet</button>
+      <button class="tab" type="button" data-view="service" style="--lift:24px; --cut:10px">Service</button>
+    </nav>
+
+    <svg class="crest__ridge" viewBox="0 0 54 20" aria-hidden="true">
+      <path d="M0 17 L9 4 L18 17 L27 4 L36 17 L45 4 L54 17" fill="none" stroke="rgba(240,194,110,0.55)" stroke-width="1.2"/>
+    </svg>
+
+    <div class="crest__status">
+      <span class="chip" title="line on duty">
+        <i class="chip__dot"></i>
+        <span class="chip__id" data-on-duty>—</span>
+      </span>
+      <span class="crest__sum">
+        <span><b data-session-tok>0</b> tok Σ · <b data-session-req>0</b> req</span>
+        <span><b class="hand" data-session-handoffs>0</b> handoffs</span>
+      </span>
+      <span class="crest__clock" data-clock>—</span>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============================================================
+       VIEW 01 · THE GLASS ROOM (console)
+       ============================================================ -->
+  <section id="view-console" class="view" aria-label="console">
+    <div class="room frame">
+      <div class="room__head">
+        <span class="tag-row__idx">01</span>
+        <span class="tag-row__title">The Glass Room</span>
+        <span class="tag-row__rule"></span>
+        <span class="tag-row__meta" data-duty-mode>AUTO ROTATION</span>
+      </div>
+
+      <div class="duty">
+        <span class="duty__label">On Duty</span>
+        <div>
+          <div class="duty__model" data-duty-model>—</div>
+          <div class="duty__sub" data-duty-sub>loading the manifest…</div>
+        </div>
+        <div class="duty__stats">
+          <div class="ringwrap" title="headroom of the line on duty">
+            <div class="ring"></div>
+            <div class="ring__c">—</div>
+          </div>
+          <div class="duty__stat"><b data-duty-sess>0</b><span>session tok</span></div>
+          <div class="duty__stat"><b data-duty-req>0</b><span>session req</span></div>
+          <div class="duty__stat"><b data-duty-hand>0</b><span>handoffs</span></div>
+        </div>
+      </div>
+
+      <div class="room__body">
+        <div id="empty" class="empty">
+          <svg class="empty__art" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 58 C130 60 210 92 305 126 L380 122 L418 146 L500 44 L560 44 L610 74 C780 100 1010 150 1230 138 C1320 132 1390 126 1440 122" fill="none" stroke="rgba(233,226,207,0.5)" stroke-width="2"/>
+            <path d="M0 74 C130 76 210 108 305 142 L380 138 L418 162 L500 60 L560 60 L610 90 C780 116 1010 166 1230 154 C1320 148 1390 142 1440 138" fill="none" stroke="rgba(240,194,110,0.4)" stroke-width="1"/>
+          </svg>
+          <h1 class="empty__title">Say what you want <b>built.</b></h1>
+          <p class="empty__sub">
+            Ten free model lines stand behind this glass — Gemini Flash, Groq, OpenRouter, Cerebras and the HF
+            inference router. The rotation engine picks the healthiest line, streams the work, tracks every token,
+            and hands off to the next line the instant a ceiling binds. Nothing here costs a cent.
+          </p>
+          <div class="empty__chips">
+            <button class="chip-btn" type="button" data-prompt="Scaffold a FastAPI health endpoint with /healthz and structured logs">Scaffold a FastAPI /healthz</button>
+            <button class="chip-btn" type="button" data-prompt="Explain the rotation engine of this console in exactly five lines">Explain the rotation engine</button>
+            <button class="chip-btn" type="button" data-prompt="Write a CSS glass panel from scratch — no libraries, dark mode, brass accents">Write a CSS glass panel</button>
+          </div>
+        </div>
+
+        <div id="feed" class="feed" hidden></div>
+      </div>
+
+      <div class="bench">
+        <div class="bench__mode seg" role="group" aria-label="turn mode">
+          <button type="button" data-umode="chat" aria-pressed="true">Chat</button>
+          <button type="button" data-umode="plan" aria-pressed="false">Plan</button>
+        </div>
+        <div class="bench__box">
+          <textarea id="input" rows="1" placeholder="Describe the build. The line on duty takes the turn — PLAN mode decomposes it into steps."></textarea>
+          <div class="bench__hint" id="nextLine">NEXT TURN RIDES LINE —</div>
+        </div>
+        <div class="bench__actions">
+          <button id="sendBtn" class="bench__send" type="button" title="send (enter)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><path d="M4 12h15M13 5l7 7-7 7"/></svg>
+          </button>
+          <button id="stopBtn" class="bench__stop" type="button" title="stop (aborts the wire)" hidden>
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VIEW 02 · THE FLEET (ten lines)
+       ============================================================ -->
+  <section id="view-fleet" class="view" aria-label="fleet" hidden>
+    <div class="room frame">
+      <div class="room__head">
+        <span class="tag-row__idx">02</span>
+        <span class="tag-row__title">The Fleet</span>
+        <span class="tag-row__rule"></span>
+        <span class="tag-row__meta">10 LINES · 6 VENDORS · $0 / TOKEN</span>
+      </div>
+
+      <div class="fleet__head">
+        <div>
+          <h2 class="fleet__title">Ten lines, <b>one rotation.</b></h2>
+          <div class="fleet__lede">
+            the endpoint id under each line is editable — free rosters rotate, so does the manifest (✎)
+          </div>
+        </div>
+        <div class="fleet__stats">
+          <div class="fstat"><b data-f-up>—</b><span>lines up</span></div>
+          <div class="fstat"><b data-f-tok>—</b><span>tokens today</span></div>
+          <div class="fstat"><b data-f-req>—</b><span>requests today</span></div>
+          <div class="fstat"><b data-f-burn>—</b><span>burn rate</span></div>
+          <div class="fstat"><b data-f-head>—</b><span>worst daily headroom</span></div>
+          <div class="fstat"><b data-f-hand>—</b><span>handoffs</span></div>
+        </div>
+      </div>
+
+      <div id="lines" class="lines"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================================================
+     THE SERVICE SLAB — hidden infrastructure, M1 level
+     ============================================================ -->
+<footer class="slab" aria-label="service level">
+  <div class="slab__label">
+    <b>Service Level · M1</b>
+    <span>hidden infrastructure — ctrl+K for keys</span>
+  </div>
+  <div class="slab__doors">
+    <button class="door" type="button" data-bay="a" aria-expanded="false">
+      <span class="door__glyph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="12" r="3.4"/><path d="M11.4 12h9M17 12v3.4M20.4 12v2.4"/></svg>
+      </span>
+      <span class="door__txt">
+        <span class="door__name">Credentials</span>
+        <span class="door__sub">10 key slots · pings · sync</span>
+      </span>
+      <span class="door__led"></span>
+    </button>
+    <button class="door" type="button" data-bay="b" aria-expanded="false">
+      <span class="door__glyph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4.2-5"/><circle cx="12" cy="16" r="1.3" fill="currentColor" stroke="none"/></svg>
+      </span>
+      <span class="door__txt">
+        <span class="door__name">Power Ledger</span>
+        <span class="door__sub">token credits · caps · resets</span>
+      </span>
+      <span class="door__led"></span>
+    </button>
+    <button class="door" type="button" data-bay="c" aria-expanded="false">
+      <span class="door__glyph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.8" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="1.8" fill="currentColor" stroke="none"/></svg>
+      </span>
+      <span class="door__txt">
+        <span class="door__name">Overrides</span>
+        <span class="door__sub">pin · drill · dials · system</span>
+      </span>
+      <span class="door__led"></span>
+    </button>
+    <button class="door" type="button" data-bay="d" aria-expanded="false">
+      <span class="door__glyph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 7l5 5-5 5M12.5 17H19"/></svg>
+      </span>
+      <span class="door__txt">
+        <span class="door__name">Work Log</span>
+        <span class="door__sub">rotations · trips · events</span>
+      </span>
+      <span class="door__led"></span>
+    </button>
+  </div>
+  <div class="slab__sys">
+    <b data-sys-up>—</b>
+    <span><b class="hot" data-sys-burn>—</b> burn</span>
+  </div>
+</footer>
+
+<!-- ============================================================
+     THE SHEET — a bay, raised
+     ============================================================ -->
+<div class="sheet" id="sheet" role="dialog" aria-modal="false" aria-label="service bay">
+  <div class="sheet__head">
+    <span class="sheet__ghost" data-sheet-num>01</span>
+    <span class="sheet__title" data-sheet-title>Credentials<small>—</small></span>
+    <button class="sheet__close" type="button" title="close (esc)">✕</button>
+  </div>
+  <div class="sheet__body">
+
+    <!-- BAY A · CREDENTIALS -->
+    <section class="bay" data-bay="a" aria-label="credentials">
+      <p class="bay__note">
+        One slot per line. A key pasted in any <em>groq</em> line can be synced to its siblings with ⇌.
+        Keys live only in this browser's localStorage — they travel to the provider directly from your machine.
+        Ping a line to verify before the engine trusts it.
+      </p>
+      <div class="bay__actions">
+        <button class="btn btn--sm" type="button" data-bay-action="testall">Ping All</button>
+        <span class="spacer"></span>
+        <button class="btn btn--sm btn--danger" type="button" data-bay-action="clearkeys">Clear Keys</button>
+      </div>
+      <div id="keygrid" class="keygrid"></div>
+    </section>
+
+    <!-- BAY B · POWER LEDGER -->
+    <section class="bay" data-bay="b" aria-label="power ledger">
+      <p class="bay__note">
+        The credit tracker. MIN is the sliding 60-second window (rpm / tpm admission), DAY is the UTC-day ledger
+        (rpd / tpd ceiling). A line rotates out when either bar fills; a 429 from the provider trips it on a
+        backoff ladder regardless of the bars.
+      </p>
+      <div class="bay__actions">
+        <button class="btn btn--sm btn--danger" type="button" data-bay-action="resetledger">Reset Ledger</button>
+        <span class="spacer"></span>
+      </div>
+      <div id="ledSummary" class="led-summary">
+        <div class="stat-card"><b>—</b><span>tokens today (fleet)</span></div>
+        <div class="stat-card"><b>—</b><span>requests today</span></div>
+        <div class="stat-card"><b>—</b><span>burn rate</span></div>
+        <div class="stat-card"><b>—</b><span>handoffs</span></div>
+        <div class="stat-card is-free"><b>$0.00</b><span>spent — all lines free/trial</span></div>
+      </div>
+      <div id="ledLines" class="led-lines"></div>
+    </section>
+
+    <!-- BAY C · OVERRIDE & DIALS -->
+    <section class="bay" data-bay="c" aria-label="override and dials">
+      <p class="bay__note">
+        Manual override, the rotation drill, and the agent's dials. AUTO lets the engine pick; PIN rides one line
+        until it exhausts; DRILL releases the line after every clean turn so you can watch the rotation happen.
+      </p>
+      <div class="dial-grid">
+        <div class="dial-col">
+          <div class="dial-block">
+            <h4><b>Dispatch</b> — who serves the next turn</h4>
+            <div class="seg" role="group" aria-label="dispatch mode">
+              <button type="button" data-cmode="auto" aria-pressed="true">Auto</button>
+              <button type="button" data-cmode="pin" aria-pressed="false">Pin</button>
+              <button type="button" data-cmode="drill" aria-pressed="false">Drill</button>
+            </div>
+            <div class="pinrow">
+              <select id="pinSel" class="in" aria-label="pinned line"></select>
+            </div>
+            <p class="dial-tip">
+              PIN: the chosen line serves until a cap binds, then the rotation takes over seamlessly.<br>
+              <b>DRILL:</b> every clean turn hands off — the rotation engine, on display.
+            </p>
+            <div style="margin-top:12px">
+              <button class="btn btn--sm btn--danger" type="button" data-bay-action="tripduty">Trip the line on duty</button>
+            </div>
+          </div>
+          <div class="dial-block">
+            <h4><b>Factory</b></h4>
+            <button class="btn btn--sm" type="button" data-bay-action="restoredials">Restore default dials</button>
+          </div>
+        </div>
+        <div class="dial-col">
+          <div class="dial-block">
+            <h4><b>Dials</b></h4>
+            <div class="dial-row">
+              <label for="dialTemp">temperature</label>
+              <input type="range" id="dialTemp" min="0" max="1" step="0.05" data-dial="temperature" aria-label="temperature">
+              <output data-dialout="temperature">0.4</output>
+            </div>
+            <div class="dial-row">
+              <label for="dialMax">max output</label>
+              <input type="range" id="dialMax" min="256" max="8192" step="256" data-dial="maxTokens" aria-label="max output tokens">
+              <output data-dialout="maxTokens">4K</output>
+            </div>
+          </div>
+          <div class="dial-block">
+            <h4><b>System Prompt</b> — the agent's soul</h4>
+            <textarea id="sysPrompt" class="sysprompt" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BAY D · WORK LOG -->
+    <section class="bay" data-bay="d" aria-label="work log">
+      <p class="bay__note">
+        The engine room: every rotation, trip, handoff, key test and session event, in order.
+      </p>
+      <div class="log-tools">
+        <button class="logfilter" type="button" data-f="ALL" aria-pressed="true">ALL</button>
+        <button class="logfilter" type="button" data-f="ENGINE" aria-pressed="false">ENGINE</button>
+        <button class="logfilter" type="button" data-f="KEY" aria-pressed="false">KEY</button>
+        <button class="logfilter" type="button" data-f="SESSION" aria-pressed="false">SESSION</button>
+        <button class="btn btn--sm btn--ghost log-clear" type="button">Clear</button>
+      </div>
+      <div id="log" class="log"></div>
+    </section>
+
+  </div>
+</div>
+
+<div class="toasts" aria-live="polite"></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
