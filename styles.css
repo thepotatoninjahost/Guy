@@ -139,3 +139,13 @@ textarea{resize:vertical;min-height:96px;line-height:1.5}
 .toggle.on::after{left:23px}
 .iter-pill{padding:6px 10px;border-radius:99px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--muted);font-size:11px;cursor:pointer}
 .iter-pill.active{background:var(--glow);color:#00140a;border-color:var(--glow);font-weight:700}
+
+/* Pro+ Splash */
+.splash{position:fixed;inset:0;z-index:100;background:linear-gradient(180deg,#07071a,#0a0a1f);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:opacity .5s, visibility .5s}
+.splash.hide{opacity:0;visibility:hidden;pointer-events:none}
+.splash-logo{font-family:'Space Grotesk',sans-serif;font-weight:800;letter-spacing:0.18em;font-size:32px;color:#fff;display:flex;align-items:center;gap:8px}
+.splash-logo span{font-size:14px;color:#00140a;background:linear-gradient(135deg,var(--glow),var(--blue));padding:4px 10px;border-radius:99px}
+.splash-sub{font-size:10px;letter-spacing:0.14em;color:var(--glow);font-weight:700}
+.splash-loader{width:32px;height:3px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;margin-top:8px}
+.splash-loader i{display:block;height:100%;width:50%;background:linear-gradient(90deg,var(--glow),var(--blue));animation:splashLoad 1.2s infinite}
+@keyframes splashLoad{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}

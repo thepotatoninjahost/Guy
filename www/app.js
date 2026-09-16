@@ -5,7 +5,8 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 // v0.6: clean storage — no mock data. Old mock key v050 is ignored.
-const STORAGE_KEY = 'guy_state_v070_real_pro';
+const STORAGE_KEY = 'guy_state_v080_real_pro_plus';
+const LEGACY_KEYS_PLUS = ['guy_state_v070_real_pro','guy_state_v060_real_clean','guy_state_v050_real'];
 const LEGACY_KEYS_PRO = ['guy_state_v060_real_clean','guy_state_v050_real','guy_state_v042','guy_state_v2_real'];
 const LEGACY_KEYS = ['guy_state_v050_real','guy_state_v042','guy_state_v2_real'];
 const LOG_MAX = 220;
@@ -14,7 +15,7 @@ const LOG_MAX = 220;
 // Empty on first install. Skills/plugins/history only appear when YOU create them via real tasks or real LLM.
 // If you saw 8 skills and evolution chart on first launch before — that was mock, now removed.
 const defaultState = {
-  version: '0.7.0-real-pro',
+  version: '0.8.0-real-pro-plus',
   github: { repo: 'thepotatoninjahost/Guy', branch: 'arena/01a0a37c-guy', connected: false, token: '', lastSync: null, autoPR: false },
   settings: {
     autonomy: 8,
@@ -64,7 +65,7 @@ function loadState(){
     // migrate from v060 if present and real (has tasksDone or skills)
     if(!raw){
       try{
-        for(const lk of (typeof LEGACY_KEYS_PRO!=='undefined'? LEGACY_KEYS_PRO : LEGACY_KEYS)){
+        for(const lk of (typeof LEGACY_KEYS_PLUS!=='undefined'? LEGACY_KEYS_PLUS : (typeof LEGACY_KEYS_PRO!=='undefined'? LEGACY_KEYS_PRO : LEGACY_KEYS))){
           const v = localStorage.getItem(lk);
           if(v){
             try{
@@ -86,7 +87,7 @@ function loadState(){
         }
       }catch{}
       // also clean any remaining mock keys
-      try{ (typeof LEGACY_KEYS_PRO!=='undefined'? LEGACY_KEYS_PRO : LEGACY_KEYS).forEach(k=>{ const v=localStorage.getItem(k); if(v && v.includes('Python AsyncIO')) localStorage.removeItem(k); }); }catch{}
+      try{ (typeof LEGACY_KEYS_PLUS!=='undefined'? LEGACY_KEYS_PLUS : (typeof LEGACY_KEYS_PRO!=='undefined'? LEGACY_KEYS_PRO : LEGACY_KEYS)).forEach(k=>{ const v=localStorage.getItem(k); if(v && v.includes('Python AsyncIO')) localStorage.removeItem(k); }); }catch{}
       if(!raw) return structuredClone(defaultState);
     }
     const parsed = JSON.parse(raw);
@@ -318,6 +319,83 @@ async function callLLM({system, user, maxTokens, temperature}){
   }
   throw new Error('Unknown provider '+provider);
 }
+// ---------- Streaming Pro+ — live tokens in logs/code ----------
+// Streams for OpenAI-compatible providers via fetch SSE; fallback simulating typing for others.
+// onChunk receives each text chunk; returns full content at end.
+async function callLLMStreaming({system, user, maxTokens, temperature}, onChunk){
+  const provider = getActiveProvider();
+  if(!provider) return null;
+  const sysPrompt = state.settings.systemPrompt ? state.settings.systemPrompt + "\n\n" + system : system;
+  const temp = typeof temperature==='number' ? temperature : (state.settings.temperature ?? 0.2);
+  const tokens = maxTokens || state.settings.maxTokens || 1400;
+  const model = state.settings.model || getProviderModelDefault(provider);
+  const canStream = ['openai','groq','openrouter','together'].includes(provider);
+  if(!canStream){
+    // Non-streaming providers: call normal then simulate streaming typing
+    const full = await callLLM({system, user, maxTokens: tokens, temperature: temp});
+    if(full && onChunk){
+      // simulate 18ms per chunk of ~12 chars for live feel
+      const chunkSize = 24;
+      for(let i=0;i<full.length;i+=chunkSize){
+        const chunk = full.slice(i, i+chunkSize);
+        onChunk(chunk);
+        await new Promise(r=>setTimeout(r, 14));
+      }
+    }
+    return full;
+  }
+  // OpenAI-compatible streaming via raw fetch (bypass CapacitorHttp for SSE)
+  let url, key, headers={ 'Content-Type':'application/json', 'Accept':'text/event-stream' };
+  if(provider==='openai'){ url='https://api.openai.com/v1/chat/completions'; key=state.keys.openai; headers['Authorization']=`Bearer ${key}`; }
+  else if(provider==='groq'){ url='https://api.groq.com/openai/v1/chat/completions'; key=state.keys.groq; headers['Authorization']=`Bearer ${key}`; }
+  else if(provider==='openrouter'){ url='https://openrouter.ai/api/v1/chat/completions'; key=state.keys.openrouter; headers['Authorization']=`Bearer ${key}`; headers['HTTP-Referer']='https://guy.agent'; headers['X-Title']='GUY Pro+'; }
+  else if(provider==='together'){ url='https://api.together.xyz/v1/chat/completions'; key=state.keys.together; headers['Authorization']=`Bearer ${key}`; }
+  const body = JSON.stringify({ model, messages: [ {role:'system', content: sysPrompt}, {role:'user', content: user} ], temperature: temp, max_tokens: tokens, stream: true });
+  try{
+    const res = await fetch(url, { method:'POST', headers, body });
+    if(!res.ok || !res.body){
+      // fallback to non-stream
+      const data = await res.json().catch(()=>null);
+      if(data && data.choices) return data.choices[0].message.content;
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = '';
+    let buffer = '';
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buffer += decoder.decode(value, {stream:true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for(const line of lines){
+        const trimmed = line.trim();
+        if(!trimmed || trimmed==='data: [DONE]') continue;
+        if(!trimmed.startsWith('data:')) continue;
+        const jsonStr = trimmed.slice(5).trim();
+        if(!jsonStr) continue;
+        try{
+          const data = JSON.parse(jsonStr);
+          const delta = data.choices?.[0]?.delta?.content || '';
+          if(delta){
+            fullContent += delta;
+            if(onChunk) onChunk(delta);
+          }
+        }catch(e){ /* ignore parse */ }
+      }
+    }
+    if(!fullContent){
+      // if nothing streamed, fallback
+      return await callLLM({system, user, maxTokens: tokens, temperature: temp});
+    }
+    return fullContent;
+  }catch(e){
+    // streaming failed -> fallback to non-stream
+    appendLog(`Streaming failed (${provider}): ${e.message} — fallback`, 'warn');
+    return await callLLM({system, user, maxTokens: tokens, temperature: temp});
+  }
+}
 
 // ---------- Research (real) ----------
 async function performResearch(query, lang){
@@ -450,17 +528,53 @@ function parseLLMCodeResponse(raw){
 }
 async function generateCode(task, researchResults, iteration, prevCode, prevReview){
   appendLog(`Generating code for "${task.title}" [${task.lang}] v${iteration}…`, 'code');
-  setAgentStatus('CODING', `writing ${task.lang} v${iteration}`, 'coding', 40 + iteration*10);
+  setAgentStatus('CODING', `writing ${task.lang} v${iteration} • streaming`, 'coding', 40 + iteration*10);
   const prompt = buildCodePrompt(task, researchResults, task.lang, iteration, prevCode, prevReview);
-  const raw = await callLLM(prompt);
-  if(!raw){
-    appendLog('LLM keys missing — using heuristic generator (real, per-task, deterministic)', 'warn');
-    const hCode = heuristicGenerate(task, researchResults);
-    return { code: hCode, review: 'Heuristic — add LLM key for full review' };
+  // Pro+ streaming: live tokens in code viewer + logs
+  const codeEl = document.querySelector('#codeBlock code');
+  let streamingBuffer = '';
+  let streamStarted = false;
+  const onChunk = (delta)=>{
+    if(!streamStarted){
+      streamStarted = true;
+      if(codeEl) codeEl.textContent = '';
+      // show live indicator in logs only once
+      appendLog(`Streaming ${getActiveProvider()}…`, 'code');
+    }
+    streamingBuffer += delta;
+    if(codeEl){
+      codeEl.textContent = streamingBuffer.slice(0, 8000);
+      // auto-scroll code block
+      const pre = document.getElementById('codeBlock');
+      if(pre) pre.scrollTop = pre.scrollHeight;
+    }
+    // update progress lightly
+    const pct = 40 + iteration*10 + Math.min(8, Math.floor(streamingBuffer.length/400));
+    const progEl = document.getElementById('agentProgress'); if(progEl) progEl.style.width = pct+'%';
+  };
+  let raw = null;
+  try{
+    raw = await callLLMStreaming(prompt, onChunk);
+  }catch(e){
+    appendLog(`Streaming error: ${e.message} — fallback`, 'warn');
+    raw = await callLLM(prompt);
   }
-  const parsed = parseLLMCodeResponse(raw);
+  if(!raw){
+    if(streamingBuffer){
+      // we already streamed something but provider null means heuristic fallback was not called — treat buffer as raw
+      raw = streamingBuffer;
+    } else {
+      appendLog('LLM keys missing — using heuristic generator (real, per-task, deterministic)', 'warn');
+      const hCode = heuristicGenerate(task, researchResults);
+      if(codeEl) codeEl.textContent = hCode;
+      return { code: hCode, review: 'Heuristic — add LLM key for full review' };
+    }
+  }
+  // if streamingBuffer has content and raw is similar, prefer raw (full)
+  const finalRaw = raw || streamingBuffer;
+  const parsed = parseLLMCodeResponse(finalRaw);
   const lines = parsed.code.split('\n').length;
-  appendLog(`Generated ${lines} lines via ${getActiveProvider()} (v${iteration})`, 'code');
+  appendLog(`Generated ${lines} lines via ${getActiveProvider() || 'heuristic'} (v${iteration}) ${streamStarted ? '• streamed' : ''}`, 'code');
   return parsed;
 }
 async function reviewCode(code, lang){
@@ -643,34 +757,77 @@ async function pushToGitHub(task, files){
     appendLog('GitHub not connected — skipping push (connect in Settings)', 'warn');
     return;
   }
-  const mode = $('#ghMode')?.value || 'Autonomous commits';
+  const modeEl = document.getElementById('ghMode');
+  const mode = modeEl?.value || 'Autonomous commits';
   if(mode==='Dry run'){
     appendLog('Dry run mode — not pushing', 'sys');
     return;
   }
+  const isPR = mode==='PR (pro)' || !!state.github.autoPR;
   const [owner, name] = state.github.repo.split('/');
-  const branch = state.github.branch;
-  appendLog(`Pushing ${Object.keys(files).length} file(s) to ${owner}/${name}@${branch}…`, 'sys');
-  setAgentStatus('CODING','pushing to GitHub','coding', 92);
-  // For each file, use contents API
+  const baseBranch = state.github.branch;
+  let targetBranch = baseBranch;
+  let newBranch = null;
+  if(isPR){
+    newBranch = `guy/${task.id}-${task.lang}`;
+    targetBranch = newBranch;
+    appendLog(`PR mode: creating branch ${newBranch} from ${baseBranch}…`, 'sys');
+    setAgentStatus('CODING','creating PR','coding', 88);
+    try{
+      // get base SHA
+      const baseRef = await githubApi(`/repos/${owner}/${name}/git/ref/heads/${encodeURIComponent(baseBranch)}`);
+      const baseSha = baseRef.object.sha;
+      // try create branch, if exists delete then recreate
+      try{
+        await githubApi(`/repos/${owner}/${name}/git/refs`, 'POST', { ref: `refs/heads/${newBranch}`, sha: baseSha });
+        appendLog(`Created branch ${newBranch}`, 'sys');
+      }catch(e){
+        if(String(e.message).includes('Reference already exists')){
+          appendLog(`Branch ${newBranch} exists — reusing`, 'warn');
+        } else {
+          // try get and patch if exists
+          try{ await githubApi(`/repos/${owner}/${name}/git/refs/heads/${encodeURIComponent(newBranch)}`, 'PATCH', { sha: baseSha, force: true }); appendLog(`Updated branch ${newBranch} to ${baseBranch}`, 'sys'); }catch{}
+        }
+      }
+    }catch(e){
+      appendLog(`Branch create failed: ${e.message} — falling back to ${baseBranch}`, 'warn');
+      targetBranch = baseBranch;
+      newBranch = null;
+    }
+  }
+  appendLog(`Pushing ${Object.keys(files).length} file(s) to ${owner}/${name}@${targetBranch}…`, 'sys');
+  setAgentStatus('CODING', isPR ? 'pushing to PR branch' : 'pushing to GitHub','coding', 92);
   for(const [path, content] of Object.entries(files)){
     const b64 = btoa(unescape(encodeURIComponent(content)));
-    // check if exists to get sha
     let sha = null;
     try{
-      const existing = await githubApi(`/repos/${owner}/${name}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`);
+      const existing = await githubApi(`/repos/${owner}/${name}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(targetBranch)}`);
       if(existing.sha) sha = existing.sha;
     }catch(e){ /* not exists */ }
-    const message = `guy: ${task.title} [${task.lang}] — ${path} (task ${task.id})`;
-    const body = { message, content: b64, branch, sha: sha||undefined };
+    const message = `guy(pro): ${task.title} [${task.lang}] — ${path} (task ${task.id})`;
+    const body = { message, content: b64, branch: targetBranch, sha: sha||undefined };
     if(!sha) delete body.sha;
     await githubApi(`/repos/${owner}/${name}/contents/${encodeURIComponent(path)}`, 'PUT', body);
-    appendLog(`Pushed ${path} (${content.length} bytes)`, 'sys');
+    appendLog(`Pushed ${path} (${content.length} bytes) to ${targetBranch}`, 'sys');
+  }
+  if(isPR && newBranch){
+    try{
+      const prTitle = `GUY Pro: ${task.title} [${task.lang}]`;
+      const prBody = `Autonomous task ${task.id}\n\n**Desc:** ${task.desc}\n**Lang:** ${task.lang}\n**Files:** ${Object.keys(files).join(', ')}\n**Model:** ${state.settings.provider} ${state.settings.model}\n**Research:** ${state.settings.researchEngine} (${state.agent.research} snippets)\n\n*Generated by GUY Pro v${state.version} streaming*`;
+      const pr = await githubApi(`/repos/${owner}/${name}/pulls`, 'POST', { title: prTitle, head: newBranch, base: baseBranch, body: prBody, draft: false });
+      appendLog(`PR created: #${pr.number} ${pr.html_url}`, 'sys');
+      toast(`PR #${pr.number} created`);
+      // optionally open in browser on Android
+      try{ if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){ window.Capacitor.Plugins.Browser.open({url: pr.html_url}); } }catch{}
+    }catch(e){
+      appendLog(`PR create failed: ${e.message} — files pushed to branch ${newBranch}`, 'warn');
+      toast(`Files pushed to ${newBranch}, PR failed: ${e.message}`, 'warn');
+    }
   }
   state.github.lastSync = new Date().toISOString();
   saveState(); updateGithubUI();
-  appendLog(`Push complete to ${branch}`, 'sys');
-  toast(`Pushed ${Object.keys(files).length} file(s) to GitHub`);
+  appendLog(isPR ? `PR flow complete for ${newBranch}` : `Push complete to ${targetBranch}`, 'sys');
+  if(!isPR) toast(`Pushed ${Object.keys(files).length} file(s) to GitHub`);
 }
 
 // ---------- Task processing (real loop) ----------
@@ -1378,6 +1535,7 @@ function wireTaskSubmission(){
     });
   }
   $('#deployBtn')?.addEventListener('click', async ()=>{
+    try{ if(navigator.vibrate) navigator.vibrate(30); }catch{}
     const prompt = ($('#taskInput')?.value||'').trim();
     if(!prompt){
       toast('Describe a task first'); $('#taskInput')?.focus(); return;
@@ -1665,6 +1823,8 @@ function init(){
   updateStats();
   startUptime();
   window.addEventListener('resize', ()=> drawChart());
+  // Pro+ splash hide
+  setTimeout(()=>{ const s=document.getElementById('splash'); if(s) s.classList.add('hide'); }, 1300);
   // warn if no keys
   if(!getActiveProvider()){
     setTimeout(()=>{
