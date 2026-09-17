@@ -10,7 +10,7 @@ The house is the metaphor, and the metaphor is load-bearing:
 | **The Glass Facade** | A dark, high-contrast interface built from large translucent, blurred glass panels over an ambient light field with a blueprint grid. Expansive structural borders — a bone-white double frame with brass corner brackets on every room. No sidebars; the whole stage is window wall. |
 | **The Sculpted Crest** | The header is not a flat bar. It is a live SVG rooftop profile — a concave quarter-pipe sweep, a skylight notch, a ridge, and a long flowing transition off the right edge — with nav tabs that sit at staggered heights and lose different-sized corners. Nothing on the roof sits on a straight grid. |
 | **The Hidden Infrastructure** | All of the technical back end — the ten API keys, the credit trackers, the manual model overrides, the work log — lives underground in the **Service Slab** (bottom of the frame): four garage-door bays that slide open into a raised glass sheet. The main view stays pure. |
-| **The Structural Logic** | A pristine rotation engine over **ten free-forever AI model lines** (Gemini Flash free tier, Groq, OpenRouter `:free`, HF inference). No trials, no expiring credits, It tracks token usage dynamically, scores every line, and the moment a free tier hits its ceiling it hands the same request, intact, to the next active line. |
+| **The Structural Logic** | A pristine rotation engine over **ten free-forever AI model lines** (Gemini Flash free tier, Groq, OpenRouter `:free`, HF inference). No trials, no expiring credits. It tracks token usage dynamically, scores every line, and the moment a free tier hits its ceiling it hands the same request, intact, to the next active line. |
 
 ---
 
@@ -19,7 +19,7 @@ The house is the metaphor, and the metaphor is load-bearing:
 There is nothing to build:
 
 ```bash
-python3 -m http.server 8000 --bind 0.0.0.0
+python3 server.py            # http://localhost:8000
 # then open http://localhost:8000
 ```
 
