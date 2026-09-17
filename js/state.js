@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/state.js
+   Gunther · GLASS HOUSE CONSOLE — js/state.js
    The foundation: keys, dials, the usage ledger, the work log,
    the thread. localStorage when a browser is present, plain
    memory otherwise (which is also how the test rig runs it).
@@ -8,6 +8,16 @@
 import { MODELS } from "./models.js";
 
 const K = {
+  keys: "gunther.keys.v1",
+  dials: "gunther.dials.v1",
+  ledger: "gunther.ledger.v1",
+  log: "gunther.log.v1",
+  thread: "gunther.thread.v1",
+  lines: "gunther.lines.v1",
+};
+
+/* the GUY-era storage prefix — migrated once, then retired */
+const LEGACY_K = {
   keys: "guy.keys.v1",
   dials: "guy.dials.v1",
   ledger: "guy.ledger.v1",
@@ -17,6 +27,22 @@ const K = {
 };
 
 const hasLS = typeof localStorage !== "undefined";
+
+/** One-shot rename migration: carry over anything stored under the
+ *  old guy.* prefix so keys and ledgers survive the christening. */
+function migrateLegacy() {
+  if (!hasLS) return;
+  for (const [slot, legacy] of Object.entries(LEGACY_K)) {
+    try {
+      const fresh = localStorage.getItem(K[slot]);
+      const old = localStorage.getItem(legacy);
+      if (old != null && fresh == null) localStorage.setItem(K[slot], old);
+      if (old != null) localStorage.removeItem(legacy);
+    } catch {
+      /* storage blocked — nothing to migrate */
+    }
+  }
+}
 
 const store = {
   get(key, fallback) {
@@ -38,7 +64,7 @@ const store = {
 };
 
 export const DEFAULT_SYSTEM = [
-  "You are GUY — a precise autonomous coding agent operating a personal glass-house console.",
+  "You are Gunther — a precise autonomous coding agent operating a personal glass-house console.",
   "",
   "Conventions:",
   "- Prose is tight. Code is complete: full files or full patches, exact paths, no placeholders, no \"add the rest yourself\".",
@@ -82,6 +108,7 @@ export function blankLedger() {
 
 /** Load (or seed) every slice of persisted state. Idempotent. */
 export function load() {
+  migrateLegacy();
   if (!state.keys) {
     state.keys = store.get(K.keys, {});
     for (const m of MODELS) if (typeof state.keys[m.id] !== "string") state.keys[m.id] = "";

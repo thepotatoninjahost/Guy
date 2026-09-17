@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/main.js
+   Gunther · GLASS HOUSE CONSOLE — js/main.js
    Pour the concrete: load state, raise the crest, the rooms,
    the fleet, the bays — then hand the keys over.
    ============================================================ */
@@ -11,7 +11,7 @@ import { initConsole, send, stop } from "./ui/console.js";
 import { initFleet } from "./ui/fleet.js";
 import { initBays, openBay, closeSheet } from "./ui/bays.js";
 
-window.__guy = {
+window.__gunther = {
   bays: { openBay, closeSheet },
   console: { send, stop },
   state: () => state,
@@ -23,7 +23,7 @@ function route() {
   document.querySelector("#view-console").hidden = v !== "console";
   document.querySelector("#view-fleet").hidden = v !== "fleet";
   markView(v);
-  if (v === "fleet" && window.__guy.fleetTick) window.__guy.fleetTick();
+  if (v === "fleet" && window.__gunther.fleetTick) window.__gunther.fleetTick();
 }
 
 function boot() {

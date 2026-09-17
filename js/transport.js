@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/transport.js
+   Gunther · GLASS HOUSE CONSOLE — js/transport.js
    The piping. Two dialects speak the same language here:
      · OpenAI-compatible (Groq, OpenRouter, HF)
      · Google's native generateContent SSE
@@ -105,7 +105,7 @@ async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
   const headers = { "content-type": "application/json", authorization: "Bearer " + key };
   if (m.provider === "openrouter") {
     headers["http-referer"] = typeof location !== "undefined" ? location.origin : "https://guy.local";
-    headers["x-title"] = "Guy — Glass House Console";
+    headers["x-title"] = "Gunther — Glass House Console";
   }
   const body = {
     model: modelId,
@@ -314,7 +314,7 @@ export async function ping(m) {
       const headers = { "content-type": "application/json", authorization: "Bearer " + key };
       if (m.provider === "openrouter") {
         headers["http-referer"] = typeof location !== "undefined" ? location.origin : "https://guy.local";
-        headers["x-title"] = "Guy — Glass House Console";
+        headers["x-title"] = "Gunther — Glass House Console";
       }
       res = await fetch(v.base + "/chat/completions", {
         method: "POST",

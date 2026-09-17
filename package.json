@@ -1,7 +1,7 @@
 {
-  "name": "guy-console",
+  "name": "gunther-console",
   "version": "1.0.0",
-  "description": "GUY — personal autonomous coding console",
+  "description": "Gunther — personal autonomous coding console",
   "directories": {
     "test": "test"
   },
@@ -10,15 +10,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thepotatoninjahost/Guy.git"
+    "url": "git+https://github.com/thepotatoninjahost/Gunther.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/thepotatoninjahost/Guy/issues"
+    "url": "https://github.com/thepotatoninjahost/Gunther/issues"
   },
-  "homepage": "https://github.com/thepotatoninjahost/Guy#readme",
+  "homepage": "https://github.com/thepotatoninjahost/Gunther#readme",
   "type": "module",
   "devDependencies": {
     "jsdom": "^30.0.1"

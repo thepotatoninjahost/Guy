@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/ui/bays.js
+   Gunther · GLASS HOUSE CONSOLE — js/ui/bays.js
    The Service Slab and its four bays:
      A · CREDENTIALS — ten key slots, ping, sync
      B · POWER LEDGER — the credit tracker

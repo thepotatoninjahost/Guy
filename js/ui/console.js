@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/ui/console.js
+   Gunther · GLASS HOUSE CONSOLE — js/ui/console.js
    The glass room: the feed, streaming, the workbench, and
    PLAN mode (plan → step tiles → executed increments).
    ============================================================ */
@@ -10,7 +10,7 @@ import { dispatch, headroom, select } from "../engine.js";
 import { mdToHtml, toast, copyText, escapeHtml, fmtTok, fmtClockHM } from "./render.js";
 
 const PLAN_SYSTEM = [
-  "You are the planning engine of GUY, an autonomous coding agent.",
+  "You are the planning engine of Gunther, an autonomous coding agent.",
   "Respond with ONLY a JSON object — no prose, no markdown, no code fences:",
   '{"goal":"<six words max>","steps":[{"title":"<five words max>","prompt":"<one self-contained build instruction>"}]}',
   "Rules: 2 to 6 steps. Each step must be buildable on its own, reference exact file paths where sensible, and steps are ordered (later steps build on earlier ones).",
@@ -18,7 +18,7 @@ const PLAN_SYSTEM = [
 ].join("\n");
 
 const EXEC_SYSTEM = [
-  "You are GUY executing exactly one step of an approved build plan.",
+  "You are Gunther executing exactly one step of an approved build plan.",
   "Deliver in this order: a one-line status, then the complete code in a single fenced block with a language tag, then at most three bullet notes.",
   "Never output placeholders, TODOs, ellipses, or truncated code. Use only the context provided from earlier steps.",
 ].join("\n");
@@ -432,7 +432,7 @@ export async function send(raw, force) {
   const anyKey = MODELS.some((m) => (state.keys[m.id] || "").trim());
   if (!anyKey) {
     toast("Store at least one line key in BAY 01 · CREDENTIALS first", "warn");
-    if (window.__guy && window.__guy.bays) window.__guy.bays.openBay("a");
+    if (window.__gunther && window.__gunther.bays) window.__gunther.bays.openBay("a");
     return;
   }
   syncEmpty();

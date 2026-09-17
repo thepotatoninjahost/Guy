@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/engine.js
+   Gunther · GLASS HOUSE CONSOLE — js/engine.js
    THE ROTATION ENGINE.
 
    Every line carries four ledgers:

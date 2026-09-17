@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/ui/fleet.js
+   Gunther · GLASS HOUSE CONSOLE — js/ui/fleet.js
    Ten lines, live. Each row: status, sliding-minute gauge,
    daily ledger, trip countdown, last activity. The endpoint
    model id is editable in place (free rosters rotate; the
@@ -121,7 +121,7 @@ function pinFromFleet(m) {
   addLog("info", "ENGINE", "LINE " + String(m.line).padStart(2, "0") + " pinned for dispatch (BAY 03 controls)");
   state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
   toast("LINE " + String(m.line).padStart(2, "0") + " pinned — BAY 03 now holds the override", "ok");
-  if (window.__guy && window.__guy.bays) window.__guy.bays.openBay("c");
+  if (window.__gunther && window.__gunther.bays) window.__gunther.bays.openBay("c");
 }
 
 function meterRatio(dims, keys) {

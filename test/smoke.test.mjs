@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · DOM smoke test — run with:  node test/smoke.test.mjs
+   Gunther · DOM smoke test — run with:  node test/smoke.test.mjs
    Boots the real app (index.html + all modules) inside jsdom,
    then drives a full streaming turn through transport → engine
    → console with a stubbed fetch. Catches runtime wiring errors.
@@ -60,7 +60,7 @@ async function until(fn, ms = 4000) {
 
 /* ---------- boot ---------- */
 await import("../js/main.js");
-ok(await until(() => Boolean(window.__guy)), "window.__guy is registered after boot");
+ok(await until(() => Boolean(window.__gunther)), "window.__gunther is registered after boot");
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -75,25 +75,25 @@ ok($("#feed").hidden === true, "feed is hidden with an empty thread");
 ok($$("#lines .line.on-duty").length === 0, "no line on duty before keys exist");
 
 /* ---------- bay machinery ---------- */
-window.__guy.bays.openBay("b");
+window.__gunther.bays.openBay("b");
 ok($(".sheet").classList.contains("open"), "opening a bay raises the sheet");
 ok($('.bay[data-bay="b"]').classList.contains("active"), "bay B is the active bay");
 ok($("[data-sheet-num]").textContent === "02", "sheet header shows bay 02");
-window.__guy.bays.openBay("b");
+window.__gunther.bays.openBay("b");
 ok(!$(".sheet").classList.contains("open"), "toggling the same door closes the sheet");
 
-window.__guy.bays.openBay("d");
+window.__gunther.bays.openBay("d");
 ok($$("#log .logline").length >= 1, "work log shows the boot event");
-window.__guy.bays.closeSheet();
+window.__gunther.bays.closeSheet();
 
 /* ---------- guard: no keys, no turns ---------- */
-window.__guy.console.send("hello there");
+window.__gunther.console.send("hello there");
 await sleep(30);
 ok($$(".toasts .toast").some((t) => t.textContent.includes("BAY 01")), "send without keys is refused with a toast");
 ok($$(".sheet.open")?.length === 1, "the refusal lifts the credentials bay");
 
 /* ---------- key everything, line goes on duty ---------- */
-const state = window.__guy.state();
+const state = window.__gunther.state();
 for (const k of Object.keys(state.keys)) state.keys[k] = "sk-test-" + k;
 state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
 await sleep(30);
@@ -147,7 +147,7 @@ global.fetch = async (url, opts) => {
   };
 };
 
-window.__guy.console.send("build the glass wall");
+window.__gunther.console.send("build the glass wall");
 ok(await until(() => state.ledger.session.req >= 1, 5000), "the turn completed and was booked to the ledger");
 ok(fetches.length === 1, "exactly one wire call for one turn");
 const usedLine = fetches[0];
@@ -202,7 +202,7 @@ global.fetch = async (url) => {
   return rotatedResponse(url);
 };
 const handoffsBefore = state.ledger.session.handoffs;
-window.__guy.console.send("again, please");
+window.__gunther.console.send("again, please");
 ok(await until(() => state.ledger.session.handoffs > handoffsBefore, 5000), "the 429 was handed off — handoff counter moved");
 ok(fetches.length === 2, "two wire calls: one tripped line, one rotated");
 ok(fetches[0] !== fetches[1], "the retry actually changed lines");
@@ -269,7 +269,7 @@ global.fetch = async (url) => {
   };
 };
 state.dials.uiMode = "plan";
-window.__guy.console.send("build the tiny house");
+window.__gunther.console.send("build the tiny house");
 ok(
   await until(() => $$(".plan__step.is-done").length === 2, 6000),
   "PLAN mode executed both steps of the parsed plan"

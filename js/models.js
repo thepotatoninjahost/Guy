@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/models.js
+   Gunther · GLASS HOUSE CONSOLE — js/models.js
    THE MANIFEST — ten service lines, four providers.
    Every line is FREE FOREVER — no trials, no expiring credits.
    Caps are the published free-tier defaults for 2026; the

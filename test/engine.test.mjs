@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · engine test rig — run with:  node test/engine.test.mjs
+   Gunther · engine test rig — run with:  node test/engine.test.mjs
    Exercises the rotation math without a browser: admission,
    scoring, pins, trips, backoff ladders, drill mode, ledger.
    ============================================================ */

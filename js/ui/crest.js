@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/ui/crest.js
+   Gunther · GLASS HOUSE CONSOLE — js/ui/crest.js
    The roof's live instruments: UTC clock, on-duty chip,
    session totals, and the three staggered nav tabs.
    ============================================================ */
@@ -23,7 +23,7 @@ export function initCrest() {
     tab.addEventListener("click", () => {
       const v = tab.dataset.view;
       if (v === "service") {
-        const { openBay } = window.__guy?.bays || {};
+        const { openBay } = window.__gunther?.bays || {};
         if (openBay) openBay();
         return;
       }

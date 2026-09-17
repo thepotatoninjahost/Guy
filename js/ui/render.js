@@ -1,5 +1,5 @@
 /* ============================================================
-   GUY · GLASS HOUSE CONSOLE — js/ui/render.js
+   Gunther · GLASS HOUSE CONSOLE — js/ui/render.js
    Shared rendering: escaping, number/duration formatting,
    the small markdown engine (fences, lists, headings, inline),
    toasts and the clipboard.

@@ -1,4 +1,4 @@
-# GUY — Autonomous Building Console
+# Gunther — Autonomous Building Console
 
 A completely custom, personal-build autonomous coding agent. No template, no framework, no build step —
 hand-framed HTML/CSS/JS that runs straight out of the folder.
