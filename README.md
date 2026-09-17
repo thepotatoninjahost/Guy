@@ -23,6 +23,11 @@ python3 -m http.server 8000 --bind 0.0.0.0
 # then open http://localhost:8000
 ```
 
+Built mobile-first: on a phone (Galaxy S25 class) the crest folds into three compact rows, each fleet line
+becomes a card, the bay sheet goes full-bleed, the Service Slab respects the gesture bar, and the room
+tracks the dynamic viewport as the browser chrome comes and goes. Open the console URL in Chrome,
+long-press the tab → **Add to Home screen** and it behaves like a native app.
+
 (any static file server works — `npx serve`, nginx, a Caddyfile, whatever your site soil allows)
 
 ## First use
