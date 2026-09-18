@@ -286,7 +286,7 @@ export async function call(m, opts) {
 /** Key test: a one-token completion with a tight budget. */
 export async function ping(m) {
   const key = (state.keys[m.id] || "").trim();
-  if (!key) return { ok: false, note: "no key stored" };
+  if (!key) return { ok: false, note: "no " + m.provider + " key anywhere — paste one in any " + m.provider + " row" };
   const modelId = effectiveId(m, state.linePatches);
   const ac = new AbortController();
   const timer = setTimeout(() => {

@@ -383,3 +383,23 @@
   .keyrow__field { grid-column: 1 / -1; }
   .led-summary { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---------- key vendor strip (get-a-key links) ---------- */
+.keybar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.keybar__label {
+  font: 600 9.5px/1 var(--font-mono, inherit);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+}
+.keybar__chip {
+  letter-spacing: 0.1em;
+  border-color: var(--brass-dim) !important;
+  color: var(--brass) !important;
+}

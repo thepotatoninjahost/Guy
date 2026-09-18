@@ -14,7 +14,7 @@ import { ping } from "../transport.js";
 import { escapeHtml, fmtTok, fmtClock, toast } from "./render.js";
 
 const TITLES = {
-  a: ["01", "CREDENTIALS", "ten key slots · one per line · stored in this browser only"],
+  a: ["01", "CREDENTIALS", "one key per vendor lights its whole line group · stored on this device only"],
   b: ["02", "POWER LEDGER", "token credits, window pressure, reset countdowns"],
   c: ["03", "OVERRIDE & DIALS", "pin a line, drill the rotation, tune the agent"],
   d: ["04", "WORK LOG", "every rotation, trip, key test and session event"],
@@ -103,12 +103,84 @@ function updateSlabSys() {
    BAY A · CREDENTIALS
    ============================================================ */
 
+/* Key → vendor recognition. Each vendor's key has a stable public
+   prefix; if a paste lands in the wrong row we move it where it lives. */
+const KEY_PREFIX = [
+  ["AIza", "gemini"],
+  ["gsk_", "groq"],
+  ["sk-or-", "openrouter"],
+  ["hf_", "hf"],
+];
+const GET_KEY_URL = {
+  gemini: "https://aistudio.google.com/apikey",
+  groq: "https://console.groq.com/keys",
+  openrouter: "https://openrouter.ai/settings/keys",
+  hf: "https://huggingface.co/settings/tokens",
+};
+function detectVendor(v) {
+  for (const [p, prov] of KEY_PREFIX) if (v.startsWith(p)) return prov;
+  return null;
+}
+
+/* Mirror state.keys onto every row input (after a sync/backfill). */
+function refreshKeyInputs(grid) {
+  for (const m of MODELS) {
+    const inp = grid.querySelector('.keyrow[data-model="' + m.id + '"] .keyrow__in');
+    if (inp) inp.value = state.keys[m.id] || "";
+  }
+}
+
+/* One-time (per session) kindness: any vendor row that holds a key while
+   its siblings sit empty gets the key backfilled across them. */
+function backfillVendorKeys() {
+  let n = 0;
+  for (const prov of Object.keys(VENDORS)) {
+    const lines = MODELS.filter((m) => m.provider === prov);
+    if (lines.length < 2) continue;
+    const donor = lines.find((m) => (state.keys[m.id] || "").trim());
+    if (!donor) continue;
+    for (const m of lines) {
+      if (!(state.keys[m.id] || "").trim()) {
+        state.keys[m.id] = state.keys[donor.id];
+        n++;
+      }
+    }
+  }
+  if (n) {
+    saveAll();
+    addLog("info", "KEY", "backfill: mirrored vendor keys onto " + n + " sibling line(s)");
+  }
+  return n;
+}
+
+/* External link: the Capacitor shell routes off-site taps to the system
+   browser; plain browsers get a new tab. Never navigate away from the house. */
+function openExternal(url) {
+  if (typeof window !== "undefined" && window.Capacitor) location.href = url;
+  else window.open(url, "_blank", "noopener");
+}
+
 const EYE =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
 
 function buildKeyRows() {
   const grid = document.querySelector("#keygrid");
   if (!grid) return;
+  backfillVendorKeys();
+  if (!grid.parentElement.querySelector(".keybar")) {
+    const bar = document.createElement("div");
+    bar.className = "keybar";
+    bar.innerHTML =
+      '<span class="keybar__label">get a key ↗</span>' +
+      Object.keys(VENDORS)
+        .map((p) => '<button class="btn btn--sm btn--ghost keybar__chip" type="button" data-getkey="' + p + '">' + p.toUpperCase() + "</button>")
+        .join("");
+    bar.addEventListener("click", (e) => {
+      const p = e.target.closest("[data-getkey]");
+      if (p) openExternal(GET_KEY_URL[p.dataset.getkey]);
+    });
+    grid.parentElement.insertBefore(bar, grid);
+  }
   grid.innerHTML = "";
   for (const m of MODELS) {
     const row = document.createElement("div");
@@ -130,11 +202,28 @@ function buildKeyRows() {
 
     let t = 0;
     inp.addEventListener("input", () => {
-      state.keys[m.id] = inp.value;
       clearTimeout(t);
       t = setTimeout(() => {
+        const raw = inp.value;
+        const v = raw.trim();
+        const looks = v ? detectVendor(v) : null;
+        let note;
+        if (v && looks && looks !== m.provider) {
+          // right key, wrong row — park it where it belongs
+          for (const o of MODELS) if (o.provider === looks) state.keys[o.id] = v;
+          state.keys[m.id] = "";
+          inp.value = "";
+          refreshKeyInputs(grid);
+          const n = MODELS.filter((o) => o.provider === looks).length;
+          toast("That reads as a " + looks.toUpperCase() + " key — applied to its " + n + " line(s)", "ok");
+          note = "recognised as " + looks + " key, applied vendor-wide";
+        } else {
+          for (const o of MODELS) if (o.provider === m.provider) state.keys[o.id] = raw;
+          refreshKeyInputs(grid);
+          note = v ? "applied to all " + m.provider + " line(s)" : "cleared for " + m.provider;
+        }
         saveAll();
-        addLog("info", "KEY", "LINE " + String(m.line).padStart(2, "0") + " key stored (" + (inp.value.trim() ? inp.value.length : 0) + " chars)");
+        addLog("info", "KEY", "LINE " + String(m.line).padStart(2, "0") + " key edit (" + v.length + " chars) — " + note);
       }, 500);
     });
 
@@ -184,6 +273,7 @@ function buildKeyRows() {
 
     grid.appendChild(row);
   }
+  refreshKeyInputs(grid);
 
   const testAll = document.querySelector("[data-bay-action='testall']");
   if (testAll)

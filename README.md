@@ -54,9 +54,11 @@ ImageMagick) from the same crest geometry the facade draws.
 ## First use
 
 1. Open the **Service** tab (or press `Ctrl/Cmd+K`) → **BAY 01 · CREDENTIALS**.
-2. Paste a key per line. One Groq key can be `⇌`-synced across all three Groq lines, and likewise for the
-   three OpenRouter lines and the three Gemini lines (one Google key covers 01, 02 and 09). `PING` a line
-   before you trust it — the LED goes green, amber (throttled but valid), or red (bad key / retired model id).
+2. Paste a key **once** — Gunther applies it across that vendor's whole group automatically (one Groq key
+   lights lines 03–05, one Google key covers 01, 02 and 09, and so on). Mis-paste a `gsk_` key into a Gemini
+   line and the prefix recognition moves it to the right group for you. The **get a key ↗** strip above the
+   grid opens each vendor's key page in your browser. `PING` before you trust — the LED goes green
+   (answered) or red (bad key / retired model id / no key), and the toast says which.
 3. Back in the **Console**, type a build. The on-duty strip tells you which line is serving, the headroom
    ring shows how much of that line's window is left, and the workbench hint tells you which line rides
    the *next* turn.

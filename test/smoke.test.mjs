@@ -100,6 +100,28 @@ await sleep(30);
 ok($$("#lines .line.on-duty").length === 1, "exactly one line goes on duty once keys exist");
 ok($("[data-on-duty]").textContent.trim().length > 3, "crest chip names the line on duty");
 
+/* ---------- vendor auto-broadcast through the real input path ---------- */
+const g1 = $('.keyrow[data-model="groq-r1-70b"] .keyrow__in');
+g1.value = "gsk_autotest123";
+g1.dispatchEvent(new window.Event("input", { bubbles: true }));
+await until(() =>
+  state.keys["groq-llama33-70b"] === "gsk_autotest123" &&
+  state.keys["groq-llama31-8b"] === "gsk_autotest123"
+);
+ok(true, "a pasted Groq key spreads across all three Groq lines");
+
+const g2 = $('.keyrow[data-model="groq-llama31-8b"] .keyrow__in');
+g2.value = "AIzaSYNTHETIC";
+g2.dispatchEvent(new window.Event("input", { bubbles: true }));
+await until(() =>
+  state.keys["gemini-25-flash"] === "AIzaSYNTHETIC" &&
+  state.keys["gemini-3-flash"] === "AIzaSYNTHETIC" &&
+  state.keys["groq-llama31-8b"] === ""
+);
+ok(true, "prefix recognition parks a mis-pasted key in the right vendor group");
+
+ok(!!$("#keygrid").parentElement.querySelector(".keybar"), "get-a-key vendor strip renders above the grid");
+
 /* ---------- a live streaming turn through the stubbed wire ---------- */
 let fetches = [];
 const sse = (payloads) => {
