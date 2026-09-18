@@ -153,6 +153,16 @@ function backfillVendorKeys() {
   return n;
 }
 
+/* The verdict of the last ping, kept visible under the row — a red dot
+   without a reason is a support ticket; a red dot with one is an answer. */
+function setNote(row, txt, ok) {
+  const n = row.querySelector(".keyrow__note");
+  if (!n) return;
+  n.textContent = txt;
+  n.classList.toggle("is-ok", !!ok);
+  n.classList.toggle("is-bad", !ok);
+}
+
 /* External link: the Capacitor shell routes off-site taps to the system
    browser; plain browsers get a new tab. Never navigate away from the house. */
 function openExternal(url) {
@@ -195,10 +205,13 @@ function buildKeyRows() {
         '<button class="keyrow__eye" type="button" title="reveal / hide">' + EYE + "</button>" +
       "</span>" +
       '<button class="icobtn keyrow__sync" type="button" title="apply this key to every ' + escapeHtml(m.provider) + ' line">⇌</button>' +
-      '<button class="btn btn--ghost keyrow__ping" type="button">PING</button>';
+      '<button class="btn btn--ghost keyrow__ping" type="button">PING</button>' +
+      '<span class="keyrow__note"></span>';
 
     const inp = row.querySelector(".keyrow__in");
     inp.value = state.keys[m.id] || "";
+    const pg = (state.ledger[m.id] || {}).ping;
+    if (pg && pg.at) setNote(row, pg.ok ? "answered — key is live" : pg.note || "ping failed", !!pg.ok);
 
     let t = 0;
     inp.addEventListener("input", () => {
@@ -218,7 +231,11 @@ function buildKeyRows() {
           toast("That reads as a " + looks.toUpperCase() + " key — applied to its " + n + " line(s)", "ok");
           note = "recognised as " + looks + " key, applied vendor-wide";
         } else {
-          for (const o of MODELS) if (o.provider === m.provider) state.keys[o.id] = raw;
+          for (const o of MODELS) if (o.provider === m.provider) {
+            state.keys[o.id] = raw;
+            const orow = grid.querySelector('.keyrow[data-model="' + o.id + '"]');
+            if (orow) setNote(orow, raw.trim() ? "key set — hit PING" : "cleared", null);
+          }
           refreshKeyInputs(grid);
           note = v ? "applied to all " + m.provider + " line(s)" : "cleared for " + m.provider;
         }
@@ -260,6 +277,7 @@ function buildKeyRows() {
       row.classList.remove("is-pinged-ok", "is-pinged-bad");
       const r = await ping(m);
       storePing(m, r.ok, r.note);
+      setNote(row, r.ok ? "answered — key is live" : r.note, r.ok);
       btn.disabled = false;
       btn.textContent = "PING";
       led.className = "led " + (r.ok ? "led--ok" : "led--bad");
@@ -287,6 +305,7 @@ function buildKeyRows() {
         const r = await ping(m);
         storePing(m, r.ok, r.note);
         led.className = "led " + (r.ok ? "led--ok" : "led--bad");
+        setNote(row, r.ok ? "answered — key is live" : r.note, r.ok);
       }
       testAll.disabled = false;
       testAll.textContent = "PING ALL";

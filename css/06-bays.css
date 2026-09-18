@@ -403,3 +403,19 @@
   border-color: var(--brass-dim) !important;
   color: var(--brass) !important;
 }
+
+/* ---------- per-row ping verdict ---------- */
+.keyrow__note {
+  display: block;
+  grid-column: 1 / -1;
+  min-height: 12px;
+  margin-top: 2px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--bone-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.keyrow__note.is-ok { color: #7ddba3; }
+.keyrow__note.is-bad { color: #ff928f; }

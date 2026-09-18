@@ -145,3 +145,38 @@ html {
     align-items: center;
   }
 }
+
+/* ---------- console room on a phone: glass that never spills ----------
+   The feed is the only scroller; the empty state is clamped inside it;
+   the duty card and bench are compact. Nothing draws on top of the slab. */
+.room { display: flex; flex-direction: column; overflow: hidden; }
+.room__head { padding: 8px 12px 4px; }
+.room__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.feed { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: 12px; gap: 14px; }
+
+.empty { flex: 1 1 auto; min-height: 0; overflow: hidden; gap: 12px; padding: 12px 16px 8px; }
+.empty__art { width: min(320px, 74%); height: 64px; opacity: 0.4; }
+.empty__title { font-size: 21px; }
+.empty__sub {
+  font-size: 11.5px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.empty__chips { gap: 6px; margin-top: 0; }
+.chip-btn { font-size: 10px; padding: 7px 10px; }
+
+/* duty card → one compact strip */
+.duty { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; margin: 4px 10px 0; }
+.duty__model { font-size: 13.5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.duty__sub { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.duty__stats { gap: 10px; flex: none; }
+.duty__stat b { font-size: 12px; }
+.duty__stat span { font-size: 7.5px; }
+.ringwrap { width: 34px; height: 34px; }
+
+/* bench stays a real row of controls, not a wall of placeholder prose */
+.bench textarea { font-size: 14px; min-height: 40px; max-height: 110px; }

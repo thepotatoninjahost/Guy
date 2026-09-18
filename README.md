@@ -70,10 +70,10 @@ Every line is **free forever** — no trials, no expiring credits, no card:
 | # | Line | Vendor | Endpoint id | Free-tier defaults |
 | --- | --- | --- | --- | --- |
 | 01 | Gemini 2.5 Flash | Google AI Studio | `gemini-2.5-flash` | 10 RPM · 1,500 RPD · 1M TPM |
-| 02 | Gemini 2.5 Flash-Lite | Google AI Studio | `gemini-2.5-flash-lite` | 15 RPM · 1,000 RPD · 1M TPM |
-| 03 | Llama 3.3 70B | Groq LPU | `llama-3.3-70b-versatile` | 30 RPM · 14,400 RPD |
-| 04 | DeepSeek R1 70B | Groq LPU | `deepseek-r1-distill-llama-70b` | 30 RPM · 14,400 RPD |
-| 05 | Llama 3.1 8B Instant | Groq LPU | `llama-3.1-8b-instant` | 30 RPM · 14,400 RPD |
+| 02 | Gemini 3.1 Flash-Lite | Google AI Studio | `gemini-3.1-flash-lite` | 15 RPM · 1,000 RPD · 1M TPM |
+| 03 | GPT-OSS 120B | Groq LPU | `openai/gpt-oss-120b` | 30 RPM · 8K TPM · 1,000 RPD |
+| 04 | GPT-OSS 20B | Groq LPU | `openai/gpt-oss-20b` | 30 RPM · 8K TPM · 1,000 RPD |
+| 05 | Llama 4 Scout | Groq LPU | `meta-llama/llama-4-scout-17b-16e-instruct` | 30 RPM · 30K TPM · 14,400 RPD |
 | 06 | Llama 4 Maverick | OpenRouter | `meta-llama/llama-4-maverick:free` | 20 RPM · 50 RPD* |
 | 07 | Llama 3.3 70B Instruct | OpenRouter | `meta-llama/llama-3.3-70b-instruct:free` | 20 RPM · 50 RPD* |
 | 08 | Qwen3 Coder | OpenRouter | `qwen/qwen3-coder:free` | 20 RPM · 50 RPD* |
@@ -81,6 +81,15 @@ Every line is **free forever** — no trials, no expiring credits, no card:
 | 10 | DeepSeek R1 8B | HF Inference | `deepseek-ai/DeepSeek-R1-Distill-Llama-8B` | burst-limited |
 
 \* OpenRouter raises `:free` to 1,000 RPD if you have ever bought $10 of credits.
+
+**Migration note (2026-09):** Groq moved `llama-3.1-8b-instant` and `llama-3.3-70b-versatile`
+to its Enterprise tier on 2026-08-16 — free keys now get `404 model_not_found` on those ids —
+so lines 03–05 call the documented free replacements (GPT-OSS 120B/20B, Llama 4 Scout).
+Google retires the Gemini 2.5 family in October 2026; line 02 moved to `gemini-3.1-flash-lite`
+along Google's own migration path. Line ids in storage are stable handles and did not change —
+keys, ledgers and pins survive a registry move. If a vendor retires another model, BAY 03's
+override box re-points the line without a code change; every key row also prints the exact
+verdict of its last ping so a red dot always says *why*.
 
 Free rosters rotate and providers re-cut limits. Two hedges are built in:
 
