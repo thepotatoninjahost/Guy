@@ -10,7 +10,7 @@ The house is the metaphor, and the metaphor is load-bearing:
 | **The Glass Facade** | A dark, high-contrast interface built from large translucent, blurred glass panels over an ambient light field with a blueprint grid. Expansive structural borders — a bone-white double frame with brass corner brackets on every room. No sidebars; the whole stage is window wall. |
 | **The Sculpted Crest** | The header is not a flat bar. It is a live SVG rooftop profile — a concave quarter-pipe sweep, a skylight notch, a ridge, and a long flowing transition off the right edge — with nav tabs that sit at staggered heights and lose different-sized corners. Nothing on the roof sits on a straight grid. |
 | **The Hidden Infrastructure** | All of the technical back end — the ten API keys, the credit trackers, the manual model overrides, the work log — lives underground in the **Service Slab** (bottom of the frame): four garage-door bays that slide open into a raised glass sheet. The main view stays pure. |
-| **The Structural Logic** | A pristine rotation engine over **ten free-forever AI model lines** (Gemini Flash free tier, Groq, OpenRouter `:free`, HF inference). No trials, no expiring credits. It tracks token usage dynamically, scores every line, and the moment a free tier hits its ceiling it hands the same request, intact, to the next active line. |
+| **The Structural Logic** | A pristine rotation engine over **ten free-forever AI model lines** (Gemini Flash free tier, Groq, OpenRouter `:free`, Cloudflare Workers AI). No trials, no expiring credits. It tracks token usage dynamically, scores every line, and the moment a free tier hits its ceiling it hands the same request, intact, to the next active line. |
 
 ---
 
@@ -70,19 +70,32 @@ Every line is **free forever** — no trials, no expiring credits, no card:
 | # | Line | Vendor | Endpoint id | Free-tier defaults |
 | --- | --- | --- | --- | --- |
 | 01 | Gemini 2.5 Flash | Google AI Studio | `gemini-2.5-flash` | 10 RPM · 1,500 RPD · 1M TPM |
-| 02 | Gemini 3.1 Flash-Lite | Google AI Studio | `gemini-3.1-flash-lite` | 15 RPM · 1,000 RPD · 1M TPM |
-| 03 | GPT-OSS 120B | Groq LPU | `openai/gpt-oss-120b` | 30 RPM · 8K TPM · 1,000 RPD |
-| 04 | GPT-OSS 20B | Groq LPU | `openai/gpt-oss-20b` | 30 RPM · 8K TPM · 1,000 RPD |
-| 05 | Llama 4 Scout | Groq LPU | `meta-llama/llama-4-scout-17b-16e-instruct` | 30 RPM · 30K TPM · 14,400 RPD |
-| 06 | Llama 4 Maverick | OpenRouter | `meta-llama/llama-4-maverick:free` | 20 RPM · 50 RPD* |
-| 07 | Llama 3.3 70B Instruct | OpenRouter | `meta-llama/llama-3.3-70b-instruct:free` | 20 RPM · 50 RPD* |
-| 08 | Qwen3 Coder | OpenRouter | `qwen/qwen3-coder:free` | 20 RPM · 50 RPD* |
-| 09 | Gemini 3 Flash | Google AI Studio | `gemini-3-flash` | 10 RPM · 250K TPM · 1,500 RPD |
-| 10 | DeepSeek R1 8B | HF Inference | `deepseek-ai/DeepSeek-R1-Distill-Llama-8B` | burst-limited |
+| 02 | Gemini 3.1 Flash-Lite | Google AI Studio | `gemini-3.1-flash-lite` | 30 RPM · 1,500 RPD |
+| 03 | GPT-OSS 120B | Groq LPU | `openai/gpt-oss-120b` | 30 RPM · 8K TPM · 1K RPD |
+| 04 | GPT-OSS 20B | Groq LPU | `openai/gpt-oss-20b` | 30 RPM · 8K TPM · 1K RPD |
+| 05 | Qwen 3.6 27B | Groq LPU | `qwen/qwen3.6-27b` | 30 RPM · 8K TPM · 1K RPD |
+| 06 | Nemotron 3 Ultra 550B | OpenRouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | 20 RPM · 50 RPD* |
+| 07 | DeepSeek V4 Flash | OpenRouter | `deepseek/deepseek-v4-flash-0731:free` | 20 RPM · 50 RPD* |
+| 08 | North Mini Code | OpenRouter | `cohere/north-mini-code:free` | 20 RPM · 50 RPD* |
+| 09 | Gemini 3.5 Flash | Google AI Studio | `gemini-3.5-flash` | 15 RPM · 250K TPM · 1,500 RPD |
+| 10 | Llama 3.3 70B · Edge | Cloudflare Workers AI | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | 10K neurons/day |
 
 \* OpenRouter raises `:free` to 1,000 RPD if you have ever bought $10 of credits.
 
-**Migration note (2026-09):** Groq moved `llama-3.1-8b-instant` and `llama-3.3-70b-versatile`
+**Fleet re-verification, 2026-09-18 — every row checked against its source:**
+Groq retired `llama-3.1-8b-instant` / `llama-3.3-70b-versatile` (2026-08-16) **and**
+`llama-4-scout-17b-16e-instruct` / `qwen/qwen3-32b` (2026-07-17) from free keys — lines 03–05 now
+call the officially documented replacements (`gpt-oss-120b`, `gpt-oss-20b`, `qwen3.6-27b`) at
+30 RPM · 8K TPM · 1K RPD. Google's free roster no longer includes bare `gemini-3-flash` — line 09
+moved to `gemini-3.5-flash`; line 02 moved to `gemini-3.1-flash-lite` ahead of the 2.5 sunset
+(October 2026). OpenRouter's `:free` roster turned over completely this summer, so lines 06–08
+carry the ids that answered 7-of-7 on the daily live checks of Sept 2026. Hugging Face ended its
+free serverless tier ($0.10/month of credit is not free forever), so line 10 moved to
+**Cloudflare Workers AI** — permanently free 10K neurons/day, no card; that line's key is entered
+as `account_id/api_token`. Model ids are editable per line from BAY 03 and every key row prints
+the verdict of its last ping, so a vendor roster change costs a paste on the phone, never a rebuild.
+
+ Groq moved `llama-3.1-8b-instant` and `llama-3.3-70b-versatile`
 to its Enterprise tier on 2026-08-16 — free keys now get `404 model_not_found` on those ids —
 so lines 03–05 call the documented free replacements (GPT-OSS 120B/20B, Llama 4 Scout).
 Google retires the Gemini 2.5 family in October 2026; line 02 moved to `gemini-3.1-flash-lite`

@@ -113,7 +113,8 @@ ok(g2.latency.ema === 620, "latency EMA records the turn");
 const hr = engine.headroom(byId("gemini-25-flash-lite")); // one turn just served
 const rpdDim = hr.dims.find((d) => d.k === "rpd");
 ok(rpdDim && rpdDim.used === 1, "rpd dimension counts the served turn (1/1000)");
-ok(Math.abs(hr.ratio - 14 / 15) < 1e-9, "headroom is the tightest dimension (rpm 14/15 after one turn)");
+const liteCaps = byId("gemini-25-flash-lite").caps;
+ok(Math.abs(hr.ratio - (liteCaps.rpm - 1) / liteCaps.rpm) < 1e-9, "headroom is the tightest dimension (1 of " + liteCaps.rpm + " rpm spent)");
 
 console.log("\n— headroom decomposition —");
 const h = engine.headroom(gem); // 1500/1500 RPD from earlier

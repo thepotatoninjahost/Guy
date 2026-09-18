@@ -169,6 +169,13 @@ global.fetch = async (url, opts) => {
   };
 };
 
+/* Pin the fleet to line 01 so this test is about the wire, not the
+   registry's current quality tuning — the engine is free to prefer other
+   lines in the real world. */
+state.dials.mode = "pin";
+state.dials.pin = "gemini-25-flash";
+state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
+
 window.__gunther.console.send("build the glass wall");
 ok(await until(() => state.ledger.session.req >= 1, 5000), "the turn completed and was booked to the ledger");
 ok(fetches.length === 1, "exactly one wire call for one turn");

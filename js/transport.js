@@ -93,6 +93,22 @@ function afterAbort(ac, userSignal) {
 
 /* ---------- OpenAI-compatible dialect ---------- */
 
+/* Cloudflare Workers AI hangs the REST API under the account id, so the
+   key slot carries both halves: "<account_id>/<api_token>". */
+function cfSplit(key) {
+  const i = key.indexOf("/");
+  if (i <= 0) throw new NetError("BADREQ", "cloudflare key must be account_id/token");
+  return { acct: key.slice(0, i), token: key.slice(i + 1) };
+}
+function openaiBase(m, key) {
+  const v = VENDORS[m.provider];
+  if (m.provider === "cloudflare") return v.base + "/" + encodeURIComponent(cfSplit(key).acct) + "/ai/v1";
+  return v.base;
+}
+function openaiAuth(m, key) {
+  return m.provider === "cloudflare" ? cfSplit(key).token : key;
+}
+
 function openAIMessages(system, messages) {
   const out = [];
   if (system && system.trim()) out.push({ role: "system", content: system });
@@ -101,8 +117,7 @@ function openAIMessages(system, messages) {
 }
 
 async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
-  const v = VENDORS[m.provider];
-  const headers = { "content-type": "application/json", authorization: "Bearer " + key };
+  const headers = { "content-type": "application/json", authorization: "Bearer " + openaiAuth(m, key) };
   if (m.provider === "openrouter") {
     headers["http-referer"] = typeof location !== "undefined" ? location.origin : "https://guy.local";
     headers["x-title"] = "Gunther — Glass House Console";
@@ -119,7 +134,7 @@ async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
 
   let res;
   try {
-    res = await fetch(v.base + "/chat/completions", {
+    res = await fetch(openaiBase(m, key) + "/chat/completions", {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -310,13 +325,12 @@ export async function ping(m) {
         }
       );
     } else {
-      const v = VENDORS[m.provider];
-      const headers = { "content-type": "application/json", authorization: "Bearer " + key };
+      const headers = { "content-type": "application/json", authorization: "Bearer " + openaiAuth(m, key) };
       if (m.provider === "openrouter") {
         headers["http-referer"] = typeof location !== "undefined" ? location.origin : "https://guy.local";
         headers["x-title"] = "Gunther — Glass House Console";
       }
-      res = await fetch(v.base + "/chat/completions", {
+      res = await fetch(openaiBase(m, key) + "/chat/completions", {
         method: "POST",
         headers,
         body: JSON.stringify({
