@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#05070c</color>
+    <color name="colorPrimaryDark">#03050a</color>
+    <color name="colorAccent">#f0c26e</color>
+    <color name="soil900">#05070c</color>
+    <color name="soil800">#0b1018</color>
+    <color name="glow">#f0c26e</color>
+    <color name="splashBackground">#05070c</color>
+</resources>

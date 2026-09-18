@@ -1,12 +1,15 @@
 {
   "name": "gunther-console",
   "version": "1.0.0",
-  "description": "Gunther — personal autonomous coding console",
+  "description": "Gunther \u2014 personal autonomous coding console",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "node test/engine.test.mjs && node test/smoke.test.mjs"
+    "test": "node test/engine.test.mjs && node test/smoke.test.mjs",
+    "pack:www": "node tools/pack-www.mjs",
+    "sync": "node tools/pack-www.mjs && npx cap sync android",
+    "apk:debug": "node tools/pack-www.mjs && npx cap sync android && cd android && ./gradlew assembleDebug"
   },
   "repository": {
     "type": "git",
@@ -23,5 +26,10 @@
   "devDependencies": {
     "jsdom": "^30.0.1"
   },
-  "private": "true"
+  "private": "true",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
 }
