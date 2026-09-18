@@ -81,6 +81,10 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Stage the APK under its final name
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ./Gunther.apk
+
       - name: Publish APK as a Release
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
@@ -89,14 +93,14 @@ jobs:
           name: "Gunther — Galaxy S25 APK (run ${{ github.run_number }})"
           body: |
             Gunther — Autonomous Building Console, packaged for Android.
+            This is the **new** app (glass-console UI, ten free-forever model
+            lines). If you installed a previous `GUY` app, this is separate.
 
             **Install (phone only, no computer needed):**
-            1. Download `gunther-debug-apk.zip` below (or from the Artifacts list on the run page) and unzip it
-            2. Tap the `.apk` → allow "install unknown apps" for your browser when asked
+            1. Download `Gunther.apk` below
+            2. Tap it → allow "install unknown apps" for your browser when asked
             3. Launch **Gunther**, open Service, and add your API keys
 
             Commit: ${{ github.sha }}
-          files: |
-            android/app/build/outputs/apk/debug/app-debug.apk
+          files: ./Gunther.apk
           make_latest: "true"
-          fail_on_missing_files: false
