@@ -19,15 +19,9 @@ export function initCrest() {
   tickClock();
   setInterval(tickClock, 1000);
 
-  document.querySelectorAll(".tab[data-view]").forEach((tab) => {
+  document.querySelectorAll(".vtab[data-view]").forEach((tab) => {
     tab.addEventListener("click", () => {
-      const v = tab.dataset.view;
-      if (v === "service") {
-        const { openBay } = window.__gunther?.bays || {};
-        if (openBay) openBay();
-        return;
-      }
-      location.hash = v === "console" ? "#/console" : "#/fleet";
+      location.hash = tab.dataset.view === "console" ? "#/console" : "#/fleet";
     });
   });
 
@@ -39,8 +33,8 @@ export function initCrest() {
 }
 
 function setTabCurrent(view) {
-  document.querySelectorAll(".tab[data-view]").forEach((t) => {
-    t.setAttribute("aria-current", String(t.dataset.view === view || (view === "console" && t.dataset.view === "console")));
+  document.querySelectorAll(".vtab[data-view]").forEach((t) => {
+    t.setAttribute("aria-current", String(t.dataset.view === view));
   });
 }
 
@@ -49,17 +43,8 @@ export function markView(view) {
 }
 
 function renderStatus() {
-  const chip = document.querySelector("[data-on-duty]");
-  if (!chip) return;
   const m = select(128);
-  if (m) {
-    chip.innerHTML =
-      "<b>" + String(m.line).padStart(2, "0") + "</b> " + escapeHtml(m.name);
-  } else if (!MODELS_KEYED()) {
-    chip.innerHTML = "NO KEYS — SERVICE BAY 01";
-  } else {
-    chip.innerHTML = "FLEET AT CEILING";
-  }
+  // crest chip retired (owner directive): the room's ON DUTY card is the single indicator
 
   const s = state.ledger.session || { tok: 0, req: 0, handoffs: 0 };
   const tok = document.querySelector("[data-session-tok]");

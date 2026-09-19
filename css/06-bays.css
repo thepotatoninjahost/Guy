@@ -26,19 +26,31 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
-  padding: 0 20px;
+  gap: 3px;
+  padding: 0 10px;
   border-right: 1px solid var(--line);
   flex: none;
 }
-.slab__label b {
+/* the bottom menu now carries the view switch (owner: keep the lower menu) */
+.vtab {
   font-family: var(--f-display);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.26em;
-  color: var(--brass);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  padding: 3px 8px;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
+  transition: color 0.16s var(--ease), background 0.16s var(--ease);
 }
-.slab__label span { font-family: var(--f-mono); font-size: 8.5px; color: var(--ink-3); letter-spacing: 0.1em; }
+.vtab:hover { color: var(--brass-2); }
+.vtab[aria-current="true"] {
+  color: #191204;
+  background: linear-gradient(180deg, var(--brass-2), var(--brass));
+}
 
 .slab__doors { display: flex; flex: 1; min-width: 0; }
 

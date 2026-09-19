@@ -66,21 +66,9 @@
       </div>
     </div>
 
-    <nav class="crest__nav" aria-label="primary">
-      <button class="tab" type="button" data-view="console" style="--lift:0px; --cut:14px" aria-current="true">Console</button>
-      <button class="tab" type="button" data-view="fleet" style="--lift:12px; --cut:26px">Fleet</button>
-      <button class="tab" type="button" data-view="service" style="--lift:24px; --cut:10px">Service</button>
-    </nav>
 
-    <svg class="crest__ridge" viewBox="0 0 54 20" aria-hidden="true">
-      <path d="M0 17 L9 4 L18 17 L27 4 L36 17 L45 4 L54 17" fill="none" stroke="rgba(240,194,110,0.55)" stroke-width="1.2"/>
-    </svg>
 
-    <div class="crest__status">
-      <span class="chip" title="line on duty">
-        <i class="chip__dot"></i>
-        <span class="chip__id" data-on-duty>—</span>
-      </span>
+    <div class="crest__status">      </span>
       <span class="crest__sum">
         <span><b data-session-tok>0</b> tok Σ · <b data-session-req>0</b> req</span>
         <span><b class="hand" data-session-handoffs>0</b> handoffs</span>
@@ -97,12 +85,6 @@
        ============================================================ -->
   <section id="view-console" class="view" aria-label="console">
     <div class="room frame">
-      <div class="room__head">
-        <span class="tag-row__idx">01</span>
-        <span class="tag-row__title">The Glass Room</span>
-        <span class="tag-row__rule"></span>
-        <span class="tag-row__meta" data-duty-mode>AUTO ROTATION</span>
-      </div>
 
       <div class="duty">
         <span class="duty__label">On Duty</span>
@@ -122,26 +104,7 @@
       </div>
 
       <div class="room__body">
-        <div id="empty" class="empty">
-          <svg class="empty__art" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0 58 C130 60 210 92 305 126 L380 122 L418 146 L500 44 L560 44 L610 74 C780 100 1010 150 1230 138 C1320 132 1390 126 1440 122" fill="none" stroke="rgba(233,226,207,0.5)" stroke-width="2"/>
-            <path d="M0 74 C130 76 210 108 305 142 L380 138 L418 162 L500 60 L560 60 L610 90 C780 116 1010 166 1230 154 C1320 148 1390 142 1440 138" fill="none" stroke="rgba(240,194,110,0.4)" stroke-width="1"/>
-          </svg>
-          <h1 class="empty__title">Say what you want <b>built.</b></h1>
-          <p class="empty__sub">
-            Ten free-forever model lines stand behind this glass — Gemini Flash, Groq, OpenRouter and Cloudflare
-            Workers AI. No trials, no expiring credits. The rotation engine picks the healthiest line,
-            streams the work, tracks every token, and hands off to the next line the instant a ceiling binds.
-            Nothing here ever costs a cent.
-          </p>
-          <div class="empty__chips">
-            <button class="chip-btn" type="button" data-prompt="Scaffold a FastAPI health endpoint with /healthz and structured logs">Scaffold a FastAPI /healthz</button>
-            <button class="chip-btn" type="button" data-prompt="Explain the rotation engine of this console in exactly five lines">Explain the rotation engine</button>
-            <button class="chip-btn" type="button" data-prompt="Write a CSS glass panel from scratch — no libraries, dark mode, brass accents">Write a CSS glass panel</button>
-          </div>
-        </div>
-
-        <div id="feed" class="feed" hidden></div>
+        <div id="feed" class="feed"></div>
       </div>
 
       <div class="bench">
@@ -150,8 +113,7 @@
           <button type="button" data-umode="plan" aria-pressed="false">Plan</button>
         </div>
         <div class="bench__box">
-          <textarea id="input" rows="1" placeholder="Describe the build. The line on duty takes the turn."></textarea>
-          <div class="bench__hint" id="nextLine">NEXT TURN RIDES LINE —</div>
+          <textarea id="input" rows="1" placeholder="Say what you want built…"></textarea>
         </div>
         <div class="bench__actions">
           <button id="sendBtn" class="bench__send" type="button" title="send (enter)">
@@ -170,29 +132,6 @@
        ============================================================ -->
   <section id="view-fleet" class="view" aria-label="fleet" hidden>
     <div class="room frame">
-      <div class="room__head">
-        <span class="tag-row__idx">02</span>
-        <span class="tag-row__title">The Fleet</span>
-        <span class="tag-row__rule"></span>
-        <span class="tag-row__meta">10 LINES · 4 VENDORS · $0 / TOKEN · FREE FOREVER</span>
-      </div>
-
-      <div class="fleet__head">
-        <div>
-          <h2 class="fleet__title">Ten lines, <b>one rotation.</b></h2>
-          <div class="fleet__lede">
-            the endpoint id under each line is editable — free rosters rotate, so does the manifest (✎)
-          </div>
-        </div>
-        <div class="fleet__stats">
-          <div class="fstat"><b data-f-up>—</b><span>lines up</span></div>
-          <div class="fstat"><b data-f-tok>—</b><span>tokens today</span></div>
-          <div class="fstat"><b data-f-req>—</b><span>requests today</span></div>
-          <div class="fstat"><b data-f-burn>—</b><span>burn rate</span></div>
-          <div class="fstat"><b data-f-head>—</b><span>worst daily headroom</span></div>
-          <div class="fstat"><b data-f-hand>—</b><span>handoffs</span></div>
-        </div>
-      </div>
 
       <div id="lines" class="lines"></div>
     </div>
@@ -204,9 +143,9 @@
      THE SERVICE SLAB — hidden infrastructure, M1 level
      ============================================================ -->
 <footer class="slab" aria-label="service level">
-  <div class="slab__label">
-    <b>Service Level · M1</b>
-    <span>hidden infrastructure — ctrl+K for keys</span>
+  <div class="slab__label" role="group" aria-label="views">
+    <button class="vtab" type="button" data-view="console" aria-current="true">Room</button>
+    <button class="vtab" type="button" data-view="fleet" aria-current="false">Fleet</button>
   </div>
   <div class="slab__doors">
     <button class="door" type="button" data-bay="a" aria-expanded="false">
@@ -269,11 +208,6 @@
 
     <!-- BAY A · CREDENTIALS -->
     <section class="bay" data-bay="a" aria-label="credentials">
-      <p class="bay__note">
-        Paste a key into any line and Gunther applies it across that vendor&#39;s whole group — and if you paste a Groq key into a Gemini line, it recognises the prefix and parks it correctly.
-        Keys live only in this browser's localStorage — they travel to the provider directly from your machine.
-        Ping a line to verify before the engine trusts it.
-      </p>
       <div class="bay__actions">
         <button class="btn btn--sm" type="button" data-bay-action="testall">Ping All</button>
         <span class="spacer"></span>
@@ -284,11 +218,6 @@
 
     <!-- BAY B · POWER LEDGER -->
     <section class="bay" data-bay="b" aria-label="power ledger">
-      <p class="bay__note">
-        The credit tracker. MIN is the sliding 60-second window (rpm / tpm admission), DAY is the UTC-day ledger
-        (rpd / tpd ceiling). A line rotates out when either bar fills; a 429 from the provider trips it on a
-        backoff ladder regardless of the bars.
-      </p>
       <div class="bay__actions">
         <button class="btn btn--sm btn--danger" type="button" data-bay-action="resetledger">Reset Ledger</button>
         <span class="spacer"></span>
@@ -305,10 +234,6 @@
 
     <!-- BAY C · OVERRIDE & DIALS -->
     <section class="bay" data-bay="c" aria-label="override and dials">
-      <p class="bay__note">
-        Manual override, the rotation drill, and the agent's dials. AUTO lets the engine pick; PIN rides one line
-        until it exhausts; DRILL releases the line after every clean turn so you can watch the rotation happen.
-      </p>
       <div class="dial-grid">
         <div class="dial-col">
           <div class="dial-block">
@@ -358,9 +283,6 @@
 
     <!-- BAY D · WORK LOG -->
     <section class="bay" data-bay="d" aria-label="work log">
-      <p class="bay__note">
-        The engine room: every rotation, trip, handoff, key test and session event, in order.
-      </p>
       <div class="log-tools">
         <button class="logfilter" type="button" data-f="ALL" aria-pressed="true">ALL</button>
         <button class="logfilter" type="button" data-f="ENGINE" aria-pressed="false">ENGINE</button>

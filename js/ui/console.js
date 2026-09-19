@@ -204,17 +204,13 @@ function renderTurnbar(info) {
   }
   scrollFeed();
 }
-function emptyState() {
-  return $("#empty");
-}
 function scrollFeed() {
   const f = feed();
   f.scrollTop = f.scrollHeight;
 }
 function syncEmpty() {
-  const e = emptyState();
-  if (e) e.hidden = state.thread.length > 0;
-  feed().hidden = state.thread.length === 0;
+  /* the hero state was removed entirely (owner directive 2026-09-19):
+     the conversation window is always visible, always scrollable. */
 }
 
 function renderThread() {
@@ -580,8 +576,7 @@ function updateDuty() {
   const subEl = document.querySelector("[data-duty-sub]");
   const ring = document.querySelector(".ring");
   const ringC = document.querySelector(".ring__c");
-  const hint = $("#nextLine");
-  const modeEl = document.querySelector("[data-duty-mode]");
+  const modeEl = null; // room header removed by owner directive
 
   const dm = select(128);
   if (modelEl) {
@@ -620,20 +615,7 @@ function updateDuty() {
   if (reqEl) reqEl.textContent = String(s.req);
   if (hand) hand.textContent = String(s.handoffs);
 
-  if (hint) {
-    if (state.busy) {
-      const cur = state.engine.lastLine ? byId(state.engine.lastLine) : null;
-      hint.innerHTML = state.dials.uiMode === "plan"
-        ? 'MODE <b>PLAN</b> — executing step · streaming from LINE ' + (cur ? "<b>" + String(cur.line).padStart(2, "0") + "</b>" : "—")
-        : "STREAMING FROM LINE " + (cur ? "<b>" + String(cur.line).padStart(2, "0") + "</b> · " + escapeHtml(cur.name) : "—");
-    } else if (dm) {
-      hint.innerHTML =
-        "NEXT TURN RIDES LINE <b>" + String(dm.line).padStart(2, "0") + "</b> · " + escapeHtml(dm.name) +
-        (state.dials.uiMode === "plan" ? " · <b>PLAN</b> MODE" : "");
-    } else {
-      hint.innerHTML = "FLEET DARK — <b>BAY 01</b>";
-    }
-  }
+
 }
 
 

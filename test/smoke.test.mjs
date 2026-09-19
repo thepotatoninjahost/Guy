@@ -69,9 +69,9 @@ ok($$("#lines .line").length === 10, "Fleet renders all ten lines");
 ok($$("#keygrid .keyrow").length === 10, "Bay A renders ten key slots");
 ok($$("#ledLines .led-line").length === 10, "Bay B renders ten ledger rows");
 ok(/^\d\d:\d\d:\d\dZ$/.test($("[data-clock]").textContent), "crest clock is ticking");
-ok($("[data-on-duty]").textContent.includes("NO KEYS"), "on-duty chip reports no keys at boot");
-ok($("#empty").hidden === false, "empty state is visible with an empty thread");
-ok($("#feed").hidden === true, "feed is hidden with an empty thread");
+ok(!$("[data-on-duty]"), "the crest chip is retired — ONE duty indicator, in the room");
+ok(!$("#empty"), "the hero state is deleted — the conversation window owns the room");
+ok($("#feed").hidden === false, "the conversation window is visible from the very start (hero deleted)");
 ok($$("#lines .line.on-duty").length === 0, "no line on duty before keys exist");
 
 /* ---------- bay machinery ---------- */
@@ -98,7 +98,7 @@ for (const k of Object.keys(state.keys)) state.keys[k] = "sk-test-" + k;
 state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
 await sleep(30);
 ok($$("#lines .line.on-duty").length === 1, "exactly one line goes on duty once keys exist");
-ok($("[data-on-duty]").textContent.trim().length > 3, "crest chip names the line on duty");
+ok($("[data-duty-model]").textContent.trim().length > 3, "the ON DUTY card names the line on duty");
 
 /* ---------- vendor auto-broadcast through the real input path ---------- */
 const g1 = $('.keyrow[data-model="groq-r1-70b"] .keyrow__in');
@@ -240,7 +240,7 @@ ok(Boolean(agentMsg), "the agent reply rendered in the feed");
 ok(agentMsg.querySelector(".msg__body").textContent.includes("Framed the wall."), "streamed text assembled in the reply body");
 ok(/\d+ tok/.test(agentMsg.querySelector(".msg__meta").textContent), "reply header shows token count");
 ok(state.ledger.session.tok === 21, "session tokens accrue from the real usage payload");
-ok($("#feed").hidden === false && $("#empty").hidden === true, "empty state yields to the feed");
+ok($("#feed").hidden === false, "the feed is always on screen — nothing to yield to");
 
 /* ---------- 429 → trip → seamless handoff ---------- */
 fetches = [];
@@ -289,7 +289,7 @@ ok(await until(() => state.ledger.session.handoffs > handoffsBefore, 5000), "the
 ok(fetches.length === 2, "two wire calls: one tripped line, one rotated");
 ok(fetches[0] !== fetches[1], "the retry actually changed lines");
 const tripped = Object.entries(state.ledger).filter(([id, e]) => id !== "session" && e.trip.until > Date.now());
-ok(tripped.length === 1, "exactly one line tripped in backoff");
+ok(tripped.length === 3, "the 429 tripped the whole OpenRouter vendor group — one ceiling, not three (no more line-by-line door-knocking)");
 const lastAgent = $$(".feed .msg--agent").pop();
 ok(lastAgent.querySelector(".msg__body").textContent.includes("rotated fine."), "the rotated line delivered the turn");
 ok(lastAgent.querySelector(".msg__rot").textContent.includes("handoff"), "the reply header records the handoff");
@@ -396,9 +396,8 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
 {
   const facade = readFileSync("css/04-facade.css", "utf8");
   const mobile = readFileSync("css/07-mobile.css", "utf8");
-  ok(/\.empty\[hidden\] \{ *display: *none/.test(facade), ".empty has an explicit [hidden] escape (root cause of the overlap)");
-  const feedBlock = mobile.match(/\.empty \{[^}]*\}/)[0];
-  ok(!/overflow: hidden/.test(feedBlock), "mobile hero scrolls instead of clipping text mid-line");
+  ok(!/id="empty"/.test(readFileSync("index.html", "utf8")) && !/.empty {/.test(facade), "the hero — and its overlap vector — are deleted, not hidden");
+  ok(!/\.empty/.test(mobile), "no hero rules left on the phone sheet");
   for (const src of [facade, mobile]) {
     const bands = src.match(/(\.empty__sub|\.empty__chips|\.chip-btn|\.turnbar|\.msg__head|\.feed) \{[^}]*\}/g) || [];
     for (const b of bands) {
@@ -408,8 +407,7 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   ok(/rgba\(13, 19, 31, 0\.30\)/.test(facade) && /blur\(14px\)/.test(facade), "agent bubbles are translucent glass again (no black cover-ups)");
   ok(!/background: *#070b13/.test(facade), "code blocks shed the opaque slab fill");
 }
-/* and behaviorally: once anything is on screen, the hero must be hidden */
-ok($("#empty").hidden === true || state.thread.length === 0, "hero yields to the live conversation");
+
 
 /* ---------- every surface opens, no window is empty, no error escapes ---------- */
 {
@@ -417,11 +415,18 @@ ok($("#empty").hidden === true || state.thread.length === 0, "hero yields to the
   window.addEventListener("error", (e) => errs.push(String(e && e.message)));
   process.on("unhandledRejection", (r) => errs.push("rejection: " + r));
 
-  // Service tab: must open a FILLED bay, never an empty sheet
-  document.querySelector('.tab[data-view="service"]').click();
+  // the slab doors raise FILLED bays — the top menu is gone; this is the only menu
+  document.querySelector('.door[data-bay="a"]').click();
   await until(() => document.querySelector(".sheet").classList.contains("open"));
   const active = document.querySelector(".bay.active");
-  ok(!!active && active.dataset.bay === "a", "Service tab raises a real bay (credentials), not an empty window");
+  ok(!!active && active.dataset.bay === "a", "the credentials door raises a real bay, not an empty window");
+  ok(document.querySelectorAll(".slab__label .vtab").length === 2, "bottom menu carries the Room/Fleet switch");
+  document.querySelector('.vtab[data-view="fleet"]').click();
+  ok(await until(() => !document.querySelector("#view-fleet").hidden), "Fleet vtab switches views");
+  document.querySelector('.vtab[data-view="console"]').click();
+  ok(await until(() => !document.querySelector("#view-console").hidden), "Room vtab switches back");
+  document.querySelector(".sheet__close").click();
+  await until(() => !document.querySelector(".sheet").classList.contains("open"));
   ok(active.querySelectorAll(".keyrow").length === 10, "the credentials bay carries all ten rows");
   // each bay opens with content
   for (const [id, probe] of [["b", "#ledLines .ledline"], ["c", ".dial-grid"], ["d", "#log .logrow"]]) {
@@ -441,7 +446,7 @@ ok($("#empty").hidden === true || state.thread.length === 0, "hero yields to the
   ok(document.querySelectorAll("#lines .line").length === 10, "fleet view shows ten line cards");
   location.hash = "#/console";
   await until(() => !document.querySelector("#view-console").hidden);
-  ok(!document.querySelector("#empty").hidden || state.thread.length > 0, "console view returns with hero or thread visible");
+  ok(!!document.querySelector("#feed"), "console view returns with the conversation window");
 
   await new Promise((r) => setTimeout(r, 120));
   ok(errs.length === 0, "no uncaught errors while touring every surface" + (errs.length ? " — " + errs.join(" | ") : ""));
@@ -455,6 +460,8 @@ ok($("#empty").hidden === true || state.thread.length === 0, "hero yields to the
   ok(!/text-overflow: *ellipsis/.test(mobileCss.match(/\.duty__sub \{[^}]*\}/)[0]), "duty caps are never truncated on phones");
   const baysCss = readFileSync("css/06-bays.css", "utf8");
   ok(!/white-space: *nowrap/.test(baysCss.match(/\.keyrow__note \{[^}]*\}/)[0]), "ping verdict notes can wrap — verdicts never get cut");
+  ok(/"box box"/.test(readFileSync("css/04-facade.css", "utf8")), "composer spans the full width in its own band");
+  ok(!/room__head|fleet__head|bay__note/.test(readFileSync("index.html", "utf8")), "the struck-out chrome is gone from the markup");
 }
 
 console.log("\n" + passed + " passed, " + failed + " failed");

@@ -42,28 +42,15 @@ html {
   .chip__id { font-size: 10px; }
   .crest__sum { font-size: 9px; }
 
-  .crest__nav { order: 4; width: 100%; margin-left: 0; gap: 8px; }
-  .crest__ridge { display: none; }
-  .tab {
-    flex: 1;
-    text-align: center;
-    padding: 8px 6px 7px;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    /* keep the staggered soul, half its travel */
-    transform: translateY(calc(var(--lift) / 2));
-  }
-  .tab:hover { transform: translateY(calc(var(--lift) / 2)); }
-  .tab[aria-current="true"]::after { left: 20%; right: 20%; }
 
   /* ---------- room: tracks the dynamic viewport ---------- */
+  .crest { padding-top: calc(6px + env(safe-area-inset-top, 0px)); }
   .room {
-    height: calc(100dvh - var(--crest-h) - var(--slab-h) - env(safe-area-inset-bottom, 0px) - 30px);
+    height: calc(100dvh - var(--crest-h) - var(--slab-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 30px);
     min-height: 420px;
   }
   .feed { padding: 12px 14px; }
   .msg--user { max-width: 96%; }
-  .empty__title { font-size: 21px; line-height: 1.3; }
 
   /* ---------- workbench: one row that actually fits ---------- */
   .bench { gap: 8px; padding: 10px 12px 12px; }
@@ -76,7 +63,6 @@ html {
   .bench__send svg, .bench__stop svg { width: 18px; height: 18px; }
 
   /* ---------- fleet: each line becomes a card ---------- */
-  .fleet__head { gap: 10px 16px; padding: 12px 12px 6px; }
   .fleet__title { font-size: 23px; }
   .fleet__lede { font-size: 9.5px; }
   .fleet__stats { gap: 10px 20px; }
@@ -127,7 +113,7 @@ html {
     left: 8px;
     right: 8px;
     bottom: calc(var(--slab-h) + env(safe-area-inset-bottom, 0px) + 8px);
-    max-height: calc(100dvh - var(--slab-h) - env(safe-area-inset-bottom, 0px) - 16px);
+    max-height: calc(100dvh - var(--slab-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 56px);
   }
   .sheet__head { padding: 12px 14px; gap: 10px; }
   .sheet__title { font-size: 11px; letter-spacing: 0.22em; }
@@ -152,16 +138,9 @@ html {
    gets ellipsized anymore: text wraps in its own lane instead. */
 @media (max-width: 720px) {
   .room { display: flex; flex-direction: column; overflow: hidden; }
-  .room__head { padding: 8px 12px 4px; }
   .room__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
   .feed { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: 12px; gap: 14px; }
 
-  .empty { flex: 1 1 auto; min-height: 0; overflow-y: auto; gap: 12px; padding: 12px 16px 10px; }
-  .empty__art { width: min(320px, 74%); height: 56px; opacity: 0.35; flex: none; }
-  .empty__title { font-size: 21px; flex: none; }
-  .empty__sub { font-size: 11.5px; line-height: 1.55; flex: none; }
-  .empty__chips { gap: 6px; margin-top: 0; flex: none; }
-  .chip-btn { font-size: 10px; padding: 7px 10px; }
 
   /* duty strip — compact, but it never cuts the caps it is reporting */
   .duty { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; margin: 4px 10px 0; }
@@ -171,17 +150,7 @@ html {
   .duty__stat b { font-size: 12px; }
   .duty__stat span { font-size: 7.5px; }
   .ringwrap { width: 34px; height: 34px; }
-
-  /* crest chip wears the FULL duty name — wrap beats "DeepSeek V4 F…" */
-  .chip { max-width: none; }
-  .chip__id { white-space: normal; }
-
   /* bench */
-  .bench textarea { font-size: 14px; min-height: 40px; max-height: 110px; }
-
-  /* slab doors: label under the icon — a 90px door cannot carry a
-     side-by-side name+sub row, which is why the names vanished. The
-     LED moves to a corner dot so it stops posing as a second icon. */
   .slab__label { display: none; }
   .door { flex-direction: column; justify-content: center; align-items: center; gap: 4px; padding: 8px 3px 7px; min-width: 0; }
   .door__txt { gap: 1px; align-items: center; min-width: 0; }

@@ -196,6 +196,17 @@ export function recordHandoff() {
 }
 
 /** Trip a line. kind: "quota" (hard ladder) or "soft" (short ladder). */
+/**
+ * A vendor ceiling is an ACCOUNT ceiling: OpenRouter's 50/day, Groq's 1K/day,
+ * Gemini's RPD and Cloudflare's neurons all span every line we host from that
+ * vendor. When one line answers 429, its siblings are almost certainly done
+ * for the window too — trip them together, so the rotation stops burning a
+ * handoff per line against the same closed door.
+ */
+export function tripVendor(m, kind, reason = "") {
+  for (const sib of MODELS) if (sib.provider === m.provider) trip(sib, kind, reason);
+}
+
 export function trip(m, kind, reason = "") {
   const now = new Date();
   const e = entry(m);
@@ -363,7 +374,7 @@ export async function dispatch(opts) {
           trip(m, "quota", "endpoint retired (404) — patch the id in FLEET");
           break;
         case "QUOTA":
-          trip(m, "quota", err.note);
+          tripVendor(m, "quota", err.note);
           break;
         case "BADREQ":
           trip(m, "quota", "provider rejected the request — " + err.note);
