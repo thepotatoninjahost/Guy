@@ -117,6 +117,27 @@ body.busy .ring { animation: spinslow 1.7s linear infinite; }
 }
 
 /* ============================================================
+   FLEET HEADER BAND — the ledger of the fleet, plainly labeled.
+   Restored 2026-09-19: the owner's highlights meant EXPLAIN,
+   not delete — so it explains itself, one sentence per number.
+   ============================================================ */
+.fleet__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px 28px;
+  flex-wrap: wrap;
+  padding: 14px clamp(16px, 2.6vw, 34px) 12px;
+  border-bottom: 1px solid var(--line);
+}
+.fleet__lede { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.06em; max-width: 42ch; line-height: 1.5; }
+.fleet__stats { display: flex; gap: 24px; flex-wrap: wrap; }
+.fstat { display: flex; flex-direction: column; gap: 3px; }
+.fstat b { font-family: var(--f-mono); font-size: 19px; font-weight: 500; color: var(--ink); }
+.fstat b em { font-style: normal; font-size: 11px; color: var(--ink-3); }
+.fstat span { font-family: var(--f-display); font-size: 8.5px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ============================================================
    THE FEED — message interior of the house
    ============================================================ */
 .feed {

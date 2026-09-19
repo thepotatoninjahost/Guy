@@ -461,7 +461,12 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   const baysCss = readFileSync("css/06-bays.css", "utf8");
   ok(!/white-space: *nowrap/.test(baysCss.match(/\.keyrow__note \{[^}]*\}/)[0]), "ping verdict notes can wrap — verdicts never get cut");
   ok(/"box box"/.test(readFileSync("css/04-facade.css", "utf8")), "composer spans the full width in its own band");
-  ok(!/room__head|fleet__head|bay__note/.test(readFileSync("index.html", "utf8")), "the struck-out chrome is gone from the markup");
+  {
+    const htmlNow = readFileSync("index.html", "utf8");
+    ok(!/room__head|bay__note/.test(htmlNow), "the struck-out chrome stays gone from the markup");
+    ok(/fleet__stats/.test(htmlNow) && /data-f-head/.test(htmlNow), "the stat row you asked about is BACK — highlighted meant explain, not delete");
+    ok((htmlNow.match(/class="fstat" title=/g) || []).length === 6, "every stat carries its one-sentence explanation");
+  }
 }
 
 console.log("\n" + passed + " passed, " + failed + " failed");

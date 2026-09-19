@@ -76,13 +76,14 @@ export function headroom(m, now = new Date()) {
   const e = entry(m);
   const s = sliding(m, now);
   const c = m.caps;
+  const n = (v) => (Number.isFinite(v) ? v : 0); // old/partial ledger entries must never yield NaN
   const dims = [];
-  if (c.rpm) dims.push({ k: "rpm", cap: c.rpm, used: s.req });
-  if (c.tpm) dims.push({ k: "tpm", cap: c.tpm, used: s.tok });
-  if (c.rpd) dims.push({ k: "rpd", cap: c.rpd, used: e.day.req });
-  if (c.tpd) dims.push({ k: "tpd", cap: c.tpd, used: e.day.tok });
+  if (c.rpm) dims.push({ k: "rpm", cap: n(c.rpm), used: n(s.req) });
+  if (c.tpm) dims.push({ k: "tpm", cap: n(c.tpm), used: n(s.tok) });
+  if (c.rpd) dims.push({ k: "rpd", cap: n(c.rpd), used: n(e.day.req) });
+  if (c.tpd) dims.push({ k: "tpd", cap: n(c.tpd), used: n(e.day.tok) });
   let ratio = 1;
-  for (const d of dims) ratio = Math.min(ratio, 1 - d.used / d.cap);
+  for (const d of dims) if (d.cap > 0) ratio = Math.min(ratio, 1 - d.used / d.cap);
   return {
     ratio: Math.max(0, Math.min(1, ratio)),
     dims,

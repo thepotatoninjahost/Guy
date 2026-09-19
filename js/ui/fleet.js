@@ -128,7 +128,7 @@ function meterRatio(dims, keys) {
   const relevant = dims.filter((d) => keys.includes(d.k));
   if (!relevant.length) return null;
   let r = 1;
-  for (const d of relevant) r = Math.min(r, 1 - d.used / d.cap);
+  for (const d of relevant) if (d.cap > 0) r = Math.min(r, 1 - (Number(d.used) || 0) / d.cap);
   return Math.max(0, Math.min(1, r));
 }
 
@@ -214,9 +214,9 @@ function update() {
   let tokToday = 0;
   let reqToday = 0;
   for (const m of MODELS) {
-    const e = state.ledger[m.id];
-    tokToday += e.day.prompt + e.day.completion;
-    reqToday += e.day.req;
+    const e = state.ledger[m.id] || { day: {} };
+    tokToday += (Number(e.day.prompt) || 0) + (Number(e.day.completion) || 0);
+    reqToday += Number(e.day.req) || 0;
   }
   set("[data-f-tok]", fmtTok(tokToday));
   set("[data-f-req]", fmtTok(reqToday));

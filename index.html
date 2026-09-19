@@ -133,6 +133,30 @@
   <section id="view-fleet" class="view" aria-label="fleet" hidden>
     <div class="room frame">
 
+      <div class="fleet__head">
+        <div class="fleet__lede">tap the ✎ under any model id to re-point that line when a vendor renames or retires its free model</div>
+        <div class="fleet__stats">
+          <div class="fstat" title="Lines the engine may use RIGHT NOW — they have a key, are not cooling down from a 429, and have quota left. Out of ten.">
+            <b data-f-up>—</b><span>lines ready</span>
+          </div>
+          <div class="fstat" title="Tokens consumed today (UTC day) by all ten lines combined. Every line here is on a permanently free tier — this counts their generosity, not your money.">
+            <b data-f-tok>—</b><span>tokens today</span>
+          </div>
+          <div class="fstat" title="Requests sent today across all lines — the closest thing to a &quot;how hard did we work&quot; number.">
+            <b data-f-req>—</b><span>requests today</span>
+          </div>
+          <div class="fstat" title="How fast tokens are being spent right now (average over the last 5 minutes). High burn + a low vendor cap = the reason lines rotate.">
+            <b data-f-burn>—</b><span>tokens / min</span>
+          </div>
+          <div class="fstat" title="The line CLOSEST to its daily ceiling, as percent of that day&#39;s allowance still unused. At 0% it sits out until midnight UTC — then everything resets, free.">
+            <b data-f-head>—</b><span>quota left · tightest line</span>
+          </div>
+          <div class="fstat" title="Times the engine had to switch lines mid-task because one hit its limit. A handoff is the rotation engine working, not breaking.">
+            <b data-f-hand>—</b><span>line switches</span>
+          </div>
+        </div>
+      </div>
+
       <div id="lines" class="lines"></div>
     </div>
   </section>
