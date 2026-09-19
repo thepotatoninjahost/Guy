@@ -118,7 +118,8 @@ const GET_KEY_URL = {
 };
 function detectVendor(v) {
   for (const [p, prov] of KEY_PREFIX) if (v.startsWith(p)) return prov;
-  if (/^[0-9a-f]{16,48}\//i.test(v)) return "cloudflare"; // <account_id>/<token>
+  if (/^[0-9a-f]{16,48}[/:]/i.test(v)) return "cloudflare"; // <account_id>/<token>
+  if (/^cf(at|ut|a)?_/i.test(v)) return "cloudflare"; // Cloudflare API tokens are self-labeled
   return null;
 }
 
@@ -201,7 +202,7 @@ function buildKeyRows() {
       '<span class="keyrow__name">' + escapeHtml(m.name) + "<em>" + escapeHtml(m.provider) + " · " + escapeHtml(m.model) + "</em></span>" +
       '<span class="led led--empty"></span>' +
       '<span class="keyrow__field">' +
-        '<input class="keyrow__in" type="password" spellcheck="false" autocomplete="off" placeholder="' + (m.provider === "cloudflare" ? "paste account_id/token" : "paste " + m.provider + " key") + '">' +
+        '<input class="keyrow__in" type="password" spellcheck="false" autocomplete="off" placeholder="' + (m.provider === "cloudflare" ? "paste token — account auto-found" : "paste " + m.provider + " key") + '">' +
         '<button class="keyrow__eye" type="button" title="reveal / hide">' + EYE + "</button>" +
       "</span>" +
       '<button class="icobtn keyrow__sync" type="button" title="apply this key to every ' + escapeHtml(m.provider) + ' line">⇌</button>' +

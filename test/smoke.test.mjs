@@ -183,9 +183,19 @@ global.fetch = async (url, opts) => {
       ]),
     };
   }
+  if (String(url).includes("client/v4/accounts")) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, result: [{ id: "acct_deadbeef01", name: "Gunther Main" }] }),
+      text: async () => "",
+    };
+  }
   return {
     ok: true,
     status: 200,
+    text: async () => "",
+    json: async () => ({}),
     body: sse([
       JSON.stringify({ choices: [{ delta: { content: "Framed " } }] }),
       JSON.stringify({
@@ -209,6 +219,21 @@ ok(await until(() => state.ledger.session.req >= 1, 5000), "the turn completed a
 ok(fetches.length === 1, "exactly one wire call for one turn");
 const usedLine = fetches[0];
 ok(usedLine.includes("generativelanguage") || usedLine.includes("openai/v1"), "the call hit a provider endpoint");
+/* ---------- Cloudflare: a bare token now finds its own account ---------- */
+{
+  const cfRow = $('.keyrow[data-model="cf-llama33-70b"]');
+  cfRow.querySelector(".keyrow__in").value = "cfat_testTokenOnly1234567890abcdef";
+  cfRow.querySelector(".keyrow__in").dispatchEvent(new window.Event("input", { bubbles: true }));
+  await until(() => state.keys["cf-llama33-70b"] === "cfat_testTokenOnly1234567890abcdef");
+  const before = fetches.length;
+  cfRow.querySelector(".keyrow__ping").click();
+  await until(() => (cfRow.querySelector(".keyrow__note").textContent || "").includes("answered"), 8000);
+  ok(state.keys["cf-llama33-70b"] === "acct_deadbeef01/cfat_testTokenOnly1234567890abcdef",
+    "bare Cloudflare token was auto-rewritten to acct/token after discovery");
+  ok(fetches.slice(before).some((u) => u.includes("/accounts/acct_deadbeef01/ai/v1/chat/completions")),
+    "the CF ping rode the discovered account id in the URL path");
+}
+
 
 const agentMsg = $$(".feed .msg--agent").pop();
 ok(Boolean(agentMsg), "the agent reply rendered in the feed");
@@ -332,6 +357,7 @@ ok(
   "PLAN mode executed both steps of the parsed plan"
 );
 ok($$(".plan").length === 1, "the plan tile rendered once");
+
 ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block");
 
 console.log("\n" + passed + " passed, " + failed + " failed");

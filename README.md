@@ -73,7 +73,7 @@ Every line is **free forever** — no trials, no expiring credits, no card:
 | 02 | Gemini 3.1 Flash-Lite | Google AI Studio | `gemini-3.1-flash-lite` | 30 RPM · 1,500 RPD |
 | 03 | GPT-OSS 120B | Groq LPU | `openai/gpt-oss-120b` | 30 RPM · 8K TPM · 1K RPD |
 | 04 | GPT-OSS 20B | Groq LPU | `openai/gpt-oss-20b` | 30 RPM · 8K TPM · 1K RPD |
-| 05 | Qwen 3.6 27B | Groq LPU | `qwen/qwen3.6-27b` | 30 RPM · 8K TPM · 1K RPD |
+| 05 | Compound Mini · Agentic | Groq LPU | `groq/compound-mini` | 30 RPM · 100K TPM · 250 RPD |
 | 06 | Nemotron 3 Ultra 550B | OpenRouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | 20 RPM · 50 RPD* |
 | 07 | DeepSeek V4 Flash | OpenRouter | `deepseek/deepseek-v4-flash-0731:free` | 20 RPM · 50 RPD* |
 | 08 | North Mini Code | OpenRouter | `cohere/north-mini-code:free` | 20 RPM · 50 RPD* |
@@ -85,7 +85,7 @@ Every line is **free forever** — no trials, no expiring credits, no card:
 **Fleet re-verification, 2026-09-18 — every row checked against its source:**
 Groq retired `llama-3.1-8b-instant` / `llama-3.3-70b-versatile` (2026-08-16) **and**
 `llama-4-scout-17b-16e-instruct` / `qwen/qwen3-32b` (2026-07-17) from free keys — lines 03–05 now
-call the officially documented replacements (`gpt-oss-120b`, `gpt-oss-20b`, `qwen3.6-27b`) at
+call the officially documented replacements (`gpt-oss-120b`, `gpt-oss-20b`) at
 30 RPM · 8K TPM · 1K RPD. Google's free roster no longer includes bare `gemini-3-flash` — line 09
 moved to `gemini-3.5-flash`; line 02 moved to `gemini-3.1-flash-lite` ahead of the 2.5 sunset
 (October 2026). OpenRouter's `:free` roster turned over completely this summer, so lines 06–08
@@ -201,3 +201,10 @@ tools/make-brand-art.py forge: crest geometry → launcher + splash assets
 android/              Capacitor shell (Gradle project, Gunther package id)
 .github/workflows/gunther-apk.yml  CI: test → pack → cap sync → APK → release
 ```
+
+**2026-09-19 follow-up:** Groq removed `qwen/qwen3.6-27b` from the catalog on 2026-09-11 (the
+device caught it as a 404 the day after install — the verdict line did its job). Line 05 now runs
+`groq/compound-mini`, listed with no price on console.groq.com/docs/models as of that date and
+corroborated free by two independent trackers dated 2026-09-13. The paid qwen3.8 successor is
+deliberately not used — free-forever rule. Cloudflare rows now accept a bare API token: one
+`GET /accounts` discovers the Account ID and caches it, so the paste is just the token.

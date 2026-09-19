@@ -96,9 +96,39 @@ function afterAbort(ac, userSignal) {
 /* Cloudflare Workers AI hangs the REST API under the account id, so the
    key slot carries both halves: "<account_id>/<api_token>". */
 function cfSplit(key) {
-  const i = key.indexOf("/");
-  if (i <= 0) throw new NetError("BADREQ", "cloudflare key must be account_id/token");
-  return { acct: key.slice(0, i), token: key.slice(i + 1) };
+  const mm = String(key).trim().match(/^([A-Za-z0-9_-]{6,64})[/:\s]+([A-Za-z0-9._-]{10,})$/);
+  if (!mm) throw new NetError("BADREQ", "cloudflare key unreadable — paste the token alone (Gunther auto-finds the account) or account_id/token");
+  return { acct: mm[1], token: mm[2] };
+}
+
+/* Cloudflare's chat URL needs an account id in the path, but an Account API
+   Token can TELL us which accounts it governs — so a bare token is enough:
+   one free GET /accounts resolves and caches it, and we rewrite the stored
+   key to acct/token so the rest of the machinery never notices. */
+const cfAcctCache = new Map();
+async function ensureCfAccount(m) {
+  const k = (state.keys[m.id] || "").trim();
+  if (!k || /^[A-Za-z0-9_-]{6,64}[/:\s]+[A-Za-z0-9._-]{10,}$/.test(k)) return; // empty or already resolved
+  const Http = nativeHttp();
+  const u = "https://api.cloudflare.com/client/v4/accounts?per_page=10";
+  let j = null;
+  try {
+    if (Http) {
+      const r = await Http.request({ url: u, method: "GET", headers: { authorization: "Bearer " + k } });
+      j = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+      if (r.status >= 400) throw new Error("accounts lookup returned status " + r.status);
+    } else {
+      const r = await fetch(u, { headers: { authorization: "Bearer " + k } });
+      j = await r.json();
+      if (!r.ok) throw new Error("accounts lookup returned status " + r.status);
+    }
+  } catch (e) {
+    throw new NetError("AUTH", "couldn't auto-find the Cloudflare account — " + (e.message || e) + " · paste account_id/token from the dashboard instead");
+  }
+  const acct = j && j.success && Array.isArray(j.result) && j.result[0] && j.result[0].id;
+  if (!acct) throw new NetError("AUTH", "Cloudflare token can't list accounts — mint it as an Account API Token with Workers AI access, or paste account_id/token");
+  cfAcctCache.set(k, acct);
+  state.keys[m.id] = acct + "/" + k;
 }
 function openaiBase(m, key) {
   const v = VENDORS[m.provider];
@@ -144,7 +174,7 @@ export function explainStatus(status, raw, provider) {
   if (status === 401 || status === 403) {
     let hint = "";
     if (provider === "groq") hint = " — new account? tap the verification link in Gmail, then create a fresh key";
-    if (provider === "cloudflare") hint = " — key must be pasted as account_id/token";
+    if (provider === "cloudflare") hint = " — token rejected; it needs Workers AI: Read + Edit, or paste account_id/token";
     return "key rejected (" + status + ")" + (msg ? " — " + msg : "") + hint;
   }
   if (status === 404) return "model id not found (404)" + (msg ? " — " + msg : "") + " — patch it in FLEET";
@@ -174,6 +204,10 @@ function openAIMessages(system, messages) {
 }
 
 async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
+  if (m.provider === "cloudflare") {
+    await ensureCfAccount(m);
+    key = (state.keys[m.id] || "").trim();
+  }
   const headers = { "content-type": "application/json", authorization: "Bearer " + openaiAuth(m, key) };
   const inApp = typeof location !== "undefined" && location.hostname === "localhost";
   if (m.provider === "openrouter" && !inApp) {
@@ -257,6 +291,9 @@ async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
     if (e instanceof NetError) throw e;
     if (e.name === "AbortError") afterAbort(ac, userSignal);
     throw new NetError("NETWORK", "stream broken — " + (e.message || e));
+  }
+  if (!text.trim() && finish !== "tool_calls") {
+    throw new NetError("TRANSIENT", "provider answered with an empty completion — rotating");
   }
   return finishRes(m, { text, usage, finish }, t0, opts);
 }
@@ -383,7 +420,7 @@ export async function call(m, opts) {
 
 /** Key test: a one-token completion with a tight budget. */
 export async function ping(m) {
-  const key = (state.keys[m.id] || "").trim();
+  let key = (state.keys[m.id] || "").trim();
   if (!key) return { ok: false, note: "no " + m.provider + " key anywhere — paste one in any " + m.provider + " row" };
   const modelId = effectiveId(m, state.linePatches);
   const ac = new AbortController();
@@ -408,6 +445,10 @@ export async function ping(m) {
         }
       );
     } else {
+      if (m.provider === "cloudflare") {
+        await ensureCfAccount(m);
+        key = (state.keys[m.id] || "").trim() || key;
+      }
       const headers = { "content-type": "application/json", authorization: "Bearer " + openaiAuth(m, key) };
       const inApp = typeof location !== "undefined" && location.hostname === "localhost";
       if (m.provider === "openrouter" && !inApp) {
@@ -418,7 +459,8 @@ export async function ping(m) {
       const pbody = {
         model: modelId,
         messages: [{ role: "user", content: "Reply with the single word: OK" }],
-        max_tokens: 4,
+        // agentic systems may run tools before speaking; 4 tokens would truncate them into silence
+        max_tokens: /^groq\/compound/.test(modelId) ? 128 : 4,
         temperature: 0,
       };
       const Http = nativeHttp();
