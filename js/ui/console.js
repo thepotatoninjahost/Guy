@@ -25,6 +25,7 @@ const EXEC_SYSTEM = [
 
 let controller = null;
 let planAbort = false;
+let lastTurnText = ""; // whatever the operator last asked — holdable if the fleet can't answer
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -137,6 +138,12 @@ function showError(shell, err) {
       if (lastUser) send(lastUser.content, true);
     });
     wrap.appendChild(btn);
+    const holdBtn = document.createElement("button");
+    holdBtn.className = "btn btn--sm";
+    holdBtn.textContent = "HOLD FOR A LINE";
+    holdBtn.title = "the console keeps this turn and runs it itself the moment any line frees";
+    holdBtn.addEventListener("click", () => holdLetter());
+    wrap.appendChild(holdBtn);
   }
   shell.body.innerHTML = "";
   shell.body.appendChild(wrap);
@@ -256,11 +263,22 @@ async function runChat(userMsg) {
       onDelta: (t) => shell.appendDelta(t),
       onRotate: (info) => {
         shell.setRotate(info.from, info.to);
+        // the building taps you on the wrist when a line hands off mid-turn
+        try {
+          if (navigator.vibrate) navigator.vibrate([14, 60, 14]);
+        } catch {
+          /* no haptics, no problem */
+        }
       },
       onStatus: renderTurnbar,
     });
     shell.setLine(res.model);
     finalizeAgent(shell, res);
+    try {
+      if (navigator.vibrate) navigator.vibrate(12);
+    } catch {
+      /* no haptics, no problem */
+    }
     state.thread.push({
       role: "assistant",
       content: res.text,
@@ -476,6 +494,66 @@ async function runPlan(goal) {
   syncEmpty();
 }
 
+/* ---------- airgap: the fleet can be full, your words never get lost ---------- */
+function holdLetter() {
+  const text = String(lastTurnText || "").trim();
+  if (!text) return;
+  if (state.hold.some((j) => j.text === text)) {
+    toast("That letter is already held", "warn");
+    return;
+  }
+  state.hold.push({ at: Date.now(), text });
+  while (state.hold.length > 10) state.hold.shift();
+  scheduleSave();
+  addLog("info", "SESSION", "letter held — the console will run it the moment a line frees");
+  toast("HELD — queued; the fleet runs it the second a line opens", "ok");
+  renderHold();
+}
+
+function renderHold() {
+  const bar = document.querySelector("[data-holdbar]");
+  if (!bar) return;
+  bar.innerHTML = "";
+  bar.hidden = !state.hold.length;
+  if (!state.hold.length) return;
+  const head = document.createElement("span");
+  head.className = "holdbar__n";
+  head.textContent = state.hold.length + (state.hold.length === 1 ? " letter held" : " letters held");
+  const note = document.createElement("span");
+  note.className = "holdbar__note";
+  note.textContent = "runs itself the moment a line frees — or run one now";
+  bar.append(head, note);
+  state.hold.forEach((j, i) => {
+    const chip = document.createElement("span");
+    chip.className = "holditem";
+    const t = document.createElement("b");
+    t.textContent = j.text; // the WHOLE first line of it — held text is never clipped
+    const time = document.createElement("i");
+    time.textContent = fmtClockHM(new Date(j.at));
+    const run = document.createElement("button");
+    run.type = "button";
+    run.textContent = "RUN NOW";
+    run.addEventListener("click", () => {
+      state.hold.splice(i, 1);
+      scheduleSave();
+      renderHold();
+      send(j.text, true);
+    });
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "holditem__x";
+    drop.textContent = "✕";
+    drop.title = "discard this held letter";
+    drop.addEventListener("click", () => {
+      state.hold.splice(i, 1);
+      scheduleSave();
+      renderHold();
+    });
+    chip.append(t, time, run, drop);
+    bar.appendChild(chip);
+  });
+}
+
 /* ---------- public API ---------- */
 
 export async function send(raw, force) {
@@ -488,6 +566,7 @@ export async function send(raw, force) {
     if (window.__gunther && window.__gunther.bays) window.__gunther.bays.openBay("a");
     return;
   }
+  lastTurnText = text;
   const userMsg = { role: "user", content: text, at: Date.now() };
   state.thread.push(userMsg);
   feed().appendChild(userShell(userMsg));
@@ -545,14 +624,6 @@ export function initConsole() {
     });
   });
 
-  document.querySelectorAll(".chip-btn[data-prompt]").forEach((c) => {
-    c.addEventListener("click", () => {
-      input.value = c.dataset.prompt;
-      autosize(input);
-      input.focus();
-    });
-  });
-
   // copy buttons, delegated across the whole feed
   feed().addEventListener("click", async (e) => {
     const btn = e.target.closest(".codeblock__copy");
@@ -569,6 +640,21 @@ export function initConsole() {
   state.bus.addEventListener("ledger", updateDuty);
   state.bus.addEventListener("dials", updateDuty);
   state.bus.addEventListener("busy", updateDuty);
+
+  // held letters ride the rotation on their own — no operator needed:
+  // every few seconds, if a line is free and something is queued, run it
+  setInterval(() => {
+    if (state.busy || !state.hold || !state.hold.length) return;
+    const free = select(128);
+    if (!free) return;
+    const j = state.hold.shift();
+    scheduleSave();
+    renderHold();
+    addLog("info", "SESSION", "held letter released onto LINE " + String(free.line).padStart(2, "0"));
+    toast("A line is free — running the held letter", "ok");
+    send(j.text, true);
+  }, 3000);
+  renderHold();
 }
 
 function updateDuty() {
@@ -576,7 +662,6 @@ function updateDuty() {
   const subEl = document.querySelector("[data-duty-sub]");
   const ring = document.querySelector(".ring");
   const ringC = document.querySelector(".ring__c");
-  const modeEl = null; // room header removed by owner directive
 
   const dm = select(128);
   if (modelEl) {
@@ -597,10 +682,6 @@ function updateDuty() {
       modelEl.textContent = "NO LINE AVAILABLE";
       subEl.textContent = "add keys in BAY 01, or wait for a window to clear";
     }
-  }
-  if (modeEl) {
-    modeEl.textContent =
-      state.dials.mode === "pin" ? "PINNED" : state.dials.mode === "drill" ? "DRILL" : "AUTO ROTATION";
   }
   if (ring) {
     const ratio = dm ? headroom(dm).ratio : 0;

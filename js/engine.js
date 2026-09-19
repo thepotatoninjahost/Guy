@@ -52,6 +52,31 @@ function roll(m, now = new Date()) {
   e.feed = e.feed.filter((x) => x.t >= cutoff);
 }
 
+/**
+ * One bucket per UTC hour — the fleet view's 24-hour burn ridge reads this.
+ * Only the engine writes it, so every served turn lands in exactly one bar.
+ */
+function bumpHourHistory(tok, now) {
+  const h = hourId(now);
+  const hist = state.ledger.hist || (state.ledger.hist = []);
+  const last = hist[hist.length - 1];
+  if (last && last.h === h) last.tok += Math.max(1, tok);
+  else hist.push({ h, tok: Math.max(1, tok) });
+  while (hist.length > 24) hist.shift();
+}
+
+/** The last 24 UTC hours of fleet burn, oldest first, the current hour flagged. */
+export function burnRidge(now = new Date()) {
+  const hist = Array.isArray(state.ledger.hist) ? state.ledger.hist : [];
+  const out = [];
+  for (let i = 23; i >= 0; i--) {
+    const h = hourId(new Date(now.getTime() - i * 3600e3));
+    const rec = hist.find((x) => x.h === h);
+    out.push({ h, tok: rec && Number.isFinite(rec.tok) ? rec.tok : 0, now: i === 0 });
+  }
+  return out;
+}
+
 /** Requests + tokens admitted in the sliding 60s window. */
 export function sliding(m, now = new Date()) {
   roll(m, now);
@@ -81,7 +106,7 @@ export function headroom(m, now = new Date()) {
   if (c.rpm) dims.push({ k: "rpm", cap: n(c.rpm), used: n(s.req) });
   if (c.tpm) dims.push({ k: "tpm", cap: n(c.tpm), used: n(s.tok) });
   if (c.rpd) dims.push({ k: "rpd", cap: n(c.rpd), used: n(e.day.req) });
-  if (c.tpd) dims.push({ k: "tpd", cap: n(c.tpd), used: n(e.day.tok) });
+  if (c.tpd) dims.push({ k: "tpd", cap: n(c.tpd), used: n(e.day.prompt) + n(e.day.completion) });
   let ratio = 1;
   for (const d of dims) if (d.cap > 0) ratio = Math.min(ratio, 1 - d.used / d.cap);
   return {
@@ -172,6 +197,7 @@ export function recordSuccess(m, usage, ms) {
   e.hour.prompt += usage.prompt || 0;
   e.hour.completion += usage.completion || 0;
   e.feed.push({ t, tok: Math.max(1, total) });
+  bumpHourHistory(total, now);
   e.lastAt = t;
   e.latency.last = ms;
   e.latency.ema = e.latency.ema ? Math.round(e.latency.ema * 0.7 + ms * 0.3) : ms;

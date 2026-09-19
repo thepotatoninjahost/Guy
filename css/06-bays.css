@@ -24,15 +24,18 @@
 
 .slab__label {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
   padding: 0 10px;
   border-right: 1px solid var(--line);
   flex: none;
 }
 /* the bottom menu now carries the view switch (owner: keep the lower menu) */
 .vtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--f-display);
   font-size: 8.5px;
   font-weight: 700;
@@ -41,7 +44,8 @@
   color: var(--ink-3);
   background: none;
   border: 0;
-  padding: 3px 8px;
+  padding: 5px 10px;
+  min-height: 26px;
   cursor: pointer;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%);
   transition: color 0.16s var(--ease), background 0.16s var(--ease);
@@ -50,6 +54,28 @@
 .vtab[aria-current="true"] {
   color: #191204;
   background: linear-gradient(180deg, var(--brass-2), var(--brass));
+}
+.vtab[aria-current="true"] .vtab__led { display: none; }
+/* alert lamp: lit while a keyed line is tripped, cooling, capped, or a letter is held */
+.vtab__led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(233, 226, 207, 0.16);
+  transition: background 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.vtab__led.is-alert {
+  background: var(--warn);
+  box-shadow: 0 0 9px var(--warn);
+  animation: ledPulse 1.5s var(--ease) infinite;
+}
+@keyframes ledPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vtab__led.is-alert { animation: none; }
 }
 
 .slab__doors { display: flex; flex: 1; min-width: 0; }
@@ -386,7 +412,6 @@
 @media (max-width: 1100px) {
   .keygrid, .led-lines, .dial-grid { grid-template-columns: 1fr; }
   .led-summary { grid-template-columns: repeat(3, 1fr); }
-  .slab__label span { display: none; }
 }
 @media (max-width: 860px) {
   .door__txt, .slab__sys { display: none; }

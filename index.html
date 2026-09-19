@@ -68,7 +68,7 @@
 
 
 
-    <div class="crest__status">      </span>
+    <div class="crest__status">
       <span class="crest__sum">
         <span><b data-session-tok>0</b> tok Σ · <b data-session-req>0</b> req</span>
         <span><b class="hand" data-session-handoffs>0</b> handoffs</span>
@@ -106,6 +106,8 @@
       <div class="room__body">
         <div id="feed" class="feed"></div>
       </div>
+
+      <div class="holdbar" data-holdbar hidden></div>
 
       <div class="bench">
         <div class="bench__mode seg" role="group" aria-label="turn mode">
@@ -155,6 +157,10 @@
             <b data-f-hand>—</b><span>line switches</span>
           </div>
         </div>
+        <div class="ridge" role="img" aria-label="tokens burned per hour, last 24 hours, UTC">
+          <canvas data-ridge></canvas>
+          <span class="ridge__lab">the last 24 hours · one bar per UTC hour · brass is this hour</span>
+        </div>
       </div>
 
       <div id="lines" class="lines"></div>
@@ -169,7 +175,7 @@
 <footer class="slab" aria-label="service level">
   <div class="slab__label" role="group" aria-label="views">
     <button class="vtab" type="button" data-view="console" aria-current="true">Room</button>
-    <button class="vtab" type="button" data-view="fleet" aria-current="false">Fleet</button>
+    <button class="vtab" type="button" data-view="fleet" aria-current="false"><span class="vtab__led" aria-hidden="true"></span>Fleet</button>
   </div>
   <div class="slab__doors">
     <button class="door" type="button" data-bay="a" aria-expanded="false">

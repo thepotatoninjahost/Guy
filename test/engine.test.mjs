@@ -73,6 +73,25 @@ const g3 = byId("gemini-3-flash"); // tpm 250000
 state.ledger[g3.id].feed = Array.from({ length: 10 }, () => ({ t: Date.now() - 1000, tok: 25000 }));
 ok(engine.canAccept(g3, 64) === false, "line at 250K tok/min refuses more tokens");
 
+console.log("\n— daily TOKEN ceiling binds (the tpd truth) —");
+const gq = byId("groq-llama33-70b"); // tpd 200000
+ok(gq.caps.tpd > 0, "groq line publishes a daily token ceiling");
+state.ledger[gq.id].day = { w: engine.dayId(), req: 5, prompt: 120000, completion: 79999 };
+const hrg = engine.headroom(gq);
+const tpdDim = hrg.dims.find((d) => d.k === "tpd");
+ok(tpdDim && tpdDim.used === 199999, "tpd dimension sums prompt+completion — not a phantom day.tok field");
+ok(engine.canAccept(gq, 64) === false, "line at 199,999/200,000 tpd refuses one more request");
+ok(hrg.ratio < 0.01, "a bound tpd collapses headroom to ~0");
+state.ledger[gq.id].day = { w: engine.dayId(), req: 5, prompt: 60000, completion: 60000 };
+ok(engine.canAccept(gq, 64) === true, "half the day spent, the line admits again");
+
+console.log("\n— the 24-hour burn ridge —");
+engine.recordSuccess(byId("or-qwen3-coder"), { prompt: 10, completion: 15, total: 25 }, 400);
+const ridge = engine.burnRidge();
+ok(ridge.length === 24, "ridge is exactly 24 hourly buckets, oldest first");
+ok(ridge[23].now === true && ridge[23].tok >= 25, "the current hour accrues the served turn");
+ok(state.ledger.hist[state.ledger.hist.length - 1].h === engine.hourId(), "history is bucketed by UTC hour");
+
 console.log("\n— trips & backoff ladder —");
 const r1 = byId("groq-r1-70b");
 engine.trip(r1, "quota", "test 429");

@@ -241,6 +241,9 @@ ok(agentMsg.querySelector(".msg__body").textContent.includes("Framed the wall.")
 ok(/\d+ tok/.test(agentMsg.querySelector(".msg__meta").textContent), "reply header shows token count");
 ok(state.ledger.session.tok === 21, "session tokens accrue from the real usage payload");
 ok($("#feed").hidden === false, "the feed is always on screen — nothing to yield to");
+ok(!!document.querySelector('.vtab[data-view="fleet"] .vtab__led'), "the Fleet tab carries its alert lamp");
+ok(!!document.querySelector("canvas[data-ridge]"), "the 24-hour burn ridge is in the fleet header");
+ok(document.querySelector("[data-holdbar]").hidden === true, "the holdbar sleeps until a letter is actually held");
 
 /* ---------- 429 → trip → seamless handoff ---------- */
 fetches = [];
@@ -288,7 +291,7 @@ window.__gunther.console.send("again, please");
 ok(await until(() => state.ledger.session.handoffs > handoffsBefore, 5000), "the 429 was handed off — handoff counter moved");
 ok(fetches.length === 2, "two wire calls: one tripped line, one rotated");
 ok(fetches[0] !== fetches[1], "the retry actually changed lines");
-const tripped = Object.entries(state.ledger).filter(([id, e]) => id !== "session" && e.trip.until > Date.now());
+const tripped = Object.entries(state.ledger).filter(([id, e]) => e && e.trip && e.trip.until > Date.now());
 ok(tripped.length === 3, "the 429 tripped the whole OpenRouter vendor group — one ceiling, not three (no more line-by-line door-knocking)");
 const lastAgent = $$(".feed .msg--agent").pop();
 ok(lastAgent.querySelector(".msg__body").textContent.includes("rotated fine."), "the rotated line delivered the turn");
@@ -392,6 +395,43 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   ok(await until(() => /ANSWERED VIA LINE/i.test(tb().textContent || ""), 8000), "success is announced by the strip too");
 }
 
+/* ---------- airgap: a capped fleet holds your letter, then runs it WITHOUT being asked ---------- */
+{
+  const dayW = new Date().toISOString().slice(0, 10);
+  // drive every keyed line over its daily request ceiling; the Cloudflare
+  // line has no rpd, so flood its sliding minute window instead
+  for (const id of Object.keys(state.keys)) {
+    const e = state.ledger[id];
+    e.day = { w: dayW, req: 1e9, prompt: 0, completion: 0 };
+    e.trip = { n: 0, until: 0, reason: "" };
+    e.feed = [];
+  }
+  state.ledger["cf-llama33-70b"].feed = Array.from({ length: 40 }, () => ({ t: Date.now(), tok: 10 }));
+  state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
+
+  const agentBefore = $$(".feed .msg--agent").length;
+  window.__gunther.console.send("hold this thought", true);
+  const newShell = () => $$(".feed .msg--agent").pop();
+  ok(await until(() => Boolean(newShell().querySelector(".errcard")), 8000), "a capped fleet says so instead of spinning");
+  const holdBtn = [...newShell().querySelectorAll("button")].find((b) => /HOLD/i.test(b.textContent));
+  ok(Boolean(holdBtn), "the failure card offers to hold the letter for a free line");
+  holdBtn.click();
+  ok(await until(() => state.hold.length === 1), "the letter enters the hold queue");
+  ok(state.hold[0].text === "hold this thought", "held text is kept whole — no truncation");
+  ok(!document.querySelector("[data-holdbar]").hidden, "the holdbar surfaces above the bench");
+  holdBtn.click();
+  ok(state.hold.length === 1, "holding the same letter twice is a no-op — one queue, no duplicates");
+
+  // free the fleet; the ticker (3s) must run it on its own
+  for (const id of Object.keys(state.keys)) {
+    state.ledger[id].day = { w: dayW, req: 0, prompt: 0, completion: 0 };
+    state.ledger[id].feed = [];
+  }
+  ok(await until(() => state.hold.length === 0, 12000), "the moment a line freed, gunther ran the held letter by itself");
+  ok(await until(() => $$(".feed .msg--agent").length > agentBefore + 1, 9000), "the released letter produced its reply in the feed");
+  ok(document.querySelector("[data-holdbar]").hidden === true, "the holdbar goes quiet again when the queue empties");
+}
+
 /* ---------- layout law: hidden means hidden, flow means no collisions ---------- */
 {
   const facade = readFileSync("css/04-facade.css", "utf8");
@@ -455,6 +495,12 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   const man = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
   ok(/windowSoftInputMode="adjustResize"/.test(man), "Android keyboard resizes the room instead of panning it away");
   const mobileCss = readFileSync("css/07-mobile.css", "utf8");
+  // THE bottom-menu law: whatever it looks like, it must be VISIBLE on phones.
+  // A hidden switch is a lost app — apk-22/23 lost Fleet exactly this way.
+  const labelBlocks = (mobileCss.match(/\.slab__label \{[^}]*\}/g) || []).join("\n");
+  ok(!/display: *none/.test(labelBlocks), "the bottom menu is NEVER display:none on phones — Room/Fleet stays reachable");
+  const labelBlocksAll = (readFileSync("css/06-bays.css", "utf8").match(/\.slab__label[^{]*\{[^}]*\}/g) || []).join("\n");
+  ok(!/display: *none/.test(labelBlocksAll), "no stylesheet anywhere hides the bottom menu at any width");
   const phoneBlock = mobileCss.slice(mobileCss.indexOf("console room on a phone"));
   ok(/@media \(max-width: 720px\)/.test(phoneBlock), "phone rules stay scoped to phones");
   ok(!/text-overflow: *ellipsis/.test(mobileCss.match(/\.duty__sub \{[^}]*\}/)[0]), "duty caps are never truncated on phones");
@@ -466,6 +512,11 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
     ok(!/room__head|bay__note/.test(htmlNow), "the struck-out chrome stays gone from the markup");
     ok(/fleet__stats/.test(htmlNow) && /data-f-head/.test(htmlNow), "the stat row you asked about is BACK — highlighted meant explain, not delete");
     ok((htmlNow.match(/class="fstat" title=/g) || []).length === 6, "every stat carries its one-sentence explanation");
+    ok(!/crest__status">\s*<\/span>/.test(htmlNow), "no orphan </span> scar in the crest — markup surgery heals clean");
+    ok(/data-ridge/.test(htmlNow) && /\.ridge \{/.test(readFileSync("css/04-facade.css", "utf8")), "the burn ridge has a home AND a stylesheet");
+    ok(/data-holdbar/.test(htmlNow) && /\.holdbar \{/.test(readFileSync("css/04-facade.css", "utf8")), "held letters have a bar of their own");
+    ok(/gunther\.hold\.v1/.test(readFileSync("js/state.js", "utf8")), "the hold queue survives an app restart");
+    ok(/navigator\.vibrate/.test(readFileSync("js/ui/console.js", "utf8")), "handoffs tap the wrist — haptics wired in");
   }
 }
 

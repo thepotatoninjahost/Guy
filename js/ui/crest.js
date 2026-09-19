@@ -6,7 +6,7 @@
 
 import { state } from "../state.js";
 import { MODELS, byId } from "../models.js";
-import { select, headroom } from "../engine.js";
+import { select, headroom, availableCount, isTripped } from "../engine.js";
 import { fmtClock, fmtTok, escapeHtml } from "./render.js";
 
 const VIEWS = { console: "#view-console", fleet: "#view-fleet" };
@@ -29,6 +29,8 @@ export function initCrest() {
   state.bus.addEventListener("ledger", update);
   state.bus.addEventListener("dials", update);
   state.bus.addEventListener("busy", update);
+  // trips expire in silence — poll so the alert lamp also RELINQUISHES
+  setInterval(update, 15000);
   renderStatus();
 }
 
@@ -53,6 +55,21 @@ function renderStatus() {
   if (tok) tok.textContent = fmtTok(s.tok);
   if (req) req.textContent = String(s.req);
   if (hand) hand.textContent = String(s.handoffs);
+
+  // the Fleet tab carries an alert lamp: it glows whenever a keyed line is
+  // tripped, cooling, or pinned at a ceiling — trouble, visible from any room
+  const led = document.querySelector('.vtab[data-view="fleet"] .vtab__led');
+  if (led) {
+    const keyed = MODELS.filter((m) => ((state.keys && state.keys[m.id]) || "").trim());
+    let stressed = false;
+    if (keyed.length) {
+      stressed =
+        availableCount() < keyed.length ||
+        keyed.some((m) => isTripped(m)) ||
+        (state.hold && state.hold.length > 0);
+    }
+    led.classList.toggle("is-alert", stressed);
+  }
 }
 
 function MODELS_KEYED() {

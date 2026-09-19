@@ -14,6 +14,7 @@ const K = {
   log: "gunther.log.v1",
   thread: "gunther.thread.v1",
   lines: "gunther.lines.v1",
+  hold: "gunther.hold.v1",
 };
 
 /* the GUY-era storage prefix — migrated once, then retired */
@@ -91,6 +92,7 @@ export const state = {
   log: [],         // newest last
   thread: [],      // { role, content, at, model?, usage? }
   engine: { lastLine: null },
+  hold: [], // letters held while the whole fleet is at ceiling — run the moment a line frees
   busy: false,
 };
 
@@ -123,6 +125,7 @@ export function load() {
     state.ledger = {};
     for (const m of MODELS) state.ledger[m.id] = { ...blankLedger(), ...(l[m.id] || {}) };
     state.ledger.session = l.session || { tok: 0, req: 0, handoffs: 0, startedAt: Date.now() };
+    state.ledger.hist = Array.isArray(l.hist) ? l.hist.filter((x) => x && x.h).slice(-24) : [];
     // the rolling feed only means anything while it is young
     const cutoff = Date.now() - 130000;
     for (const m of MODELS) {
@@ -131,6 +134,8 @@ export function load() {
       e.feed = e.feed.filter((x) => x.t >= cutoff);
     }
   }
+  state.hold = store.get(K.hold, []);
+  if (!Array.isArray(state.hold)) state.hold = [];
   state.log = store.get(K.log, []);
   if (!Array.isArray(state.log)) state.log = [];
   state.thread = store.get(K.thread, []);
@@ -145,6 +150,7 @@ export function saveAll() {
   store.set(K.log, state.log.slice(-150));
   store.set(K.thread, state.thread.slice(-40).map((t) => ({ ...t, content: String(t.content || "").slice(0, 60000) })));
   store.set(K.lines, state.linePatches);
+  store.set(K.hold, state.hold.slice(-10));
 }
 export function scheduleSave() {
   clearTimeout(saveTimer);

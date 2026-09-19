@@ -62,11 +62,14 @@ html {
   .bench__send, .bench__stop { width: 46px; height: 46px; }
   .bench__send svg, .bench__stop svg { width: 18px; height: 18px; }
 
-  /* ---------- fleet: each line becomes a card ---------- */
-  .fleet__title { font-size: 23px; }
+  /* ---------- fleet: the explained header band, then line cards ---------- */
+  .fleet__head { padding: 10px 12px 9px; gap: 9px 16px; }
   .fleet__lede { font-size: 9.5px; }
-  .fleet__stats { gap: 10px 20px; }
-  .fstat b { font-size: 19px; }
+  .fleet__stats { gap: 8px 16px; }
+  .fstat b { font-size: 15px; }
+  .fstat span { font-size: 7.5px; letter-spacing: 0.12em; }
+  .ridge { margin-top: 4px; }
+  .ridge__lab { position: static; display: block; margin-bottom: 2px; }
   .lines { padding: 4px 6px 12px; }
 
   .line {
@@ -103,8 +106,16 @@ html {
     min-height: var(--slab-h);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  .slab__label { padding: 0 12px; gap: 1px; }
-  .slab__label b { font-size: 9px; letter-spacing: 0.2em; }
+  /* the bottom menu keeps the ONLY view switch — it wraps onto its own row
+     above the doors instead of being hidden (a hidden switch is a lost app) */
+  .slab { flex-wrap: wrap; }
+  .slab__label {
+    width: 100%; order: -1;
+    justify-content: center; gap: 8px;
+    padding: 5px 12px 4px;
+    border-right: 0; border-bottom: 1px solid var(--line);
+  }
+  .vtab { min-height: 30px; padding: 6px 18px; font-size: 9.5px; }
   .door__glyph { width: 22px; }
   .door__glyph svg { width: 22px; height: 22px; }
 
@@ -151,7 +162,8 @@ html {
   .duty__stat span { font-size: 7.5px; }
   .ringwrap { width: 34px; height: 34px; }
   /* bench */
-  .slab__label { display: none; }
+  .holdbar { padding: 8px 12px; gap: 6px 8px; }
+  .holditem { font-size: 9.5px; }
   .door { flex-direction: column; justify-content: center; align-items: center; gap: 4px; padding: 8px 3px 7px; min-width: 0; }
   .door__txt { gap: 1px; align-items: center; min-width: 0; }
   .door__name { font-size: 7.5px; letter-spacing: 0.1em; white-space: nowrap; }

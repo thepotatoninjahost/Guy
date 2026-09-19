@@ -10,6 +10,7 @@ import { state, addLog, scheduleSave } from "../state.js";
 import { MODELS, byId, effectiveId, VENDORS } from "../models.js";
 import {
   headroom,
+  burnRidge,
   isTripped,
   tripRemaining,
   availableCount,
@@ -28,6 +29,42 @@ export function initFleet() {
   state.bus.addEventListener("ledger", update);
   state.bus.addEventListener("dials", update);
   state.bus.addEventListener("lines", update);
+  window.addEventListener("resize", drawRidge);
+}
+
+/* ---------- the ridge: this fleet's day, hour by hour, in pure canvas ---------- */
+let ridgeContextLost = false;
+function drawRidge() {
+  if (ridgeContextLost) return;
+  const c = document.querySelector("canvas[data-ridge]");
+  if (!c) return;
+  const g = c.getContext ? c.getContext("2d") : null;
+  if (!g) {
+    ridgeContextLost = true; // no 2d canvas here (test rigs, hardened webviews) — stop asking
+    return;
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(120, Math.floor(c.clientWidth || 320));
+  const h = 34;
+  if (c.width !== w * dpr || c.height !== h * dpr) {
+    c.width = w * dpr;
+    c.height = h * dpr;
+  }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const bars = burnRidge();
+  const max = Math.max(1, ...bars.map((b) => b.tok));
+  const bw = (w - 46) / 24;
+  bars.forEach((b, i) => {
+    const x = Math.round(i * (bw + 2));
+    const bh = b.tok > 0 ? Math.max(2, Math.round((b.tok / max) * (h - 4))) : 1;
+    g.fillStyle = b.now
+      ? "rgba(240, 194, 110, 0.95)"
+      : b.tok > 0
+        ? "rgba(140, 170, 220, 0.34)"
+        : "rgba(140, 170, 220, 0.12)";
+    g.fillRect(x, h - bh, Math.max(2, Math.round(bw)), bh);
+  });
 }
 
 function buildRows() {
@@ -234,6 +271,7 @@ function update() {
     if (dayRatio !== null && hr.hasKey) worst = Math.min(worst, dayRatio);
   }
   set("[data-f-head]", Math.round(worst * 100) + "%");
+  drawRidge();
 }
 
 function setMeter(el, ratio) {
