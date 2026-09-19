@@ -25,3 +25,12 @@ point gets a scrim, a frame or a z-shadow — not a coin flip.
   Service Slab bays. The main view stays pure and striking.
 - Everything on a Galaxy S25 first: one thumb, no hover, safe areas respected.
 - Zero placeholders in code; complete, robust blocks only.
+
+## Layout law (born from the 2026-09-19 phone screenshots)
+- `hidden` must mean `hidden`: any element given `display:` in CSS needs an
+  explicit `[hidden] { display: none }` escape, or it will render on top of
+  its replacement forever.
+- Overlap is decoration only — glows, frames, hairlines. Two text-bearing
+  surfaces NEVER occupy the same band; if a lane is tight, it scrolls.
+- Fix a collision with LAYOUT, never with an opaque background over the
+  wound. Glass stays glass: fills under 0.45 alpha with backdrop blur.

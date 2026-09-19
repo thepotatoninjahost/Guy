@@ -165,10 +165,10 @@ body.busy .ring { animation: spinslow 1.7s linear infinite; }
 .msg--user .msg__foot { margin-top: 6px; text-align: right; font-family: var(--f-mono); font-size: 9.5px; color: var(--ink-3); }
 
 .msg--agent {
-  background: rgba(10, 15, 26, 0.5);
+  background: rgba(13, 19, 31, 0.30);
   border: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
 .msg__head {
@@ -230,7 +230,9 @@ body.busy .ring { animation: spinslow 1.7s linear infinite; }
   margin: 14px 0;
   border: 1px solid var(--line);
   border-left: 3px solid var(--brass-dim);
-  background: #070b13;
+  background: rgba(8, 12, 20, 0.45);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 .codeblock__bar {
   display: flex;
@@ -324,6 +326,11 @@ body.busy .ring { animation: spinslow 1.7s linear infinite; }
 /* ============================================================
    EMPTY STATE — the unfurnished room
    ============================================================ */
+/* hidden MUST mean hidden: a display on .empty would otherwise beat the
+   UA [hidden] rule, leaving the hero state stacked in the same space as
+   the live conversation — the overlap the phone screenshots caught. */
+.empty[hidden] { display: none; }
+
 .empty {
   flex: 1;
   display: flex;

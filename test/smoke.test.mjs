@@ -392,6 +392,25 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   ok(await until(() => /ANSWERED VIA LINE/i.test(tb().textContent || ""), 8000), "success is announced by the strip too");
 }
 
+/* ---------- layout law: hidden means hidden, flow means no collisions ---------- */
+{
+  const facade = readFileSync("css/04-facade.css", "utf8");
+  const mobile = readFileSync("css/07-mobile.css", "utf8");
+  ok(/\.empty\[hidden\] \{ *display: *none/.test(facade), ".empty has an explicit [hidden] escape (root cause of the overlap)");
+  const feedBlock = mobile.match(/\.empty \{[^}]*\}/)[0];
+  ok(!/overflow: hidden/.test(feedBlock), "mobile hero scrolls instead of clipping text mid-line");
+  for (const src of [facade, mobile]) {
+    const bands = src.match(/(\.empty__sub|\.empty__chips|\.chip-btn|\.turnbar|\.msg__head|\.feed) \{[^}]*\}/g) || [];
+    for (const b of bands) {
+      ok(!/margin-top: *-/.test(b) && !/position: *absolute/.test(b), "no negative-margin/absolute trickery in " + b.slice(0, b.indexOf(" {")));
+    }
+  }
+  ok(/rgba\(13, 19, 31, 0\.30\)/.test(facade) && /blur\(14px\)/.test(facade), "agent bubbles are translucent glass again (no black cover-ups)");
+  ok(!/background: *#070b13/.test(facade), "code blocks shed the opaque slab fill");
+}
+/* and behaviorally: once anything is on screen, the hero must be hidden */
+ok($("#empty").hidden === true || state.thread.length === 0, "hero yields to the live conversation");
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 for (const t of $$(".toasts .toast")) t.remove?.();
 process.exit(failed ? 1 : 0);

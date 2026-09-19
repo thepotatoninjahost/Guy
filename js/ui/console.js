@@ -492,10 +492,12 @@ export async function send(raw, force) {
     if (window.__gunther && window.__gunther.bays) window.__gunther.bays.openBay("a");
     return;
   }
-  syncEmpty();
   const userMsg = { role: "user", content: text, at: Date.now() };
   state.thread.push(userMsg);
   feed().appendChild(userShell(userMsg));
+  /* the bubble the user just sent must be on screen NOW — not after the
+     turn completes. push first, then sync: the hero yields instantly. */
+  syncEmpty();
   scrollFeed();
   scheduleSave();
 
