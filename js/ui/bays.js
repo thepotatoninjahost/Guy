@@ -46,8 +46,18 @@ export function initBays() {
 
 /* ---------- sheet machinery ---------- */
 
-export function openBay(id) {
-  id = id || lastBay || "a";
+export function openBay(rawId) {
+  /* the Service tab and ctrl+K call openBay() with no id — it used to raise
+     an EMPTY sheet (no bay matched undefined). Default to the last bay used,
+     credentials on first open. */
+  const known = ["a", "b", "c", "d"];
+  let id = known.includes(rawId)
+    ? rawId
+    : known.includes(openBayId)
+      ? openBayId
+      : known.includes(lastBay)
+        ? lastBay
+        : "a";
   const sheet = document.querySelector(".sheet");
   if (!sheet) return;
   if (openBayId === id) {

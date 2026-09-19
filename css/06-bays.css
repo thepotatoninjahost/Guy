@@ -216,7 +216,7 @@
 .keyrow.is-pinged-bad { border-color: rgba(255, 109, 104, 0.35); }
 
 .keyrow__idx { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
-.keyrow__name { font-family: var(--f-display); font-size: 12.5px; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.keyrow__name { font-family: var(--f-display); font-size: 12.5px; font-weight: 600; color: var(--ink); min-width: 0; white-space: normal; }
 .keyrow__name em { display: block; font-style: normal; font-family: var(--f-mono); font-size: 9px; color: var(--ink-3); letter-spacing: 0.12em; margin-top: 1px; }
 .keyrow__field { position: relative; display: flex; align-items: center; min-width: 0; }
 .keyrow__in {
@@ -411,11 +411,10 @@
   min-height: 12px;
   margin-top: 2px;
   font-size: 10px;
+  line-height: 1.55;
   letter-spacing: 0.02em;
   color: var(--bone-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
 }
 .keyrow__note.is-ok { color: #7ddba3; }
 .keyrow__note.is-bad { color: #ff928f; }

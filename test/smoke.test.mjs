@@ -411,6 +411,52 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
 /* and behaviorally: once anything is on screen, the hero must be hidden */
 ok($("#empty").hidden === true || state.thread.length === 0, "hero yields to the live conversation");
 
+/* ---------- every surface opens, no window is empty, no error escapes ---------- */
+{
+  const errs = [];
+  window.addEventListener("error", (e) => errs.push(String(e && e.message)));
+  process.on("unhandledRejection", (r) => errs.push("rejection: " + r));
+
+  // Service tab: must open a FILLED bay, never an empty sheet
+  document.querySelector('.tab[data-view="service"]').click();
+  await until(() => document.querySelector(".sheet").classList.contains("open"));
+  const active = document.querySelector(".bay.active");
+  ok(!!active && active.dataset.bay === "a", "Service tab raises a real bay (credentials), not an empty window");
+  ok(active.querySelectorAll(".keyrow").length === 10, "the credentials bay carries all ten rows");
+  // each bay opens with content
+  for (const [id, probe] of [["b", "#ledLines .ledline"], ["c", ".dial-grid"], ["d", "#log .logrow"]]) {
+    window.__gunther.bays.openBay(id);
+    const el = document.querySelector(".bay.active");
+    ok(el && el.dataset.bay === id, "bay " + id + " opens active");
+    const cnt = id === "b" ? document.querySelectorAll("#ledLines > *").length : el.querySelectorAll("*").length;
+    ok(cnt > 0, "bay " + id + " is not empty");
+  }
+  document.querySelector(".sheet__close").click();
+  await until(() => !document.querySelector(".sheet").classList.contains("open"));
+  ok(!document.querySelector(".sheet").classList.contains("open"), "sheet closes back to the pure view");
+
+  // Fleet view renders its ten cards
+  location.hash = "#/fleet";
+  await until(() => !document.querySelector("#view-fleet").hidden);
+  ok(document.querySelectorAll("#lines .line").length === 10, "fleet view shows ten line cards");
+  location.hash = "#/console";
+  await until(() => !document.querySelector("#view-console").hidden);
+  ok(!document.querySelector("#empty").hidden || state.thread.length > 0, "console view returns with hero or thread visible");
+
+  await new Promise((r) => setTimeout(r, 120));
+  ok(errs.length === 0, "no uncaught errors while touring every surface" + (errs.length ? " — " + errs.join(" | ") : ""));
+
+  // regression guards on the shipped sources
+  const man = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+  ok(/windowSoftInputMode="adjustResize"/.test(man), "Android keyboard resizes the room instead of panning it away");
+  const mobileCss = readFileSync("css/07-mobile.css", "utf8");
+  const phoneBlock = mobileCss.slice(mobileCss.indexOf("console room on a phone"));
+  ok(/@media \(max-width: 720px\)/.test(phoneBlock), "phone rules stay scoped to phones");
+  ok(!/text-overflow: *ellipsis/.test(mobileCss.match(/\.duty__sub \{[^}]*\}/)[0]), "duty caps are never truncated on phones");
+  const baysCss = readFileSync("css/06-bays.css", "utf8");
+  ok(!/white-space: *nowrap/.test(baysCss.match(/\.keyrow__note \{[^}]*\}/)[0]), "ping verdict notes can wrap — verdicts never get cut");
+}
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 for (const t of $$(".toasts .toast")) t.remove?.();
 process.exit(failed ? 1 : 0);
