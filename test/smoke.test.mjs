@@ -360,6 +360,38 @@ ok($$(".plan").length === 1, "the plan tile rendered once");
 
 ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block");
 
+/* ---------- never silent: the turnbar narrates, the watchdog rotates ---------- */
+{
+  const tb = () => document.querySelector(".turnbar");
+  ok(!!tb(), "activity strip exists above the feed");
+  const savedKeys = { ...state.keys };
+  const savedFetch = global.fetch;
+  const savedPin = state.dials.mode;
+  const savedFw = state.dials.firstWordMs;
+  state.keys = {};
+  state.keys["gemini-25-flash"] = "AIza-test-watchdog";
+  state.dials.mode = "auto";
+  state.dials.uiMode = "chat";
+  state.dials.firstWordMs = 140;
+  state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
+  const hang = () => new Promise(() => {}); // black-holed connection: never resolves, never errors
+  global.fetch = (u) => (String(u).includes("generativelanguage") ? hang() : Promise.reject(new TypeError("blocked")));
+
+  window.__gunther.console.send("prove you are working", true);
+  ok(await until(() => /selecting|contacting|rotating/i.test(tb().textContent || ""), 2000), "strip narrates the instant a task is sent");
+  const verdict = await until(() => tb().dataset.state === "halt", 15000);
+  if (!verdict) console.log("TBDBG", tb().dataset.state, JSON.stringify(tb().textContent));
+  ok(verdict, "hung lines become a visible verdict instead of dead silence");
+  ok(/CEILING|HALTED|refused/i.test(tb().textContent || ""), "the halt names the reason on the strip itself");
+
+  global.fetch = savedFetch;
+  state.keys = savedKeys;
+  state.dials.firstWordMs = savedFw || 25000;
+  state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
+  window.__gunther.console.send("answer me", true);
+  ok(await until(() => /ANSWERED VIA LINE/i.test(tb().textContent || ""), 8000), "success is announced by the strip too");
+}
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 for (const t of $$(".toasts .toast")) t.remove?.();
 process.exit(failed ? 1 : 0);

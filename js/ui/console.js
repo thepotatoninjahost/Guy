@@ -156,6 +156,54 @@ function finalizeAborted(shell) {
 function feed() {
   return $("#feed");
 }
+
+/* ---------- turnbar: the app is never silent about being alive ---------- */
+let turnbarEl = null;
+let turnbarFade = null;
+const pad2 = (n) => String(n).padStart(2, "0");
+function ensureTurnbar() {
+  if (turnbarEl && turnbarEl.isConnected) return turnbarEl;
+  turnbarEl = document.createElement("div");
+  turnbarEl.className = "turnbar";
+  turnbarEl.id = "turnbar";
+  turnbarEl.innerHTML = '<span class="turnbar__dot"></span><b class="turnbar__t"></b>';
+  const f = feed();
+  (f && f.parentElement ? f.parentElement : document.body).insertBefore(turnbarEl, f || null);
+  return turnbarEl;
+}
+function renderTurnbar(info) {
+  const el = ensureTurnbar();
+  if (turnbarFade) {
+    clearTimeout(turnbarFade);
+    turnbarFade = null;
+  }
+  const L = (m) => "LINE " + pad2(m.line) + " · " + String(m.name || "").toUpperCase();
+  let txt = "";
+  let st = "work";
+  if (info.phase === "routing") txt = "◇ selecting lines…";
+  else if (info.phase === "contact") txt = "◈ contacting " + L(info.model) + " — try " + info.attempt + "/" + info.max;
+  else if (info.phase === "retry") txt = "↻ rotating to " + L(info.model) + " — try " + info.attempt + "/" + info.max;
+  else if (info.phase === "streaming") txt = "▸ " + L(info.model) + " answering";
+  else if (info.phase === "failed") {
+    txt = "✕ " + L(info.model) + " — " + (info.note || "failed");
+    st = "failed";
+  } else if (info.phase === "answered") {
+    txt = "✓ answered via " + L(info.model) + " · " + ((info.ms || 0) / 1000).toFixed(1) + "s" + (info.attempts > 1 ? " · " + info.attempts + " tries" : "");
+    st = "answered";
+  } else if (info.phase === "halt") {
+    txt = "⛔ turn halted — " + (info.note || "see the red card above");
+    st = "halt";
+  }
+  el.dataset.state = st;
+  el.querySelector(".turnbar__t").textContent = txt;
+  el.hidden = false;
+  if (st === "answered") {
+    turnbarFade = setTimeout(() => {
+      el.hidden = true;
+    }, 3200);
+  }
+  scrollFeed();
+}
 function emptyState() {
   return $("#empty");
 }
@@ -199,6 +247,7 @@ async function runChat(userMsg) {
   scrollFeed();
   controller = new AbortController();
   setBusy(true);
+  renderTurnbar({ phase: "routing" });
   const history = buildHistory();
   try {
     const res = await dispatch({
@@ -212,6 +261,7 @@ async function runChat(userMsg) {
       onRotate: (info) => {
         shell.setRotate(info.from, info.to);
       },
+      onStatus: renderTurnbar,
     });
     shell.setLine(res.model);
     finalizeAgent(shell, res);
@@ -224,8 +274,13 @@ async function runChat(userMsg) {
     });
     scheduleSave();
   } catch (err) {
-    if (err.code === "ABORT") finalizeAborted(shell);
-    else showError(shell, err);
+    if (err.code === "ABORT") {
+      finalizeAborted(shell);
+      renderTurnbar({ phase: "halt", note: "stopped by operator" });
+    } else {
+      showError(shell, err);
+      renderTurnbar({ phase: "halt", note: (err.msg || err.note || err.code || "").slice(0, 160) });
+    }
     addLog("err", "SESSION", (err.code || "ERR") + " — " + (err.msg || err.note || err.message || "").slice(0, 160));
   } finally {
     setBusy(false);
@@ -294,6 +349,7 @@ function setStep(planEl, i, st, lineText) {
 }
 
 async function runPlan(goal) {
+  renderTurnbar({ phase: "routing" });
   const f = feed();
 
   // 1) plan the build
@@ -370,6 +426,7 @@ async function runPlan(goal) {
         temperature: state.dials.temperature,
         signal: controller.signal,
         onDelta: (t) => stepShell.appendDelta(t),
+        onStatus: renderTurnbar,
       });
       stepShell.setLine(res.model);
       finalizeAgent(stepShell, res);

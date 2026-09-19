@@ -26,7 +26,12 @@ import { call } from "./transport.js";
 
 export const QUOTA_BACKOFF = [60e3, 5 * 60e3, 30 * 60e3, 4 * 3600e3, 24 * 3600e3];
 export const SOFT_BACKOFF = [15e3, 60e3, 5 * 60e3];
-const MAX_HANDOFFS = 3; // initial attempt + two rotations
+const MAX_HANDOFFS = 6; // initial attempt + five rotations — 10 lines deserve a real sweep
+const FIRST_WORD_DEFAULT_MS = 25e3; // a line that says nothing for this long is not thinking, it is hanging
+function firstWordMs() {
+  const d = state.dials && state.dials.firstWordMs;
+  return typeof d === "number" && d > 0 ? d : FIRST_WORD_DEFAULT_MS;
+}
 
 /* ---------- window math ---------- */
 
@@ -291,19 +296,61 @@ export async function dispatch(opts) {
       recordHandoff();
       addLog("info", "ENGINE", `HANDOFF LINE ${pad2(from.line)} → LINE ${pad2(m.line)} (${lastErr ? lastErr.code : "rotation"})`);
     }
+    if (opts.onStatus) opts.onStatus({ phase: attempt === 0 ? "contact" : "retry", model: m, attempt: attempt + 1, max: MAX_HANDOFFS });
+
+    /* Silence is the enemy: a hostile WebView can black-hole a request for
+       minutes with no error to show. We give every line firstWordMs to say
+       its FIRST word — then rotate, loudly, while the orphaned attempt
+       finishes harmlessly in the background (live=false mutes its deltas). */
+    let sawWord = false;
+    let live = true;
+    const onDelta = opts.onDelta
+      ? (tk) => {
+          if (!live) return;
+          if (!sawWord) {
+            sawWord = true;
+            if (opts.onStatus) opts.onStatus({ phase: "streaming", model: m });
+          }
+          opts.onDelta(tk);
+        }
+      : undefined;
 
     try {
-      const res = await call(m, {
-        system: opts.system,
-        messages: opts.messages,
-        maxTokens: opts.maxTokens,
-        temperature: opts.temperature,
-        signal: opts.signal,
-        onDelta: opts.onDelta,
+      const res = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          live = false;
+          const e = new Error("line " + pad2(m.line) + " said nothing for " + Math.round(firstWordMs() / 1000) + "s");
+          e.code = "TIMEOUT";
+          e.note = "no first word in " + Math.round(firstWordMs() / 1000) + "s — hung connection, rotated off";
+          reject(e);
+        }, firstWordMs());
+        call(m, {
+          system: opts.system,
+          messages: opts.messages,
+          maxTokens: opts.maxTokens,
+          temperature: opts.temperature,
+          signal: opts.signal,
+          onDelta,
+        }).then(
+          (r) => {
+            clearTimeout(timer);
+            resolve(r);
+          },
+          (e) => {
+            clearTimeout(timer);
+            reject(e);
+          }
+        );
       });
+      live = false;
       recordSuccess(m, res.usage, res.ms);
+      if (opts.onStatus) opts.onStatus({ phase: "answered", model: m, ms: res.ms, attempts: attempt + 1 });
       return { ...res, model: m, attempts: attempt + 1 };
     } catch (err) {
+      live = false;
+      if (err && err.code !== "ABORT" && opts.onStatus) {
+        opts.onStatus({ phase: "failed", model: m, note: (err.note || err.msg || err.code || "failed").slice ? String(err.note || err.msg || err.code || "failed").slice(0, 140) : "failed" });
+      }
       lastErr = err;
       lastModel = m;
       if (err.code === "ABORT") throw err;
