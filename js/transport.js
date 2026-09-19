@@ -116,8 +116,13 @@ function openaiAuth(m, key) {
    device. When the shell offers its native HTTP (CapacitorHttp), we hand the
    call to it: no Origin header, no CORS. Streaming still rides the WebView
    when it can; native runs the turn as one complete exchange. */
-const CAP = typeof window !== "undefined" ? window.Capacitor : null;
-const nativeHttp = () => (CAP && CAP.Plugins && CAP.Plugins.Http) || null;
+function nativeHttp() {
+  const CAP = typeof window !== "undefined" ? window.Capacitor : null;
+  if (!CAP || typeof CAP.isNativePlatform !== "function" || !CAP.isNativePlatform()) return null;
+  const P = CAP.Plugins || {};
+  const H = P.CapacitorHttp || P.Http || null;
+  return H && typeof H.request === "function" ? H : null;
+}
 function codeForStatus(status) {
   if (status === 401 || status === 403) return "AUTH";
   if (status === 404) return "MODEL";
@@ -134,20 +139,25 @@ function vendorMsg(raw) {
     return String(raw || "").replace(/\s+/g, " ").trim();
   }
 }
-export function explainStatus(status, raw) {
+export function explainStatus(status, raw, provider) {
   const msg = vendorMsg(raw).slice(0, 120);
-  if (status === 401 || status === 403) return "key rejected (" + status + ")" + (msg ? " — " + msg : "");
+  if (status === 401 || status === 403) {
+    let hint = "";
+    if (provider === "groq") hint = " — new account? tap the verification link in Gmail, then create a fresh key";
+    if (provider === "cloudflare") hint = " — key must be pasted as account_id/token";
+    return "key rejected (" + status + ")" + (msg ? " — " + msg : "") + hint;
+  }
   if (status === 404) return "model id not found (404)" + (msg ? " — " + msg : "") + " — patch it in FLEET";
   if (status === 429) return "quota — valid, just throttled (429)";
   if (status >= 500) return "provider down (" + status + ")" + (msg ? " — " + msg : "");
   return (msg || "HTTP " + status).slice(0, 140);
 }
-function nativePost(url, headers, bodyStr, Http) {
+function nativePost(url, headers, data, Http) {
   return Http.request({
     url,
     method: "POST",
     headers,
-    data: bodyStr,
+    data,
     connectTimeout: 20000,
     readTimeout: HARD_MS,
   }).then((r) => ({
@@ -198,17 +208,18 @@ async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
     // full breath. The work still gets done; it just doesn't trickle.
     let nr;
     try {
-      nr = await nativePost(url, headers, JSON.stringify(Object.assign({}, body, { stream: false })), Http);
+      nr = await nativePost(url, headers, Object.assign({}, body, { stream: false }), Http);
     } catch (e2) {
       throw new NetError("NETWORK", "unreachable — " + (e2.message || e2));
     }
-    if (nr.status < 200 || nr.status >= 300) throw new NetError(codeForStatus(nr.status), explainStatus(nr.status, nr.body));
+    if (nr.status < 200 || nr.status >= 300) throw new NetError(codeForStatus(nr.status), explainStatus(nr.status, nr.body, m.provider));
     let j = {};
     try {
       j = JSON.parse(nr.body);
     } catch {}
     const full = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
-    if (full && opts.onDelta) opts.onDelta(full);
+    if (!full) throw new NetError("TRANSIENT", "native fallback returned an empty body");
+    if (opts.onDelta) opts.onDelta(full);
     return finishRes(
       m,
       { text: full, usage: j.usage || null, finish: (j.choices && j.choices[0] && j.choices[0].finish_reason) || "stop" },
@@ -216,7 +227,7 @@ async function callOpenAI(m, modelId, key, ac, userSignal, opts, t0) {
       opts
     );
   }
-  if (!res.ok) throw new NetError(codeForStatus(res.status), explainStatus(res.status, await res.text().catch(() => "")));
+  if (!res.ok) throw new NetError(codeForStatus(res.status), explainStatus(res.status, await res.text().catch(() => ""), m.provider));
 
   let text = "";
   let usage = null;
@@ -404,21 +415,21 @@ export async function ping(m) {
         headers["x-title"] = "Gunther — Glass House Console";
       }
       const purl = openaiBase(m, key) + "/chat/completions";
-      const pbody = JSON.stringify({
+      const pbody = {
         model: modelId,
         messages: [{ role: "user", content: "Reply with the single word: OK" }],
         max_tokens: 4,
         temperature: 0,
-      });
+      };
       const Http = nativeHttp();
       if (Http) {
         const nr = await nativePost(purl, headers, pbody, Http);
-        if (nr.status < 200 || nr.status >= 300) return { ok: false, note: explainStatus(nr.status, nr.body) };
+        if (nr.status < 200 || nr.status >= 300) return { ok: false, note: explainStatus(nr.status, nr.body, m.provider) };
         return { ok: true, note: "answered (native)" };
       }
-      res = await fetch(purl, { method: "POST", headers, body: pbody, signal: ac.signal });
+      res = await fetch(purl, { method: "POST", headers, body: JSON.stringify(pbody), signal: ac.signal });
     }
-    if (!res.ok) return { ok: false, note: explainStatus(res.status, await res.text().catch(() => "")) };
+    if (!res.ok) return { ok: false, note: explainStatus(res.status, await res.text().catch(() => ""), m.provider) };
     await res.text().catch(() => {});
     return { ok: true, note: "answered" };
   } catch (e) {

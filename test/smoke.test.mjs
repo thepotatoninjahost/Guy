@@ -122,6 +122,34 @@ ok(true, "prefix recognition parks a mis-pasted key in the right vendor group");
 
 ok(!!$("#keygrid").parentElement.querySelector(".keybar"), "get-a-key vendor strip renders above the grid");
 
+/* ---------- in-app native escape: PING routes through CapacitorHttp ---------- */
+let capturedReq = null;
+window.Capacitor = {
+  isNativePlatform: () => true,
+  Plugins: {
+    CapacitorHttp: {
+      request: async (o) => {
+        capturedReq = o;
+        return {
+          status: 200,
+          data: { choices: [{ message: { content: "OK" }, finish_reason: "stop" }], usage: { total_tokens: 5 } },
+        };
+      },
+    },
+  },
+};
+{
+  const orRow = $('.keyrow[data-model="or-llama4-maverick"]');
+  orRow.querySelector(".keyrow__in").value = "sk-or-v1-fake-for-native-path";
+  orRow.querySelector(".keyrow__in").dispatchEvent(new window.Event("input", { bubbles: true }));
+  await until(() => state.keys["or-llama4-maverick"] === "sk-or-v1-fake-for-native-path");
+  orRow.querySelector(".keyrow__ping").click();
+  await until(() => (orRow.querySelector(".keyrow__note").textContent || "").includes("answered (native)"), 6000);
+  ok(!!capturedReq && capturedReq.url.includes("openrouter.ai"), "in-app ping rode the native HTTP plugin, not the WebView");
+  ok(capturedReq.headers.authorization === "Bearer sk-or-v1-fake-for-native-path", "native request carried the bearer token");
+}
+delete window.Capacitor;
+
 /* ---------- a live streaming turn through the stubbed wire ---------- */
 let fetches = [];
 const sse = (payloads) => {

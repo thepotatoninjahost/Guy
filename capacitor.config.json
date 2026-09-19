@@ -25,6 +25,9 @@
     "Keyboard": {
       "resize": "body",
       "resizeOnFullScreen": true
+    },
+    "CapacitorHttp": {
+      "enabled": false
     }
   }
 }
