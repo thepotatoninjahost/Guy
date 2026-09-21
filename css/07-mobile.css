@@ -14,7 +14,9 @@ html {
 @media (max-width: 720px) {
   :root {
     --crest-h: clamp(132px, 18vh, 164px);
-    --slab-h: 52px;
+    /* the slab is TWO rows on phones — tabs above the doors — and the room,
+       the sheet and the toasts all reserve that height through this token */
+    --slab-h: 104px;
   }
 
   * { -webkit-tap-highlight-color: transparent; }
@@ -31,6 +33,9 @@ html {
     column-gap: 10px;
     padding: 8px 14px 6px;
   }
+  /* the ridge used to cut through the wordmark's waist — let it sit below */
+  .crest__line { transform: translateY(13px) scaleY(0.84); transform-origin: bottom; }
+  .crest__sun { top: 15%; }
   .crest__brand { order: 1; }
   .crest__mark { width: 26px; height: 26px; }
   .crest__name { font-size: 21px; letter-spacing: 0.04em; }
@@ -75,14 +80,14 @@ html {
   .fstat b { font-size: 15px; }
   .fstat span { font-size: 7.5px; letter-spacing: 0.12em; }
   .ridge { margin-top: 4px; }
-  .ridge__lab { position: static; display: block; margin-bottom: 2px; }
   .lines { padding: 4px 6px 12px; }
 
   .line {
-    grid-template-columns: 28px 1fr 30px;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
     gap: 6px 10px;
     padding: 11px 8px;
   }
+  .line__status { justify-self: end; margin-right: 2px; font-size: 8.5px; letter-spacing: 0.1em; padding: 4px 6px 3px; }
   .line__idx { font-size: 16px; }
   .line__name { font-size: 13px; }
   .line__vendor { font-size: 9px; }
@@ -115,6 +120,7 @@ html {
   /* the bottom menu keeps the ONLY view switch — it wraps onto its own row
      above the doors instead of being hidden (a hidden switch is a lost app) */
   .slab { flex-wrap: wrap; }
+  .slab__doors { flex: 1 1 100%; } /* basis 100% — forces the second row (flex:1 with basis 0 just squashed the doors to zero width) */
   .slab__label {
     width: 100%; order: -1;
     justify-content: center; gap: 8px;
@@ -171,6 +177,9 @@ html {
   .holdbar { padding: 8px 12px; gap: 6px 8px; }
   .holditem { font-size: 9.5px; }
   .door { flex-direction: column; justify-content: center; align-items: center; gap: 4px; padding: 8px 3px 7px; min-width: 0; }
+  /* the brass grab-bar is a wide-door handle — on the phone icon row it read
+     as a stray gold label stapled to every door */
+  .door::after { display: none; }
   .door__txt { gap: 1px; align-items: center; min-width: 0; }
   .door__name { font-size: 7.5px; letter-spacing: 0.1em; white-space: nowrap; }
   .door__sub { display: none; }

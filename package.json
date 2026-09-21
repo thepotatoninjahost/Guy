@@ -1,7 +1,7 @@
 {
   "name": "gunther-console",
   "version": "1.0.0",
-  "description": "Gunther \u2014 personal autonomous coding console",
+  "description": "Gunther — personal autonomous coding console",
   "directories": {
     "test": "test"
   },
@@ -24,12 +24,15 @@
   "homepage": "https://github.com/thepotatoninjahost/Gunther#readme",
   "type": "module",
   "devDependencies": {
-    "jsdom": "^30.0.1"
+    "jsdom": "^30.0.1",
+    "puppeteer": "^25.11.0"
   },
   "private": "true",
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2"
+    "@capacitor/core": "^8.5.2",
+    "@sparticuz/chromium": "^153.0.0",
+    "puppeteer-core": "^25.11.0"
   }
 }

@@ -58,6 +58,7 @@
 .vtab[aria-current="true"] .vtab__led { display: none; }
 /* alert lamp: lit while a keyed line is tripped, cooling, capped, or a letter is held */
 .vtab__led {
+  display: none; /* an unlit lamp floating between words just looks like a dead pixel */
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -65,6 +66,7 @@
   transition: background 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
 .vtab__led.is-alert {
+  display: inline-block;
   background: var(--warn);
   box-shadow: 0 0 9px var(--warn);
   animation: ledPulse 1.5s var(--ease) infinite;

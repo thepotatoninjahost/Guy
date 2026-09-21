@@ -262,7 +262,8 @@ input[type="range"]::-moz-range-thumb {
   background: linear-gradient(90deg, var(--ice), var(--brass));
   transition: width 0.6s var(--ease);
 }
-.meter.is-hot i { background: linear-gradient(90deg, var(--warn), var(--err)); }
+.meter.is-hot i { background: linear-gradient(90deg, var(--err), #ff9d6e); }
+.meter.is-low i { background: linear-gradient(90deg, var(--brass), var(--warn)); }
 
 /* LEDs */
 .led { width: 9px; height: 9px; border-radius: 50%; flex: none; }

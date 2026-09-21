@@ -57,7 +57,7 @@ function drawRidge() {
   const bw = (w - 46) / 24;
   bars.forEach((b, i) => {
     const x = Math.round(i * (bw + 2));
-    const bh = b.tok > 0 ? Math.max(2, Math.round((b.tok / max) * (h - 4))) : 1;
+    const bh = b.tok > 0 ? Math.max(3, Math.round((b.tok / max) * (h - 4))) : 3;
     g.fillStyle = b.now
       ? "rgba(240, 194, 110, 0.95)"
       : b.tok > 0
@@ -285,7 +285,8 @@ function setMeter(el, ratio) {
   }
   bar.style.opacity = "1";
   bar.style.width = (ratio * 100).toFixed(1) + "%";
-  el.classList.toggle("is-hot", ratio > 0.85);
+  el.classList.toggle("is-hot", ratio < 0.25); // hot = almost out of room
+  el.classList.toggle("is-low", ratio >= 0.25 && ratio < 0.6);
 }
 
 export function clearTripPublic(id) {
