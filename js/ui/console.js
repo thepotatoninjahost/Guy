@@ -7,6 +7,7 @@
 import { state, addLog, scheduleSave, setBusy } from "../state.js";
 import { MODELS, byId, estimateTokens, VENDORS } from "../models.js";
 import { dispatch, headroom, select } from "../engine.js";
+import { getTurnContext } from "./archive.js";
 import { mdToHtml, toast, copyText, escapeHtml, fmtTok, fmtClockHM } from "./render.js";
 
 const PLAN_SYSTEM = [
@@ -252,9 +253,12 @@ async function runChat(userMsg) {
   setBusy(true);
   renderTurnbar({ phase: "routing" });
   const history = buildHistory();
+  // the archive gets first look at the question — learned notes that bear
+  // on it ride in the system prompt; irrelevant ones stay filed
+  const arch = await getTurnContext(userMsg.content);
   try {
     const res = await dispatch({
-      system: state.dials.system,
+      system: state.dials.system + arch.text,
       messages: history,
       estTok: estFor(history),
       maxTokens: state.dials.maxTokens,
@@ -274,6 +278,9 @@ async function runChat(userMsg) {
     });
     shell.setLine(res.model);
     finalizeAgent(shell, res);
+    if (arch.used.length) {
+      shell.metaEl.textContent += " · archive: " + arch.used.length + (arch.used.length === 1 ? " learned note recalled" : " learned notes recalled");
+    }
     try {
       if (navigator.vibrate) navigator.vibrate(12);
     } catch {

@@ -81,6 +81,7 @@ export const DEFAULT_DIALS = {
   maxTokens: 4096,
   system: DEFAULT_SYSTEM,
   uiMode: "chat", // chat | plan
+  useArchive: true, // learned notes ride along on every turn that needs them
 };
 
 export const state = {

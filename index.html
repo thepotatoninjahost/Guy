@@ -167,6 +167,28 @@
     </div>
   </section>
 
+  <!-- ============================================================
+       VIEW 03 · THE ARCHIVE (import · learn · recall)
+       ============================================================ -->
+  <section id="view-archive" class="view" aria-label="archive" hidden>
+    <div class="room frame">
+      <div class="fleet__head">
+        <div class="fleet__lede">hand the building its papers — projects, research, source material. every document is studied chunk by chunk on the fleet's free lines and stored here as learned notes; the room then pulls only the notes a question actually needs. stored on this device, never anywhere else</div>
+        <div class="arch-import">
+          <label class="btn btn--sm btn--brass" for="archFiles">FILE PICKER</label>
+          <input type="file" id="archFiles" multiple hidden accept=".txt,.md,.markdown,.json,.csv,.tsv,.log,.ini,.toml,.yml,.yaml,.xml,.html,.css,.js,.mjs,.ts,.py,.java,.kt,.c,.h,.cpp,.hpp,.rs,.go,.rb,.php,.sh,.bat,.sql,.tex,.srt,.vtt">
+          <button class="btn btn--sm" type="button" id="archPasteBtn">PASTE TEXT</button>
+          <input type="search" id="archSearch" class="arch-search" placeholder="search the learned notes…" aria-label="search learned notes">
+        </div>
+      </div>
+      <div class="arch-paste" id="archPaste" hidden>
+        <textarea spellcheck="false" placeholder="paste anything — a README, a spec, a lecture transcript…"></textarea>
+        <button class="btn btn--sm" type="button" id="archPasteSave">FILE IT</button>
+      </div>
+      <div id="archiveList" class="archlist"></div>
+    </div>
+  </section>
+
 </main>
 
 <!-- ============================================================
@@ -176,6 +198,7 @@
   <div class="slab__label" role="group" aria-label="views">
     <button class="vtab" type="button" data-view="console" aria-current="true">Room</button>
     <button class="vtab" type="button" data-view="fleet" aria-current="false"><span class="vtab__led" aria-hidden="true"></span>Fleet</button>
+    <button class="vtab" type="button" data-view="archive" aria-current="false">Archive</button>
   </div>
   <div class="slab__doors">
     <button class="door" type="button" data-bay="a" aria-expanded="false">
@@ -306,6 +329,14 @@
           <div class="dial-block">
             <h4><b>System Prompt</b> — the agent's soul</h4>
             <textarea id="sysPrompt" class="sysprompt" spellcheck="false"></textarea>
+          </div>
+          <div class="dial-block">
+            <h4><b>Archive</b> — what the room is allowed to remember</h4>
+            <div class="dial-row">
+              <label for="archToggle">learned notes</label>
+              <button id="archToggle" class="btn btn--sm" type="button" data-dial-toggle="useArchive" aria-pressed="true">ON</button>
+              <output data-dialout="useArchive">the fleet studies your documents; each turn recalls only the notes it needs</output>
+            </div>
           </div>
         </div>
       </div>

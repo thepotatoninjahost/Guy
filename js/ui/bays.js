@@ -532,6 +532,15 @@ function bindDials() {
       persistDials();
     });
 
+  const archToggle = document.querySelector("[data-dial-toggle='useArchive']");
+  if (archToggle)
+    archToggle.addEventListener("click", () => {
+      state.dials.useArchive = !(state.dials.useArchive !== false);
+      syncDialUi();
+      persistDials();
+      toast(state.dials.useArchive ? "Archive recall ON — turns carry learned notes again" : "Archive recall OFF — the room answers from the conversation alone");
+    });
+
   const sys = document.querySelector("#sysPrompt");
   if (sys)
     sys.addEventListener("input", () => {
@@ -585,6 +594,17 @@ function persistDials() {
 }
 
 function syncDialUi() {
+  const archToggle = document.querySelector("[data-dial-toggle='useArchive']");
+  if (archToggle) {
+    const on = state.dials.useArchive !== false;
+    archToggle.setAttribute("aria-pressed", String(on));
+    archToggle.textContent = on ? "ON" : "OFF";
+    const out = document.querySelector("[data-dialout='useArchive']");
+    if (out)
+      out.textContent = on
+        ? "the fleet studies your documents; each turn recalls only the notes it needs"
+        : "learned notes stay filed — the room answers from the conversation alone";
+  }
   document.querySelectorAll(".seg button[data-cmode]").forEach((b) => {
     b.setAttribute("aria-pressed", String(b.dataset.cmode === state.dials.mode));
   });

@@ -432,6 +432,77 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   ok(document.querySelector("[data-holdbar]").hidden === true, "the holdbar goes quiet again when the queue empties");
 }
 
+/* ---------- THE ARCHIVE: file it, learn it, and the room remembers ---------- */
+{
+  document.querySelector('.vtab[data-view="archive"]').click();
+  ok(await until(() => !document.querySelector("#view-archive").hidden), "Archive vtab opens the fourth room");
+
+  // 1) paste a document
+  document.querySelector("#archPasteBtn").click();
+  const ta = document.querySelector("#archPaste textarea");
+  ta.value =
+    "# Shipyard notes\n\nThe keel is solid oak, twelve meters, laid in the dry dock.\n\nRivets are copper, hot-driven, spaced 15cm.";
+  document.querySelector("#archPasteSave").click();
+  ok(await until(() => document.querySelectorAll("#archiveList .archdoc").length === 1), "the pasted note is filed as a card");
+
+  // 2) the fleet studies it — through the real dispatch path
+  state.dials.mode = "pin";
+  state.dials.pin = "or-llama4-maverick";
+  state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
+  const archFetches = [];
+  global.fetch = async (url, opts) => {
+    archFetches.push({ url: String(url), body: opts && opts.body ? String(opts.body) : "" });
+    return {
+      ok: true,
+      status: 200,
+      body: sse([
+        JSON.stringify({
+          choices: [{ delta: { content: "### Oak keel\n- The keel is solid oak, twelve meters, laid in the dry dock.\n- Copper rivets, hot-driven, spaced 15cm." } }],
+        }),
+        JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 90, completion_tokens: 40, total_tokens: 130 } }),
+        "[DONE]",
+      ]),
+    };
+  };
+  const learnBtn = [...document.querySelector("#archiveList .archdoc").querySelectorAll("button")].find((b) => /LEARN/.test(b.textContent));
+  learnBtn.click();
+  ok(await until(() => document.querySelector("#archiveList .archdoc").classList.contains("is-learned"), 9000), "the fleet digest turns raw text into learned notes");
+  ok(archFetches.length >= 1 && /learning engine of Gunther/.test(archFetches[0].body), "the digest ran under the LEARN prompt — not a local stub");
+
+  // 3) the room recalls: a later turn carries the fact WITHOUT the operator repeating it
+  const turnBodies = [];
+  global.fetch = async (url, opts) => {
+    turnBodies.push(String(opts && opts.body ? opts.body : ""));
+    return {
+      ok: true,
+      status: 200,
+      body: sse([
+        JSON.stringify({ choices: [{ delta: { content: "oak, twelve meters." } }] }),
+        JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 40, completion_tokens: 6, total_tokens: 46 } }),
+        "[DONE]",
+      ]),
+    };
+  };
+  document.querySelector('.vtab[data-view="console"]').click();
+  await until(() => !document.querySelector("#view-console").hidden);
+  window.__gunther.console.send("what is the keel made of", true);
+  ok(await until(() => turnBodies.length >= 1, 8000), "the later turn goes through the wire");
+  ok(/ARCHIVE — learned material/.test(turnBodies[0]) && /solid oak/.test(turnBodies[0]), "the learned note rode into the turn — the operator never re-typed it");
+  ok(
+    await until(() => /archive: \d+ learned notes? recalled/.test($$(".feed .msg--agent").pop().querySelector(".msg__meta").textContent), 3000),
+    "the reply header credits the archive honestly"
+  );
+
+  // 4) recall stays silent when nothing is relevant
+  const before = turnBodies.length;
+  window.__gunther.console.send("what time is it", true);
+  ok(await until(() => turnBodies.length > before, 8000), "an unrelated question still gets answered");
+  ok(!/ARCHIVE — learned material/.test(turnBodies[turnBodies.length - 1]), "…and the archive stays filed when nothing bears on it — no noise in the prompt");
+  state.dials.mode = "auto";
+  state.dials.pin = null;
+  state.bus.dispatchEvent(new CustomEvent("dials", { detail: {} }));
+}
+
 /* ---------- layout law: hidden means hidden, flow means no collisions ---------- */
 {
   const facade = readFileSync("css/04-facade.css", "utf8");
@@ -460,7 +531,7 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   await until(() => document.querySelector(".sheet").classList.contains("open"));
   const active = document.querySelector(".bay.active");
   ok(!!active && active.dataset.bay === "a", "the credentials door raises a real bay, not an empty window");
-  ok(document.querySelectorAll(".slab__label .vtab").length === 2, "bottom menu carries the Room/Fleet switch");
+  ok(document.querySelectorAll(".slab__label .vtab").length === 3, "bottom menu carries the Room/Fleet/Archive switch");
   document.querySelector('.vtab[data-view="fleet"]').click();
   ok(await until(() => !document.querySelector("#view-fleet").hidden), "Fleet vtab switches views");
   document.querySelector('.vtab[data-view="console"]').click();
@@ -517,6 +588,9 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
     ok(/data-holdbar/.test(htmlNow) && /\.holdbar \{/.test(readFileSync("css/04-facade.css", "utf8")), "held letters have a bar of their own");
     ok(/gunther\.hold\.v1/.test(readFileSync("js/state.js", "utf8")), "the hold queue survives an app restart");
     ok(/navigator\.vibrate/.test(readFileSync("js/ui/console.js", "utf8")), "handoffs tap the wrist — haptics wired in");
+    ok(/id="view-archive"/.test(htmlNow) && /data-view="archive"/.test(htmlNow), "the Archive room is in the markup — the app can be handed documents");
+    ok(/useArchive/.test(readFileSync("js/state.js", "utf8")), "archive recall is a dial — factory ON, switchable in BAY 03");
+    ok(/gunther-archive/.test(readFileSync("js/archive.js", "utf8")) && /IndexedDB/.test(readFileSync("js/archive.js", "utf8")), "learned notes persist on the device — IndexedDB when present, memory in the rig");
   }
 }
 

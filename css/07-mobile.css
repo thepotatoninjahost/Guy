@@ -62,6 +62,12 @@ html {
   .bench__send, .bench__stop { width: 46px; height: 46px; }
   .bench__send svg, .bench__stop svg { width: 18px; height: 18px; }
 
+  /* ---------- archive: readable on a phone, same rules as fleet ---------- */
+  .arch-import { width: 100%; }
+  .arch-search { flex: 1 1 140px; min-width: 0; }
+  .archdoc__head { flex-direction: column; gap: 3px; }
+  .archdoc__raw { max-height: 240px; }
+
   /* ---------- fleet: the explained header band, then line cards ---------- */
   .fleet__head { padding: 10px 12px 9px; gap: 9px 16px; }
   .fleet__lede { font-size: 9.5px; }

@@ -19,7 +19,7 @@ export function initCrest() {
 
   document.querySelectorAll(".vtab[data-view]").forEach((tab) => {
     tab.addEventListener("click", () => {
-      location.hash = tab.dataset.view === "console" ? "#/console" : "#/fleet";
+      location.hash = "#/" + tab.dataset.view;
     });
   });
 

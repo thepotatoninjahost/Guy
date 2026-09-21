@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { load, state, addLog, emit } from "./state.js";
+import { initArchive } from "./ui/archive.js";
 import { MODELS } from "./models.js";
 import { initCrest, markView } from "./ui/crest.js";
 import { initConsole, send, stop } from "./ui/console.js";
@@ -17,11 +18,12 @@ window.__gunther = {
   state: () => state,
 };
 
+const VIEWS = ["console", "fleet", "archive"];
 function route() {
   const h = location.hash || "#/console";
-  const v = h.startsWith("#/fleet") ? "fleet" : "console";
-  document.querySelector("#view-console").hidden = v !== "console";
-  document.querySelector("#view-fleet").hidden = v !== "fleet";
+  let v = "console";
+  for (const key of VIEWS) if (h.startsWith("#/" + key)) v = key;
+  for (const key of VIEWS) document.querySelector("#view-" + key).hidden = v !== key;
   markView(v);
 }
 
@@ -37,6 +39,7 @@ function boot() {
   initCrest();
   initConsole();
   initFleet();
+  initArchive();
   initBays();
 
   window.addEventListener("hashchange", route);

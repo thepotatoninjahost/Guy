@@ -178,6 +178,61 @@ body.busy .ring { animation: spinslow 1.7s linear infinite; }
 .holditem__x { border-color: var(--line) !important; color: var(--ink-3) !important; }
 
 /* ============================================================
+   THE ARCHIVE — import · learn · recall (view 03)
+   ============================================================ */
+.arch-import { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.arch-search {
+  font-family: var(--f-mono); font-size: 10px; color: var(--ink);
+  background: var(--glass-2); border: 1px solid var(--line-2);
+  padding: 7px 10px; min-width: 170px; outline: none;
+}
+.arch-search:focus { border-color: var(--brass-dim); }
+.arch-paste {
+  padding: 10px clamp(12px, 2vw, 20px);
+  border-bottom: 1px solid var(--line);
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.arch-paste[hidden] { display: none; }
+.arch-paste textarea {
+  flex: 1; min-height: 84px; resize: vertical;
+  font-family: var(--f-mono); font-size: 11px; line-height: 1.55; color: var(--ink);
+  background: var(--glass); border: 1px solid var(--line-2); padding: 10px 12px;
+}
+.archlist {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 10px clamp(12px, 2vw, 20px) 18px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.arch-count {
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.08em;
+  color: var(--ink-3); padding: 2px 2px 6px;
+}
+.archdoc { border: 1px solid var(--line); background: var(--glass); padding: 11px 13px; }
+.archdoc.is-learned { border-color: rgba(99, 238, 158, 0.25); }
+.archdoc.is-error { border-color: rgba(255, 196, 107, 0.35); }
+.archdoc.is-digesting { border-color: var(--brass-dim); }
+.archdoc__head { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.archdoc__head b { font-family: var(--f-display); font-size: 12.5px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.archdoc__meta { font-family: var(--f-mono); font-size: 9px; color: var(--ink-3); }
+.archdoc__prog { height: 3px; margin-top: 8px; background: var(--glass-3); }
+.archdoc__prog::after {
+  content: ""; display: block; height: 100%; width: var(--p, 0%);
+  background: linear-gradient(90deg, var(--brass-dim), var(--brass));
+  transition: width 0.4s var(--ease);
+}
+.archdoc__acts { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+.archdoc__raw {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--bg-1); border: 1px solid var(--line);
+  font-family: var(--f-mono); font-size: 10.5px; line-height: 1.6; color: var(--ink-2);
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto;
+}
+.archnotes { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.archnote { padding: 9px 11px; background: var(--glass-2); border-left: 2px solid var(--brass-dim); }
+.archnote b { display: block; font-family: var(--f-display); font-size: 10.5px; letter-spacing: 0.04em; color: var(--brass-2); margin-bottom: 4px; }
+.archnote div { font-size: 11.5px; line-height: 1.6; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ============================================================
    THE FEED — message interior of the house
    ============================================================ */
 .feed {
