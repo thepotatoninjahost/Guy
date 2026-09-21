@@ -591,6 +591,13 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
     ok(/id="view-archive"/.test(htmlNow) && /data-view="archive"/.test(htmlNow), "the Archive room is in the markup — the app can be handed documents");
     ok(/useArchive/.test(readFileSync("js/state.js", "utf8")), "archive recall is a dial — factory ON, switchable in BAY 03");
     ok(/gunther-archive/.test(readFileSync("js/archive.js", "utf8")) && /IndexedDB/.test(readFileSync("js/archive.js", "utf8")), "learned notes persist on the device — IndexedDB when present, memory in the rig");
+    {
+      const frame = readFileSync("css/08-frame.css", "utf8");
+      ok(/@media \(min-width: 721px\)/.test(frame) && /--frame-w: 430px/.test(frame), "mobile-only doctrine is structural: wide screens get the PHONE (430px frame), never the app stretched");
+      ok(!/@media \(max-width/.test(frame), "the frame file can never touch a phone — it only fires above phone widths");
+      const html08 = readFileSync("index.html", "utf8");
+      ok(html08.indexOf("08-frame.css") > html08.indexOf("07-mobile.css"), "the frame loads last — the closing word on every non-phone screen");
+    }
   }
 }
 
