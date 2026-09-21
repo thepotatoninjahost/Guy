@@ -9,11 +9,12 @@
      · a 130s token feed     (burn rate, latency context)
 
    Selection scores every line that can legally accept the next
-   request:  headroom * 55 + quality * 9 + freshness * 8,
-   minus a SMALL tie-break tax on the line that just served. The
-   tax is below any real quality gap on the manifest, so a healthy
-   line KEEPS the post — rotation happens when a ceiling binds,
-   never as a nightly shuffle. Headroom is the tightest cap the
+   request:  headroom * 55 + quality * 9, and the INCUMBENT gets a
+   +18 keep-the-post bonus — larger than the manifest's whole
+   quality spread, so a healthy line holds duty turn after turn.
+   A binding ceiling still overrules it (headroom swings a 55-wide
+   field), so rotation happens when a line runs out of room —
+   never as a shuffle. Headroom is the tightest cap the
    line lives under, including its vendor's SHARED account budget
    (OpenRouter meters 50 requests/day per account, not per model),
    so a line rotates out the instant any single dimension binds.
@@ -187,14 +188,15 @@ export function select(estTok = 64, now = new Date()) {
     const e = entry(m);
     const hr = headroom(m, now).ratio;
     const since = e.lastAt ? now.getTime() - e.lastAt : Infinity;
-    // recently proven lines get a small stickiness bonus…
-    const freshness = e.lastAt ? Math.exp(-since / (45 * 60e3)) : 0.35;
-    // …and the line that just served pays only a tie-break tax — small
-    // enough that freshness outvies it, so a HEALTHY line keeps duty and
-    // the tax only shuffles exact-tie siblings (owner law: rotate when
-    // one's not available, not every turn)
-    const fatigue = state.engine.lastLine === m.id ? -5 : 0;
-    const score = hr * 55 + m.quality * 9 + freshness * 8 + fatigue;
+    // The incumbent keeps the post on a positive bonus, not on someone
+    // else's penalty: 18 comfortably outweighs the manifest's ENTIRE
+    // quality spread (≤5) and any tie, so equal lines never shuffle —
+    // but a binding ceiling moves headroom across a 55-wide field, and
+    // that still overrules the bonus. Rotation is for lines running OUT
+    // OF ROOM, never for rotation's sake (owner law, 2026-09-21).
+    let score = hr * 55 + m.quality * 9;
+    if (state.engine.lastLine === m.id) score += 18;
+    else if (e.lastAt) score += 6 * Math.exp(-since / (45 * 60e3));
     if (score > bestScore) {
       bestScore = score;
       best = m;
