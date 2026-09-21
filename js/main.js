@@ -23,7 +23,6 @@ function route() {
   document.querySelector("#view-console").hidden = v !== "console";
   document.querySelector("#view-fleet").hidden = v !== "fleet";
   markView(v);
-  if (v === "fleet" && window.__gunther.fleetTick) window.__gunther.fleetTick();
 }
 
 function boot() {

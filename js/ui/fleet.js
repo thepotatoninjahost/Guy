@@ -206,7 +206,7 @@ function update() {
 
     /* gauges */
     const minRatio = meterRatio(hr.dims, ["rpm", "tpm"]);
-    const dayRatio = meterRatio(hr.dims, ["rpd", "tpd"]);
+    const dayRatio = meterRatio(hr.dims, ["rpd", "tpd", "vrpd"]);
     const meters = row.querySelectorAll(".meter");
     setMeter(meters[0], minRatio);
     setMeter(meters[1], dayRatio);
@@ -224,7 +224,7 @@ function update() {
     const win = row.querySelector(".line__win");
     if (hr.hasKey && !isTripped(m, now)) {
       const binding = hr.dims
-        .filter((d) => d.k === "rpd" || d.k === "tpd")
+        .filter((d) => d.k === "rpd" || d.k === "tpd" || d.k === "vrpd")
         .sort((a, b) => (a.used / a.cap) - (b.used / b.cap))[0];
       if (binding) {
         const frac = Math.round((binding.used / binding.cap) * 100);
@@ -267,7 +267,7 @@ function update() {
   let worst = 1;
   for (const m of MODELS) {
     const hr = headroom(m, now);
-    const dayRatio = meterRatio(hr.dims, ["rpd", "tpd"]);
+    const dayRatio = meterRatio(hr.dims, ["rpd", "tpd", "vrpd"]);
     if (dayRatio !== null && hr.hasKey) worst = Math.min(worst, dayRatio);
   }
   set("[data-f-head]", Math.round(worst * 100) + "%");

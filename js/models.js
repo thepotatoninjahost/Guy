@@ -36,6 +36,7 @@ export const VENDORS = {
  * @property {string} model       endpoint model id (patchable live from the Fleet view)
  * @property {number} ctx         context window, tokens
  * @property {Object} caps        { rpm, tpm, rpd, tpd } — 0 = no published cap on that dimension
+ * @property {Object} shared      { rpd } — an ACCOUNT-wide daily budget every line of the vendor draws on together
  * @property {number} quality     0-5 selection bias
  * @property {string} note        operator note shown in Fleet + Bay B
  */
@@ -108,7 +109,7 @@ export const MODELS = [
     provider: "openrouter",
     model: "nvidia/nemotron-3-ultra-550b-a55b:free",
     ctx: 1048576,
-    caps: { rpm: 20, tpm: 0, rpd: 50, tpd: 0 },
+    caps: { rpm: 20, tpm: 0, rpd: 50, tpd: 0 }, shared: { rpd: 50 },
     quality: 4.7,
     note: "flagship of the September :free roster — answered 7 of 7 on the daily live check",
   },
@@ -120,7 +121,7 @@ export const MODELS = [
     provider: "openrouter",
     model: "deepseek/deepseek-v4-flash-0731:free",
     ctx: 1048576,
-    caps: { rpm: 20, tpm: 0, rpd: 50, tpd: 0 },
+    caps: { rpm: 20, tpm: 0, rpd: 50, tpd: 0 }, shared: { rpd: 50 },
     quality: 4.6,
     note: "fast :free route — sub-second on the daily check; 1M context",
   },
@@ -132,7 +133,7 @@ export const MODELS = [
     provider: "openrouter",
     model: "cohere/north-mini-code:free",
     ctx: 262144,
-    caps: { rpm: 20, tpm: 0, rpd: 50, tpd: 0 },
+    caps: { rpm: 20, tpm: 0, rpd: 50, tpd: 0 }, shared: { rpd: 50 },
     quality: 4.2,
     note: "code-tuned line — 7 of 7 answers on the daily check",
   },

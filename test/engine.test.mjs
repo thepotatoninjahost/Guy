@@ -140,5 +140,40 @@ const h = engine.headroom(gem); // 1500/1500 RPD from earlier
 ok(h.dims.some((d) => d.k === "rpd" && d.used === 1500), "rpd dimension decomposed with usage");
 ok(h.ratio < 0.01, "headroom ~0 on the bound dimension");
 
+console.log("\n— stickiness: rotate when a line binds, NOT every turn —");
+for (const m of MODELS) {
+  state.ledger[m.id] = {
+    day: { w: engine.dayId(), req: 0, prompt: 0, completion: 0 },
+    hour: { w: engine.hourId(), req: 0, prompt: 0, completion: 0 },
+    feed: [],
+    trip: { n: 0, until: 0, reason: "" },
+    lastAt: 0,
+    latency: { ema: 0, last: 0 },
+    ping: { ok: null, at: 0, note: "" },
+  };
+}
+state.engine.lastLine = null;
+const served = [];
+for (let i = 0; i < 6; i++) {
+  const s = engine.select(64);
+  state.engine.lastLine = s.id;
+  engine.recordSuccess(s, { prompt: 10, completion: 10, total: 20 }, 300);
+  served.push(s.id);
+}
+ok(new Set(served).size === 1, "six clean turns rode ONE healthy line — a fatigue tax may not evict a line that is fine");
+
+console.log("\n— OpenRouter: one 50/day ACCOUNT, three lines —");
+const orIds = MODELS.filter((m) => m.provider === "openrouter").map((m) => m.id);
+for (const id of orIds) state.ledger[id].day = { w: engine.dayId(), req: 0, prompt: 0, completion: 0 };
+state.ledger["or-llama33-70b"].day.req = 30;
+state.ledger["or-qwen3-coder"].day.req = 20;
+const orHr = engine.headroom(byId("or-llama4-maverick"));
+ok(orHr.dims.some((d) => d.k === "vrpd" && d.cap === 50 && d.used === 50), "the engine sums the whole vendor's day: 30 + 20 + 0 = 50 spent of 50");
+ok(engine.canAccept(byId("or-llama4-maverick"), 64) === false, "a line that spent NOTHING of its own still stands down at the shared ceiling");
+const away = engine.select(64);
+ok(away && away.provider !== "openrouter", "duty moves to the next vendor while the OpenRouter account sleeps until midnight UTC");
+for (const id of orIds) state.ledger[id].day.req = 0;
+ok(engine.canAccept(byId("or-llama4-maverick"), 64) === true, "the instant the shared budget frees, its lines are admissible again");
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

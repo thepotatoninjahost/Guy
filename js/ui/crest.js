@@ -5,11 +5,9 @@
    ============================================================ */
 
 import { state } from "../state.js";
-import { MODELS, byId } from "../models.js";
-import { select, headroom, availableCount, isTripped } from "../engine.js";
-import { fmtClock, fmtTok, escapeHtml } from "./render.js";
-
-const VIEWS = { console: "#view-console", fleet: "#view-fleet" };
+import { MODELS } from "../models.js";
+import { select, availableCount, isTripped } from "../engine.js";
+import { fmtClock, fmtTok } from "./render.js";
 
 export function initCrest() {
   const clock = document.querySelector("[data-clock]");
@@ -72,17 +70,3 @@ function renderStatus() {
   }
 }
 
-function MODELS_KEYED() {
-  return MODELS.some((m) => (state.keys[m.id] || "").trim());
-}
-
-export function dutyModel() {
-  return select(128);
-}
-
-export function dutyHeadroom(m) {
-  if (!m) return 0;
-  return headroom(m).ratio;
-}
-
-export { byId };

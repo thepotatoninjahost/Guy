@@ -10,14 +10,20 @@
 
    Selection scores every line that can legally accept the next
    request:  headroom * 55 + quality * 9 + freshness * 8,
-   minus a fatigue penalty on the line that just served.
-   Headroom is the tightest published cap, so a line rotates
-   out the instant any single dimension binds.
+   minus a SMALL tie-break tax on the line that just served. The
+   tax is below any real quality gap on the manifest, so a healthy
+   line KEEPS the post — rotation happens when a ceiling binds,
+   never as a nightly shuffle. Headroom is the tightest cap the
+   line lives under, including its vendor's SHARED account budget
+   (OpenRouter meters 50 requests/day per account, not per model),
+   so a line rotates out the instant any single dimension binds.
 
    When a provider answers 429, the line is tripped on a
    backoff ladder (60s → 5m → 30m → 4h → 24h) and the same
-   request is handed, intact, to the next line. A turn may be
-   handed off at most twice; after that the console says so.
+   request is handed, intact, to the next line — the whole vendor
+   group trips together when a ceiling is an account ceiling. A
+   turn may be handed off at most five times; after that the
+   console says so, and the operator can hold the letter.
    ============================================================ */
 
 import { MODELS, byId, estimateTokens } from "./models.js";
@@ -77,6 +83,17 @@ export function burnRidge(now = new Date()) {
   return out;
 }
 
+/** Vendors whose free tier meters the ACCOUNT across every model it hosts. */
+function vendorSharedDayReq(m, now = new Date()) {
+  let req = 0;
+  for (const sib of MODELS) {
+    if (sib.provider !== m.provider) continue;
+    roll(sib, now);
+    req += Number(entry(sib).day.req) || 0;
+  }
+  return req;
+}
+
 /** Requests + tokens admitted in the sliding 60s window. */
 export function sliding(m, now = new Date()) {
   roll(m, now);
@@ -107,6 +124,7 @@ export function headroom(m, now = new Date()) {
   if (c.tpm) dims.push({ k: "tpm", cap: n(c.tpm), used: n(s.tok) });
   if (c.rpd) dims.push({ k: "rpd", cap: n(c.rpd), used: n(e.day.req) });
   if (c.tpd) dims.push({ k: "tpd", cap: n(c.tpd), used: n(e.day.prompt) + n(e.day.completion) });
+  if (m.shared && m.shared.rpd) dims.push({ k: "vrpd", cap: n(m.shared.rpd), used: vendorSharedDayReq(m, now) });
   let ratio = 1;
   for (const d of dims) if (d.cap > 0) ratio = Math.min(ratio, 1 - d.used / d.cap);
   return {
@@ -139,7 +157,7 @@ export function canAccept(m, estTok = 64, now = new Date()) {
   for (const d of dims) {
     if (d.k === "rpm" && d.used + 1 > d.cap) return false;
     if (d.k === "tpm" && d.used + estTok > d.cap) return false;
-    if (d.k === "rpd" && d.used + 1 > d.cap) return false;
+    if ((d.k === "rpd" || d.k === "vrpd") && d.used + 1 > d.cap) return false;
     if (d.k === "tpd" && d.used + estTok > d.cap) return false;
   }
   return true;
@@ -171,8 +189,11 @@ export function select(estTok = 64, now = new Date()) {
     const since = e.lastAt ? now.getTime() - e.lastAt : Infinity;
     // recently proven lines get a small stickiness bonus…
     const freshness = e.lastAt ? Math.exp(-since / (45 * 60e3)) : 0.35;
-    // …but the line that just served pays a fatigue tax
-    const fatigue = state.engine.lastLine === m.id ? -30 : 0;
+    // …and the line that just served pays only a tie-break tax — small
+    // enough that freshness outvies it, so a HEALTHY line keeps duty and
+    // the tax only shuffles exact-tie siblings (owner law: rotate when
+    // one's not available, not every turn)
+    const fatigue = state.engine.lastLine === m.id ? -5 : 0;
     const score = hr * 55 + m.quality * 9 + freshness * 8 + fatigue;
     if (score > bestScore) {
       bestScore = score;
