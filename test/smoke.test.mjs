@@ -598,6 +598,13 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
       const html08 = readFileSync("index.html", "utf8");
       ok(html08.indexOf("08-frame.css") > html08.indexOf("07-mobile.css"), "the frame loads last — the closing word on every non-phone screen");
     }
+    {
+      /* the anti-eaten-composer laws (owner: "the menu blocks the chat box") */
+      const wiring = readFileSync("js/main.js", "utf8");
+      ok(/measureFurniture/.test(wiring) && /ResizeObserver/.test(wiring) && /visualViewport/.test(wiring), "the building measures its own bars — crest and slab heights are rendered truth, never hopeful constants");
+      ok(/--kb/.test(wiring) && /var\(--kb, 0px\)/.test(mobileCss), "the keyboard's covered strip feeds the same subtraction — no IME can push the menu onto the composer");
+      ok(!/env\(safe-area-inset-bottom, 0px\) - 30px/.test(mobileCss), "no double-subtraction of insets left in the room's height math");
+    }
   }
 }
 

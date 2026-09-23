@@ -50,9 +50,12 @@ html {
 
   /* ---------- room: tracks the dynamic viewport ---------- */
   .crest { padding-top: calc(6px + env(safe-area-inset-top, 0px)); }
+  /* the reservation IS the measured bar (js/main.js keeps it true), and
+     the safe insets live INSIDE those rects — subtracting them again here
+     is how the composer once sat under the menu for keyboard users */
   .room {
-    height: calc(100dvh - var(--crest-h) - var(--slab-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 30px);
-    min-height: 420px;
+    height: calc(100dvh - var(--crest-h) - var(--slab-h) - 30px - var(--kb, 0px));
+    min-height: 300px;
   }
   .feed { padding: 12px 14px; }
   .msg--user { max-width: 96%; }
@@ -116,6 +119,7 @@ html {
     height: auto;
     min-height: var(--slab-h);
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    bottom: var(--kb, 0px); /* rides above the IME whether the WebView moved it or not */
   }
   /* the bottom menu keeps the ONLY view switch — it wraps onto its own row
      above the doors instead of being hidden (a hidden switch is a lost app) */
@@ -135,8 +139,8 @@ html {
   .sheet {
     left: 8px;
     right: 8px;
-    bottom: calc(var(--slab-h) + env(safe-area-inset-bottom, 0px) + 8px);
-    max-height: calc(100dvh - var(--slab-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 56px);
+    bottom: calc(var(--slab-h) + 8px + var(--kb, 0px));
+    max-height: calc(100dvh - var(--slab-h) - var(--crest-h) - 24px - var(--kb, 0px));
   }
   .sheet__head { padding: 12px 14px; gap: 10px; }
   .sheet__title { font-size: 11px; letter-spacing: 0.22em; }
@@ -150,7 +154,7 @@ html {
   .toasts {
     left: 8px;
     right: 8px;
-    bottom: calc(var(--slab-h) + env(safe-area-inset-bottom, 0px) + 10px);
+    bottom: calc(var(--slab-h) + 10px + var(--kb, 0px));
     align-items: center;
   }
 }

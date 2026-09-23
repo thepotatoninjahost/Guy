@@ -27,6 +27,46 @@ function route() {
   markView(v);
 }
 
+/* The bars at the edges of the screen — crest and slab — are what every
+   height calculation subtracts. If those subtractions are hopeful numbers,
+   a bigger system font or a thicker gesture inset makes the real bar taller
+   than the reservation, and the menu eats the composer (owner report:
+   "the menu blocks the chat box so I can't see what I'm typing").
+   So the variables become MEASURED truth, kept true by observation:
+   rendered height for the bars, plus --kb for however much the keyboard
+   covers the visual viewport. */
+function measureFurniture() {
+  const doc = document.documentElement;
+  const bars = [
+    [document.querySelector(".crest"), "--crest-h"],
+    [document.querySelector(".slab"), "--slab-h"],
+  ].filter(([el]) => el);
+  const sync = () => {
+    for (const [el, name] of bars) {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      if (h > 40) doc.style.setProperty(name, h + "px");
+    }
+  };
+  sync();
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(sync);
+    for (const [el] of bars) ro.observe(el);
+  }
+  const vv = window.visualViewport;
+  const kb = () => {
+    let covered = 0;
+    if (vv) covered = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+    doc.style.setProperty("--kb", (covered > 40 ? covered : 0) + "px");
+    sync();
+  };
+  if (vv) {
+    vv.addEventListener("resize", kb);
+    window.addEventListener("resize", kb);
+    kb();
+  }
+  window.addEventListener("resize", sync);
+}
+
 function boot() {
   load();
   const keyed = MODELS.filter((m) => (state.keys[m.id] || "").trim()).length;
@@ -44,6 +84,7 @@ function boot() {
 
   window.addEventListener("hashchange", route);
   route();
+  measureFurniture();
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
