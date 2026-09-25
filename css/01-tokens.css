@@ -1,0 +1,54 @@
+/* ============================================================
+   Gunther · GLASS HOUSE CONSOLE — 01 / DESIGN TOKENS
+   The material palette of the build: near-black site soil,
+   warm bone structural lines, brass accents, ice glass glow.
+   ============================================================ */
+
+:root {
+  /* site soil */
+  --bg-0: #05070c;
+  --bg-1: #080c14;
+  --bg-2: #0d1320;
+
+  /* ink */
+  --ink: #e8edf6;
+  --ink-2: #a7b4c9;
+  --ink-3: #5f6e86;
+
+  /* structural lines */
+  --line: rgba(186, 208, 240, 0.13);
+  --line-2: rgba(205, 224, 252, 0.28);
+  --bone: #e9e2cf;
+  --bone-dim: rgba(233, 226, 207, 0.38);
+
+  /* brass — the soul of the frame */
+  --brass: #f0c26e;
+  --brass-2: #ffd98d;
+  --brass-dim: rgba(240, 194, 110, 0.42);
+
+  /* glass glow */
+  --ice: #8ce6ff;
+
+  /* signal */
+  --ok: #63ee9e;
+  --warn: #ffc46b;
+  --err: #ff6d68;
+
+  /* glass panes */
+  --glass: rgba(146, 176, 222, 0.05);
+  --glass-2: rgba(158, 190, 238, 0.085);
+  --glass-3: rgba(170, 200, 248, 0.125);
+  --blur: blur(20px) saturate(150%);
+
+  /* type */
+  --f-display: "Space Grotesk", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Instrument Sans", "Avenir Next", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* structure */
+  --crest-h: clamp(118px, 15vh, 172px);
+  --slab-h: 58px;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

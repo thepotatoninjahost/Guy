@@ -1,0 +1,64 @@
+/* ============================================================
+   Gunther · GLASS HOUSE CONSOLE — 08 / THE FRAME
+   MOBILE-ONLY, ENFORCED. This app is a phone. Nothing about it
+   was designed for a wide screen, and on a wide screen it will
+   not pretend otherwise: desktops and tablets do NOT get the
+   layout stretched across them — they get the phone itself,
+   430px of it, centered in the dark with its edges lit.
+   This file only ever fires ABOVE phone widths; on a phone it
+   does not exist. No desktop junk, because there is no desktop.
+   ============================================================ */
+
+@media (min-width: 721px) {
+  :root {
+    --frame-w: 430px;
+    --frame-in: calc(50% - (var(--frame-w) / 2));
+  }
+
+  /* the crest and the rooms collapse to phone width, centered */
+  .crest,
+  main {
+    width: var(--frame-w);
+    margin-inline: auto;
+  }
+
+  /* the lit edges of the device */
+  .crest {
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  main {
+    background: linear-gradient(180deg, rgba(13, 19, 31, 0.35), rgba(8, 12, 20, 0.55));
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    box-shadow: 0 0 90px rgba(2, 4, 8, 0.75), 0 0 24px rgba(140, 170, 220, 0.05);
+  }
+
+  /* the fixed furniture aligns to the frame, not the viewport */
+  .slab {
+    left: var(--frame-in);
+    right: auto;
+    width: var(--frame-w);
+    border-left: 1px solid var(--line-2);
+    border-right: 1px solid var(--line-2);
+  }
+  .sheet {
+    left: calc(var(--frame-in) + 12px);
+    right: auto;
+    width: calc(var(--frame-w) - 24px);
+  }
+  .toasts {
+    left: var(--frame-in);
+    right: auto;
+    width: var(--frame-w);
+    align-items: center;
+  }
+
+  /* hover chrome that phones never show stays decorative, not load-bearing:
+     the frame is the ONLY desktop concession */
+  .feed::-webkit-scrollbar,
+  .archlist::-webkit-scrollbar,
+  .sheet__body::-webkit-scrollbar {
+    width: 4px;
+  }
+}

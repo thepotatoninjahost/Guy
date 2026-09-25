@@ -1,0 +1,183 @@
+/* ============================================================
+   Gunther · GLASS HOUSE CONSOLE — 05 / THE FLEET
+   Ten lines, laid out like ten service runs of the building —
+   horizontal rows, not a card grid. Live telemetry: status,
+   sliding-minute window, daily ledger, trip countdowns.
+   ============================================================ */
+
+.fleet__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 26px clamp(16px, 2.6vw, 34px) 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fleet__title {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: clamp(26px, 3.4vw, 44px);
+  color: var(--bone);
+  line-height: 1;
+}
+.fleet__title b { color: var(--brass); }
+.fleet__lede { margin-top: 8px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.08em; }
+
+.fleet__stats { display: flex; gap: 30px; flex-wrap: wrap; }
+.fstat { display: flex; flex-direction: column; gap: 4px; }
+.fstat b { font-family: var(--f-mono); font-size: 22px; font-weight: 500; color: var(--ink); }
+.fstat b em { font-style: normal; font-size: 12px; color: var(--ink-3); }
+.fstat span { font-family: var(--f-display); font-size: 9px; font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-3); }
+
+.lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px clamp(16px, 2.6vw, 34px) 30px;
+  overflow-y: auto;
+}
+
+.line {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px minmax(210px, 1.35fr) 128px minmax(230px, 1.5fr) 108px 84px auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 18px;
+  background: linear-gradient(120deg, var(--glass-2) 0%, var(--glass) 60%);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--line);
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.line:hover { border-color: var(--line-2); transform: translateX(4px); }
+
+.line.on-duty {
+  border-color: var(--brass-dim);
+  box-shadow: 0 0 0 1px rgba(240, 194, 110, 0.14), 0 10px 34px rgba(240, 194, 110, 0.06);
+}
+.line.is-pinned { border-color: rgba(140, 230, 255, 0.4); }
+
+.line__idx {
+  font-family: var(--f-display);
+  font-size: 27px;
+  font-weight: 700;
+  color: rgba(95, 110, 134, 0.55);
+  line-height: 1;
+}
+.line.on-duty .line__idx { color: var(--brass); }
+.line.is-pinned .line__idx { color: var(--ice); }
+
+.line__name {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.line__tag {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  color: var(--ok);
+  border: 1px solid rgba(99, 238, 158, 0.35);
+  padding: 2px 6px 1px;
+}
+.line__tag--trial { color: var(--warn); border-color: rgba(255, 196, 107, 0.4); }
+
+.line__vendor { margin-top: 4px; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); }
+
+.line__modelid {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.line__modelid:hover { color: var(--ice); }
+.line__modelid::after { content: " ✎"; color: var(--ink-3); }
+
+.line__idedit {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  width: 100%;
+  background: rgba(6, 10, 18, 0.8);
+  border: 1px solid var(--ice);
+  color: var(--ink);
+  padding: 5px 8px;
+  outline: none;
+}
+
+.line__status {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-align: center;
+  padding: 6px 8px 5px;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.line__status.st-duty { color: var(--brass-2); border-color: var(--brass-dim); background: rgba(240, 194, 110, 0.07); }
+.line__status.st-pinned { color: var(--ice); border-color: rgba(140, 230, 255, 0.4); }
+.line__status.st-trip { color: var(--err); border-color: rgba(255, 109, 104, 0.4); background: rgba(255, 109, 104, 0.05); }
+.line__status.st-nockey { color: var(--ink-3); border-style: dashed; border-color: var(--line); }
+
+.line__meters { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.meterrow { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center; }
+.meterrow__lab { font-family: var(--f-mono); font-size: 9px; color: var(--ink-3); letter-spacing: 0.14em; }
+.line__nums { font-family: var(--f-mono); font-size: 10px; color: var(--ink-3); display: flex; gap: 12px; flex-wrap: wrap; }
+
+.line__win, .line__last { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); }
+.line__win b { color: var(--ink-2); font-weight: 500; }
+
+.line__ovr {
+  font-family: var(--f-display);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 7px 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease), color 0.18s var(--ease), border-color 0.18s var(--ease);
+  white-space: nowrap;
+}
+.line:hover .line__ovr { opacity: 1; }
+.line__ovr:hover { color: var(--brass-2); border-color: var(--brass-dim); }
+
+.line__note {
+  grid-column: 2 / -1;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  padding-top: 8px;
+  border-top: 1px dashed rgba(200, 220, 250, 0.1);
+}
+.line__note b { color: var(--warn); font-weight: 500; }
+
+/* ---------- narrow decks ---------- */
+@media (max-width: 1240px) {
+  .line { grid-template-columns: 48px minmax(180px, 1.2fr) 116px 1fr; }
+  .line__meters { grid-column: 1 / -1; }
+  .line__win, .line__last { display: none; }
+}
+@media (max-width: 700px) {
+  .line { grid-template-columns: 40px 1fr 104px; gap: 10px; }
+  .line__idx { font-size: 20px; }
+  .line__ovr { display: none; }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "gunther-console",
+  "version": "1.0.0",
+  "description": "Gunther — personal autonomous coding console",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node test/engine.test.mjs && node test/agent-runtime.test.mjs && node test/workspace.test.mjs && node test/agent-tools.test.mjs && node test/agent-runner.test.mjs && node test/qualification.test.mjs && node test/archive.test.mjs && node test/smoke.test.mjs",
+    "pack:www": "node tools/pack-www.mjs",
+    "sync": "node tools/pack-www.mjs && npx cap sync android",
+    "apk:debug": "node tools/pack-www.mjs && npx cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thepotatoninjahost/Gunther.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thepotatoninjahost/Gunther/issues"
+  },
+  "homepage": "https://github.com/thepotatoninjahost/Gunther#readme",
+  "type": "module",
+  "devDependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "jsdom": "^30.0.1",
+    "puppeteer-core": "^25.11.0"
+  },
+  "private": "true",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}
