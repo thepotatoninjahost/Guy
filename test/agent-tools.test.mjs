@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { assert, sumUp } from "./_harness.mjs";
 import { executeTool, parseToolResponse, runToolLoop, toolCallFrom } from "../js/agent-tools.js";
 import { createWorkspace, readFile } from "../js/workspace.js";
 
@@ -30,4 +30,4 @@ assert.equal(readFile(ws, "README.md"), "# built");
 const limited = await runToolLoop({ workspace: ws, maxTurns: 2, ask: async () => ({ type: "tool", name: "list_files", args: {} }) });
 assert.equal(limited.status, "limit");
 assert.equal(limited.turns, 2);
-console.log("agent tools: 14 passed, 0 failed");
+sumUp("agent tools");

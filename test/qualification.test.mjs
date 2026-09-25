@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { assert, sumUp } from "./_harness.mjs";
 import { CODING_QUALIFICATION, assessAnswer, qualifyAnswers, qualificationSummary } from "../js/qualification.js";
 
 assert.equal(CODING_QUALIFICATION.length, 4);
@@ -14,4 +14,4 @@ assert.equal(result.passed, 4);
 assert.equal(assessAnswer(CODING_QUALIFICATION[0], "Here is the code, add the rest yourself").passed, false);
 assert.equal(qualifyAnswers({ ...good, "repair-test": "I think it works" }).status, "not-qualified");
 assert.match(qualificationSummary(result), /QUALIFIED FOR CODING/);
-console.log("qualification: 7 passed, 0 failed");
+sumUp("qualification");

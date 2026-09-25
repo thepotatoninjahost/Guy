@@ -11,14 +11,44 @@ import { initCrest, markView } from "./ui/crest.js";
 import { initConsole, send, stop } from "./ui/console.js";
 import { initFleet } from "./ui/fleet.js";
 import { initBays, openBay, closeSheet } from "./ui/bays.js";
+import {
+  activeManifest,
+  agentCommandContext,
+  approveCommand,
+  approvedCommandList,
+  deliverProject,
+  flushActiveProject,
+  initProject,
+  openProject,
+  refreshHost,
+  renderProjectRoom,
+  runDeclaredCommand,
+  verificationCommand,
+} from "./ui/project.js";
+import { setHost } from "./host.js";
 
 window.__gunther = {
   bays: { openBay, closeSheet },
   console: { send, stop },
   state: () => state,
+  project: {
+    open: openProject,
+    run: runDeclaredCommand,
+    approve: approveCommand,
+    approved: approvedCommandList,
+    manifest: activeManifest,
+    verify: verificationCommand,
+    flush: flushActiveProject,
+    deliver: deliverProject,
+    render: renderProjectRoom,
+    probe: refreshHost,
+    context: agentCommandContext,
+  },
+  /* the test rig injects a host here; the Android app never does */
+  setHost,
 };
 
-const VIEWS = ["console", "fleet", "archive"];
+const VIEWS = ["console", "project", "fleet", "archive"];
 function route() {
   const h = location.hash || "#/console";
   let v = "console";
@@ -83,6 +113,7 @@ function boot() {
   initFleet();
   initArchive();
   initBays();
+  initProject();
 
   window.addEventListener("hashchange", route);
   route();

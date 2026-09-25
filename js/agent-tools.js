@@ -9,6 +9,7 @@
    ============================================================ */
 
 import { deleteFile, listFiles, readFile, replaceExact, snapshot, transaction, writeFile } from "./workspace.js";
+import { renderRunText } from "./evidence.js";
 
 export const TOOL_DEFINITIONS = [
   { name: "list_files", description: "List every file in the current project", mutates: false },
@@ -16,18 +17,26 @@ export const TOOL_DEFINITIONS = [
   { name: "create_file", description: "Create or replace a project file", mutates: true, required: ["path", "content"] },
   { name: "edit_file", description: "Replace one exact, unique passage in a project file", mutates: true, required: ["path", "before", "after"] },
   { name: "delete_file", description: "Delete one project file", mutates: true, required: ["path"] },
+  {
+    name: "run_command",
+    description:
+      "Run one command that the project declares in gunther.project.json and read its real exit code and output. Commands the project does not declare cannot be run.",
+    mutates: false,
+    required: ["name"],
+  },
 ];
 
 const definition = (name) => TOOL_DEFINITIONS.find((x) => x.name === name) || null;
 const argsObject = (args) => (args && typeof args === "object" && !Array.isArray(args) ? args : {});
 
-export function executeTool(workspace, name, rawArgs = {}) {
+export function executeTool(workspace, name, rawArgs = {}, ctx = {}) {
   const def = definition(name);
   if (!def) return { ok: false, name, error: "unknown tool: " + name };
   const args = argsObject(rawArgs);
   for (const key of def.required || []) {
     if (args[key] == null || String(args[key]).length === 0) return { ok: false, name, error: "missing argument: " + key };
   }
+  if (name === "run_command") return runDeclaredCommand(name, args, ctx);
   try {
     if (name === "list_files") return { ok: true, name, files: listFiles(workspace) };
     if (name === "read_file") return { ok: true, name, path: args.path, content: readFile(workspace, args.path) };
@@ -52,6 +61,55 @@ export function executeTool(workspace, name, rawArgs = {}) {
   return { ok: false, name, error: "tool has no implementation: " + name };
 }
 
+/**
+ * run_command is deliberately narrow. The model may only run commands that
+ * the project itself declares AND that a human has approved, and only a
+ * bounded number of times per step. A model cannot author itself a passing
+ * command mid-task, and it cannot shell its way around the tool surface.
+ */
+async function runDeclaredCommand(name, args, ctx) {
+  const allowed = Array.isArray(ctx.allowedCommands) ? ctx.allowedCommands : [];
+  if (!allowed.length) {
+    return {
+      ok: false,
+      name,
+      error:
+        "this project declares no runnable command (or none has been approved yet) — Gunther does not invent verification commands",
+    };
+  }
+  const wanted = String(args.name || "").trim();
+  const command = allowed.find((c) => c.name === wanted);
+  if (!command) {
+    return { ok: false, name, error: "not an allowed command: " + wanted + " — allowed: " + allowed.map((c) => c.name).join(", ") };
+  }
+  const budget = ctx.budget && typeof ctx.budget === "object" ? ctx.budget : null;
+  if (budget) {
+    const max = Number(budget.max) || 4;
+    if ((Number(budget.used) || 0) >= max) {
+      return { ok: false, name, error: "the command budget for this step is exhausted (" + max + " runs)" };
+    }
+    budget.used = (Number(budget.used) || 0) + 1;
+  }
+  if (typeof ctx.run !== "function") {
+    return { ok: false, name, error: "this environment has no command host — the command was not run" };
+  }
+  const outcome = await ctx.run(command);
+  const record = outcome && outcome.record ? outcome.record : null;
+  if (!record) return { ok: false, name, error: "the host returned no command record" };
+  return {
+    ok: Boolean(outcome.ok),
+    name,
+    command: command.name,
+    argv: record.argv,
+    ran: record.ran,
+    exitCode: record.code,
+    timedOut: record.timedOut,
+    truncated: record.truncated,
+    hostError: record.error || "",
+    output: renderRunText(record, 8000),
+  };
+}
+
 export function parseToolResponse(raw) {
   if (raw && typeof raw === "object") return raw;
   const text = String(raw || "").trim();
@@ -73,7 +131,7 @@ export function toolCallFrom(response) {
  * fully testable without network access. The model must return either
  * {type:"tool",name,args} or {type:"final",text}.
  */
-export async function runToolLoop({ workspace, ask, maxTurns = 8, onTool }) {
+export async function runToolLoop({ workspace, ask, maxTurns = 8, onTool, toolContext = {} }) {
   if (!workspace || typeof ask !== "function") throw new Error("workspace and ask are required");
   const transcript = [];
   const results = [];
@@ -85,7 +143,7 @@ export async function runToolLoop({ workspace, ask, maxTurns = 8, onTool }) {
       const text = parsed && parsed.type === "final" ? String(parsed.text || "") : String(answer || "");
       return { status: "complete", text, turns: turn + 1, transcript, results };
     }
-    const result = executeTool(workspace, call.name, call.args);
+    const result = await executeTool(workspace, call.name, call.args, toolContext);
     transcript.push({ role: "assistant", tool: call.name, args: call.args });
     transcript.push({ role: "tool", name: call.name, result });
     results.push(result);

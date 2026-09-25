@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { assert, sumUp } from "./_harness.mjs";
 import {
   addSteps,
   attachSource,
@@ -47,4 +47,4 @@ assert.equal(attachSource(task, { title: "same", url: "https://example.test/runt
 addSteps(task, [{ title: "Ignored after completion" }]);
 assert.equal(task.steps.length, 2);
 
-console.log("agent runtime: 16 passed, 0 failed");
+sumUp("agent runtime");

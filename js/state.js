@@ -19,6 +19,10 @@ const K = {
   tasks: "gunther.tasks.v1",
   modelManifest: "gunther.models.v3",
   workspace: "gunther.workspace.v1",
+  project: "gunther.project.v1",
+  projectBaseline: "gunther.project-baseline.v1",
+  runs: "gunther.runs.v1",
+  approvals: "gunther.approvals.v1",
 };
 
 /* the GUY-era storage prefix — migrated once, then retired */
@@ -100,6 +104,10 @@ export const state = {
   hold: [], // letters held while the whole fleet is at ceiling — run the moment a line frees
   tasks: [], // resumable autonomous work — plan, attempts, evidence, and learned corrections
   workspace: null, // the operator's project files and reversible revision history
+  project: null, // { id, name } — the real project directory the workspace mirrors
+  projectBaseline: null, // what the mirror was hydrated from — survives restart so a flush stays correct
+  projectApprovals: {}, // { [projectId]: { [commandName]: argvHash } } — human-approved commands
+  runs: [], // durable command records: the only evidence that anything ran
   busy: false,
 };
 
@@ -163,6 +171,14 @@ export function load() {
   if (!Array.isArray(state.log)) state.log = [];
   state.thread = store.get(K.thread, []);
   if (!Array.isArray(state.thread)) state.thread = [];
+  const savedProject = store.get(K.project, null);
+  state.project = savedProject && typeof savedProject === "object" && savedProject.id ? savedProject : null;
+  const savedBaseline = store.get(K.projectBaseline, null);
+  state.projectBaseline = savedBaseline && typeof savedBaseline === "object" && savedBaseline.projectId ? savedBaseline : null;
+  const approvals = store.get(K.approvals, {});
+  state.projectApprovals = approvals && typeof approvals === "object" && !Array.isArray(approvals) ? approvals : {};
+  const runs = store.get(K.runs, []);
+  state.runs = Array.isArray(runs) ? runs.filter((r) => r && typeof r === "object" && r.id).slice(-80) : [];
 }
 
 let saveTimer = 0;
@@ -176,6 +192,10 @@ export function saveAll() {
   store.set(K.hold, state.hold.slice(-10));
   store.set(K.tasks, state.tasks.slice(-20));
   store.set(K.workspace, state.workspace);
+  store.set(K.project, state.project);
+  store.set(K.projectBaseline, state.projectBaseline);
+  store.set(K.approvals, state.projectApprovals);
+  store.set(K.runs, state.runs.slice(-80));
 }
 export function scheduleSave() {
   clearTimeout(saveTimer);

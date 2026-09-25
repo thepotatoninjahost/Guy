@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { assert, sumUp } from "./_harness.mjs";
 import { createWorkspace, deleteFile, importFiles, listFiles, readFile, replaceExact, snapshot, transaction, validateWorkspace, writeFile } from "../js/workspace.js";
 
 const ws = createWorkspace("demo");
@@ -24,4 +24,4 @@ const passed = transaction(ws, (draft) => writeFile(draft, "src/app.js", "fixed"
 assert.equal(passed.ok, true);
 assert.equal(readFile(ws, "src/app.js"), "fixed");
 assert.equal(validateWorkspace(ws), true);
-console.log("workspace: 15 passed, 0 failed");
+sumUp("workspace");

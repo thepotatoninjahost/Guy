@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="./css/06-bays.css">
 <link rel="stylesheet" href="./css/07-mobile.css">
 <link rel="stylesheet" href="./css/08-frame.css">
+<link rel="stylesheet" href="./css/09-project.css">
 </head>
 <body>
 
@@ -181,7 +182,81 @@
   </section>
 
   <!-- ============================================================
-       VIEW 03 · THE ARCHIVE (import · learn · recall)
+       VIEW 03 · THE PROJECT (real files · real commands · evidence)
+       ============================================================ -->
+  <section id="view-project" class="view" aria-label="project" hidden>
+    <div class="room frame">
+
+      <div class="proj__host">
+        <div class="proj__hostrow">
+          <span class="proj__badge" id="projHostBadge">CHECKING HOST</span>
+          <span class="proj__hosttext" id="projHostText">asking the shell what it can reach…</span>
+        </div>
+        <div class="proj__tools" id="projTools"></div>
+      </div>
+
+      <div class="proj__grid">
+        <div class="proj__col">
+          <h3 class="proj__h">Projects</h3>
+          <div class="proj__row">
+            <input id="projNewName" class="in" placeholder="new project name" aria-label="new project name">
+            <button class="btn btn--sm btn--brass" id="projCreate" type="button">CREATE</button>
+          </div>
+          <div class="proj__row">
+            <button class="btn btn--sm" id="projImportFolder" type="button">IMPORT FOLDER</button>
+            <button class="btn btn--sm" id="projImportArchive" type="button">IMPORT .ZIP</button>
+          </div>
+          <div id="projList" class="proj__list"></div>
+        </div>
+
+        <div class="proj__col" id="projActive" hidden>
+          <h3 class="proj__h" id="projTitle">—</h3>
+          <div class="proj__meta" id="projMeta"></div>
+          <div id="projSkips" class="proj__skips" hidden></div>
+          <div class="proj__row">
+            <button class="btn btn--sm" id="projExport" type="button">EXPORT .ZIP</button>
+            <button class="btn btn--sm" id="projReport" type="button">WRITE REPORT</button>
+            <button class="btn btn--sm btn--danger" id="projDelete" type="button">DELETE</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="proj__grid" id="projWork" hidden>
+        <div class="proj__col">
+          <h3 class="proj__h">Files</h3>
+          <div id="projFiles" class="proj__files"></div>
+        </div>
+        <div class="proj__col">
+          <h3 class="proj__h" id="projFileName">no file selected</h3>
+          <textarea id="projFileText" class="proj__editor" spellcheck="false" aria-label="file contents"></textarea>
+          <div class="proj__row">
+            <button class="btn btn--sm btn--brass" id="projFileSave" type="button">SAVE</button>
+            <button class="btn btn--sm" id="projFileRevert" type="button">REVERT</button>
+            <span class="proj__note" id="projFileNote"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="proj__grid" id="projRun" hidden>
+        <div class="proj__col">
+          <h3 class="proj__h">Verification</h3>
+          <div id="projCommands" class="proj__cmds"></div>
+          <div class="proj__row">
+            <button class="btn btn--sm btn--brass" id="projRunBtn" type="button">RUN</button>
+            <button class="btn btn--sm" id="projRunAll" type="button">RUN ALL APPROVED</button>
+          </div>
+          <div id="projOutput" class="proj__output" role="log" aria-label="command output"></div>
+        </div>
+        <div class="proj__col">
+          <h3 class="proj__h">Evidence ledger</h3>
+          <div id="projRuns" class="proj__runs"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VIEW 04 · THE ARCHIVE (import · learn · recall)
        ============================================================ -->
   <section id="view-archive" class="view" aria-label="archive" hidden>
     <div class="room frame">
@@ -210,6 +285,7 @@
 <footer class="slab" aria-label="service level">
   <div class="slab__label" role="group" aria-label="views">
     <button class="vtab" type="button" data-view="console" aria-current="true">Room</button>
+    <button class="vtab" type="button" data-view="project" aria-current="false">Project</button>
     <button class="vtab" type="button" data-view="fleet" aria-current="false"><span class="vtab__led" aria-hidden="true"></span>Fleet</button>
     <button class="vtab" type="button" data-view="archive" aria-current="false">Archive</button>
   </div>

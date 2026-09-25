@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { assert, sumUp } from "./_harness.mjs";
 import { runCodingStep, TOOL_DEFINITIONS } from "../js/agent-runner.js";
 import { createWorkspace, readFile } from "../js/workspace.js";
 
@@ -18,5 +18,5 @@ assert.equal(result.status, "complete");
 assert.equal(result.results[0].ok, true);
 assert.equal(readFile(ws, "src/greet.js"), "export const greet = () => 'hello';");
 assert.equal(result.usage.total, 10);
-assert.equal(TOOL_DEFINITIONS.length, 5);
-console.log("agent runner: 5 passed, 0 failed");
+assert.equal(TOOL_DEFINITIONS.length, 6);
+sumUp("agent runner");

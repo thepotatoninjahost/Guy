@@ -1,0 +1,296 @@
+/* ============================================================
+   Gunther · 09 / THE PROJECT ROOM
+   Real files, real commands, real exit codes. Same glass as the rest
+   of the house, but every panel here is load-bearing: the file list is
+   the directory, the ledger is the evidence, and an unavailable host
+   says so in words instead of showing an empty promise.
+   ============================================================ */
+
+.room--project { overflow: hidden; }
+
+#view-project .room {
+  overflow-y: auto;
+  gap: 14px;
+  padding: 16px clamp(12px, 2.5vw, 26px) 22px;
+}
+
+.proj__host,
+.proj__col,
+.proj__grid {
+  position: relative;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+.proj__host { padding: 10px 12px; }
+
+.proj__hostrow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.proj__badge {
+  font-family: var(--f-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #191204;
+  background: linear-gradient(180deg, var(--brass-2), var(--brass));
+  padding: 3px 8px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
+}
+.proj__badge.is-off {
+  color: #2a0505;
+  background: linear-gradient(180deg, #ff9a96, var(--err));
+}
+.proj__badge.is-warn {
+  color: #241703;
+  background: linear-gradient(180deg, #ffd79a, var(--warn));
+}
+
+.proj__hosttext {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  flex: 1 1 220px;
+}
+
+.proj__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.tool-chip {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  background: rgba(140, 230, 255, 0.04);
+}
+.tool-chip.is-missing {
+  color: rgba(255, 109, 104, 0.85);
+  border-color: rgba(255, 109, 104, 0.28);
+  background: rgba(255, 109, 104, 0.05);
+  text-decoration: line-through;
+}
+
+.proj__grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+}
+.proj__grid[hidden] { display: none; }
+.proj__col { padding: 12px; border: 0; background: none; }
+.proj__col + .proj__col { border-left: 1px solid var(--line); }
+
+.proj__h {
+  font-family: var(--f-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone);
+  margin-bottom: 8px;
+}
+
+.proj__row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.proj__row:last-child { margin-bottom: 0; }
+.proj__row .in { flex: 1 1 120px; min-width: 0; }
+
+.proj__list,
+.proj__files,
+.proj__runs,
+.proj__cmds { display: flex; flex-direction: column; gap: 4px; }
+
+.proj__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: rgba(146, 176, 222, 0.03);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+}
+.proj__item:hover { border-color: var(--brass-dim); background: var(--glass-2); }
+.proj__item.is-open { border-color: var(--brass); background: rgba(240, 194, 110, 0.08); }
+.proj__item b { font-weight: 600; font-size: 13px; }
+.proj__item small {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.proj__meta {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.proj__skips {
+  border: 1px solid rgba(255, 196, 107, 0.3);
+  background: rgba(255, 196, 107, 0.06);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-bottom: 8px;
+}
+.proj__skips[hidden] { display: none; }
+.proj__skips ul { margin: 6px 0 0; padding-left: 18px; }
+.proj__skips li { font-family: var(--f-mono); font-size: 10.5px; }
+
+.proj__file {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.proj__file:hover { color: var(--brass-2); background: var(--glass-2); }
+.proj__file.is-current { color: var(--ice); background: var(--glass-3); }
+.proj__file .sz { margin-left: auto; color: var(--ink-3); font-size: 10px; }
+.proj__file .dp { color: var(--ink-3); }
+
+.proj__files { max-height: 320px; overflow-y: auto; }
+
+.proj__editor {
+  width: 100%;
+  min-height: 260px;
+  max-height: 46vh;
+  resize: vertical;
+  background: rgba(5, 8, 14, 0.55);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 10px;
+  white-space: pre;
+  overflow: auto;
+}
+.proj__editor:focus { border-color: var(--ice); outline: none; }
+
+.proj__note {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+.proj__cmd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: rgba(146, 176, 222, 0.03);
+  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+.proj__cmd.is-current { border-color: var(--brass); background: rgba(240, 194, 110, 0.07); }
+.proj__cmd code { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
+.proj__cmd small { margin-left: auto; font-size: 10px; white-space: nowrap; }
+.proj__cmd small.pending { color: var(--warn); }
+.proj__cmd small.approved { color: var(--ok); }
+
+.proj__output {
+  margin-top: 8px;
+  background: rgba(5, 8, 14, 0.6);
+  border: 1px solid var(--line);
+  padding: 10px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.proj__output .ok { color: var(--ok); }
+.proj__output .bad { color: var(--err); }
+.proj__output .dim { color: var(--ink-3); }
+
+.proj__runs { max-height: 420px; overflow-y: auto; }
+.proj__runrow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 7px;
+  border-left: 2px solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+.proj__runrow.is-pass { border-left-color: var(--ok); }
+.proj__runrow.is-fail { border-left-color: var(--err); }
+.proj__runrow.is-none { border-left-color: var(--warn); }
+.proj__runrow time { margin-left: auto; color: var(--ink-3); white-space: nowrap; }
+
+.proj__empty {
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.6;
+  padding: 6px 0;
+}
+
+/* a command record in the feed — the evidence the build loop acted on */
+.runcard .msg__body { padding: 0; }
+.runcard__out {
+  margin: 0;
+  padding: 12px 14px;
+  background: rgba(5, 8, 14, 0.55);
+  border-left: 2px solid var(--brass);
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+/* the plan tile's new state: the step is being checked by execution */
+.plan__step.is-verify { border-color: rgba(140, 230, 255, 0.35); }
+.plan__step.is-verify .plan__st { color: var(--ice); animation: pulse 1s infinite; }
+
+@media (max-width: 720px) {
+  .proj__grid { grid-template-columns: minmax(0, 1fr); }
+  .proj__col + .proj__col { border-left: 0; border-top: 1px solid var(--line); }
+  #view-project .room { min-height: 0; height: auto; }
+  /* four view tabs must still fit a phone: tighten the switch, never the text */
+  .slab__label { flex-wrap: wrap; gap: 4px; }
+  .vtab { padding: 6px 12px; font-size: 9px; letter-spacing: 0.14em; }
+}

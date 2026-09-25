@@ -5,8 +5,11 @@
    → console with a stubbed fetch. Catches runtime wiring errors.
    ============================================================ */
 
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { JSDOM } from "jsdom";
+import { createNodeHost } from "./hosts/node-host.mjs";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
@@ -366,6 +369,80 @@ ok($$(".plan").length === 1, "the plan tile rendered once");
 
 ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block");
 
+/* ---------- PLAN + a real project: the step is only done when the project's own command says so ---------- */
+{
+  const root = mkdtempSync(join(tmpdir(), "gunther-smoke-room-"));
+  const rig = createNodeHost({ root });
+  window.__gunther.setHost(rig);
+  await window.__gunther.project.probe();
+
+  const created = await rig.createProject({ name: "smoke project" });
+  ok(Boolean(created.project && created.project.id), "rig creates a project for the plan run");
+  const projectId = created.project.id;
+  await rig.writeFile({
+    id: projectId,
+    path: "verify.sh",
+    text: '#!/bin/sh\nvalue=$(cat src/answer.txt)\n[ "$value" = "42" ] && { echo "ok: $value"; exit 0; }\necho "FAIL: got $value" >&2\nexit 1\n',
+  });
+  await rig.writeFile({ id: projectId, path: "src/answer.txt", text: "41\n" });
+  await rig.writeFile({
+    id: projectId,
+    path: "gunther.project.json",
+    text: JSON.stringify({ gunther: 1, name: "smoke project", commands: { verify: { argv: ["sh", "verify.sh"], label: "check it" } } }, null, 2) + "\n",
+  });
+  await window.__gunther.project.open({ id: projectId, name: "smoke project" });
+  ok(state.project && state.project.id === projectId, "the plan run has a real project open");
+  window.__gunther.project.approve("verify");
+  ok(window.__gunther.project.approved().length === 1, "the project's check is approved");
+
+  const PLAN2 = '{"goal":"make the check pass","steps":[{"title":"fix the answer","prompt":"make the project check pass"}]}';
+  let turn = 0;
+  global.fetch = async (url) => {
+    turn += 1;
+    const isGemini = String(url).includes("generativelanguage");
+    const reply = (text) =>
+      isGemini
+        ? { ok: true, status: 200, body: sse([JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }], usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5, totalTokenCount: 10 } })]) }
+        : {
+            ok: true,
+            status: 200,
+            body: sse([
+              JSON.stringify({ choices: [{ delta: { content: text } }] }),
+              JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 } }),
+              "[DONE]",
+            ]),
+          };
+    if (turn === 1) return reply(PLAN2);
+    if (turn === 2) return reply(JSON.stringify({ type: "tool", name: "create_file", args: { path: "src/answer.txt", content: "41\n" } }));
+    if (turn === 3) return reply(JSON.stringify({ type: "final", text: "Set the answer to 41 and I am confident the check passes." }));
+    if (turn === 4) return reply(JSON.stringify({ type: "tool", name: "create_file", args: { path: "src/answer.txt", content: "42\n" } }));
+    return reply(JSON.stringify({ type: "final", text: "The check reported 'got 41'; I set it to 42." }));
+  };
+
+  state.dials.uiMode = "plan";
+  window.__gunther.console.send("make the project check pass");
+  const verified = await until(() => $$(".plan__step.is-done").some((li) => /VERIFIED · exit 0/.test(li.textContent || "")), 15000);
+  ok(verified, "the step tile reads VERIFIED · exit 0 — the project's own command closed the step");
+  ok($$(".feed .runcard").length >= 2, "both the failing run and the passing run left command records in the feed");
+  ok($$(".feed .runcard")[0].textContent.includes("exit 1") || $$(".feed .runcard")[0].textContent.includes("FAIL"), "the first record is the real failure, with its real output");
+  const records = state.runs.filter((r) => r.projectId === projectId);
+  ok(records.length >= 2, "two command records landed in the durable ledger");
+  ok(records.some((r) => r.code === 1) && records.some((r) => r.code === 0), "the ledger holds the failure AND the pass — not only the happy one");
+  ok(
+    readFileSync(join(root, "projects", projectId, "src", "answer.txt"), "utf8") === "42\n",
+    "the repair reached the real file on real disk"
+  );
+  const task = state.tasks[state.tasks.length - 1];
+  ok(task.steps[0].evidence.some((e) => /exit code: 0/.test(e.text || "")), "the step's evidence carries the exit code that proved it");
+  ok(existsSync(join(root, "projects", projectId, "GUNTHER-REPORT.md")), "the build summary wrote the report into the real project");
+  const report = readFileSync(join(root, "projects", projectId, "GUNTHER-REPORT.md"), "utf8");
+  ok(/\*\*PASS\*\*/.test(report) && /\*\*FAIL\*\*/.test(report), "the report is made of command records, not prose");
+  ok(/RIG/i.test(report) || /rig/i.test(report), "the report names the harness it ran on");
+
+  // and a second plan against the same project starts clean
+  window.__gunther.setHost(null);
+}
+
 /* ---------- never silent: the turnbar narrates, the watchdog rotates ---------- */
 {
   const tb = () => document.querySelector(".turnbar");
@@ -534,11 +611,15 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   await until(() => document.querySelector(".sheet").classList.contains("open"));
   const active = document.querySelector(".bay.active");
   ok(!!active && active.dataset.bay === "a", "the credentials door raises a real bay, not an empty window");
-  ok(document.querySelectorAll(".slab__label .vtab").length === 3, "bottom menu carries the Room/Fleet/Archive switch");
+  ok(document.querySelectorAll(".slab__label .vtab").length === 4, "bottom menu carries the Room/Project/Fleet/Archive switch");
+  document.querySelector('.vtab[data-view="project"]').click();
+  ok(await until(() => !document.querySelector("#view-project").hidden), "Project vtab reaches the project room");
+  ok(document.querySelector("#view-console").hidden === true, "the Project vtab hides the conversation instead of stacking rooms");
   document.querySelector('.vtab[data-view="fleet"]').click();
   ok(await until(() => !document.querySelector("#view-fleet").hidden), "Fleet vtab switches views");
   document.querySelector('.vtab[data-view="console"]').click();
   ok(await until(() => !document.querySelector("#view-console").hidden), "Room vtab switches back");
+  ok(document.querySelector("#view-project").hidden === true, "the Room vtab takes the project room down again");
   document.querySelector(".sheet__close").click();
   await until(() => !document.querySelector(".sheet").classList.contains("open"));
   ok(active.querySelectorAll(".keyrow").length === 10, "the credentials bay carries all ten rows");

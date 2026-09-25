@@ -1,12 +1,12 @@
 {
   "name": "gunther-console",
   "version": "1.0.0",
-  "description": "Gunther — personal autonomous coding console",
+  "description": "Gunther \u2014 personal autonomous coding console",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "node test/engine.test.mjs && node test/agent-runtime.test.mjs && node test/workspace.test.mjs && node test/agent-tools.test.mjs && node test/agent-runner.test.mjs && node test/qualification.test.mjs && node test/archive.test.mjs && node test/smoke.test.mjs",
+    "test": "node test/engine.test.mjs && node test/agent-runtime.test.mjs && node test/workspace.test.mjs && node test/agent-tools.test.mjs && node test/agent-runner.test.mjs && node test/qualification.test.mjs && node test/archive.test.mjs && node test/project.test.mjs && node test/evidence.test.mjs && node test/repair-loop.test.mjs && node test/project-room.test.mjs && node test/smoke.test.mjs",
     "pack:www": "node tools/pack-www.mjs",
     "sync": "node tools/pack-www.mjs && npx cap sync android",
     "apk:debug": "node tools/pack-www.mjs && npx cap sync android && cd android && ./gradlew assembleDebug"

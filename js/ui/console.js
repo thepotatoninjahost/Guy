@@ -11,6 +11,9 @@ import { getTurnContext } from "./archive.js";
 import { mdToHtml, toast, copyText, escapeHtml, fmtTok, fmtClockHM } from "./render.js";
 import { createTask, beginStep, completeStep, failStep, recordEvidence } from "../agent-runtime.js";
 import { runCodingStep } from "../agent-runner.js";
+import { verifiedStep } from "../build-loop.js";
+import { renderRunText, runLine, taskRuns, verificationSummary } from "../evidence.js";
+import { activeProject, agentCommandContext, deliverProject, projectBaseline, verificationCommand } from "./project.js";
 
 const PLAN_SYSTEM = [
   "You are the planning engine of Gunther, an autonomous coding agent.",
@@ -105,6 +108,24 @@ function agentShell(tag) {
 function streamText(bodyEl) {
   const node = bodyEl.querySelector(".msg__stream");
   return node ? node.textContent : "";
+}
+
+/** A command record rendered where the build happened — never a summary of one. */
+function commandShell(record) {
+  const el = document.createElement("article");
+  el.className = "msg msg--agent runcard";
+  const verdict = !record.ran ? "NOT RUN" : record.timedOut ? "TIMEOUT" : record.code === 0 ? "PASS" : "FAIL";
+  const meta = record.ran
+    ? "exit " + record.code + " · " + Math.round((record.durationMs || 0) / 100) / 10 + "s" + (record.truncated ? " · truncated" : "")
+    : "did not run";
+  el.innerHTML =
+    '<header class="msg__head"><span class="msg__dot"></span><span class="msg__line"></span>' +
+    '<span class="msg__rot"></span><span class="msg__meta"></span></header>' +
+    '<div class="msg__body"><pre class="runcard__out"></pre></div>';
+  el.querySelector(".msg__line").textContent = "COMMAND · " + (record.name || "run") + " · " + verdict;
+  el.querySelector(".msg__meta").textContent = meta;
+  el.querySelector(".runcard__out").textContent = renderRunText(record, 4000);
+  return el;
 }
 
 function finalizeAgent(shell, res) {
@@ -446,14 +467,25 @@ async function runPlan(goal) {
       "STEP INSTRUCTION: " + plan.steps[i].prompt,
     ].join("\n");
 
-    try {
+    const stepId = task.steps[i].id;
+    const project = activeProject();
+    const verifyCommand = project ? verificationCommand() : null;
+
+    /* one model turn through the controlled tools — repeated for repairs */
+    const runOneStep = async (instructionNow, attempt) => {
+      const shell = attempt === 0 ? stepShell : agentShell("REPAIR " + attempt);
+      if (attempt > 0) {
+        f.appendChild(shell.el);
+        scrollFeed();
+      }
       const result = await runCodingStep({
         workspace: state.workspace,
         goal: plan.goal || goal,
-        instruction: prompt,
-        maxTurns: 6,
+        instruction: instructionNow,
+        maxTurns: attempt === 0 ? 6 : 8,
+        toolContext: agentCommandContext({ task, stepId, maxRuns: 3 }),
         dispatch: (opts) => dispatch({ ...opts, signal: controller.signal, estTok: estimateTokens((opts.messages || []).map((m) => m.content).join(" ") + (opts.system || "")), onStatus: renderTurnbar }),
-        onDelta: (t) => stepShell.appendDelta(t),
+        onDelta: (t) => shell.appendDelta(t),
         onTool: (call, toolResult) => {
           renderTurnbar({ phase: toolResult.ok ? "tool" : "repair" });
           addLog(toolResult.ok ? "info" : "warn", "TOOL", call.name + " → " + (toolResult.ok ? "ok" : toolResult.error));
@@ -463,33 +495,103 @@ async function runPlan(goal) {
       const res = {
         text: result.text,
         model: result.model || { id: "tool-loop", line: 0, name: "TOOL LOOP" },
-        usage: result.usage,
+        usage: result.usage || { prompt: 0, completion: 0, total: 0 },
         ms: 0,
         attempts: result.turns,
       };
-      stepShell.setLine(res.model);
-      finalizeAgent(stepShell, res);
-      setStep(pEl, i, "done", res.model.line ? "LINE " + String(res.model.line).padStart(2, "0") : "TOOLS");
-      completeStep(task, task.steps[i].id, { kind: "tool-loop", text: res.text.slice(0, 6000) });
-      scheduleSave();
-      outputs.push(res.text.slice(0, 6000));
-      state.thread.push({ role: "assistant", content: res.text, at: Date.now(), model: res.model.id, usage: res.usage, step: i, tag: "STEP " + (i + 1) });
-      scheduleSave();
-    } catch (err) {
-      if (err.code === "ABORT") {
-        finalizeAborted(stepShell);
-        setStep(pEl, i, "halt");
-        failStep(task, task.steps[i].id, "stopped by operator", "partial output preserved");
-        scheduleSave();
-        planAbort = true;
-      } else {
-        showError(stepShell, err);
-        setStep(pEl, i, "fail");
-        failStep(task, task.steps[i].id, err.msg || err.note || err.code || "step failed");
-        scheduleSave();
-        addLog("err", "SESSION", "step " + (i + 1) + " failed — " + (err.msg || err.note || err.code || "").slice(0, 140));
-        planAbort = true;
+      shell.setLine(res.model);
+      finalizeAgent(shell, res);
+      return { ok: true, text: res.text, model: res.model, usage: res.usage, turns: result.turns };
+    };
+
+    /* the step ends when the project's own command says so, or honestly not */
+    let outcome;
+    if (verifyCommand) {
+      setStep(pEl, i, "verify");
+      outcome = await verifiedStep({
+        project,
+        workspace: state.workspace,
+        baseline: projectBaseline(),
+        command: verifyCommand,
+        state,
+        task,
+        stepId,
+        instruction: prompt,
+        goal: plan.goal || goal,
+        runStep: runOneStep,
+        onPhase: (info) => renderTurnbar({ phase: info.phase }),
+        onFlush: (flush) => {
+          if (flush.written.length || flush.deleted.length) {
+            addLog("info", "PROJECT", flush.written.length + " written · " + flush.deleted.length + " deleted in the real project");
+          }
+        },
+        onRun: (record) => {
+          f.appendChild(commandShell(record));
+          scrollFeed();
+          addLog(record.code === 0 ? "ok" : "warn", "PROJECT", runLine(record));
+        },
+      });
+    } else {
+      try {
+        const only = await runOneStep(prompt, 0);
+        outcome = {
+          status: project ? "unverified" : "done",
+          attempts: [only],
+          runs: [],
+          repairs: 0,
+          text: only.text,
+          reason: project
+            ? "no approved verification command is declared for this project"
+            : "no real project is open — this ran against the in-app workspace only",
+        };
+      } catch (err) {
+        outcome = { status: "halted", code: err.code, error: err.msg || err.note || err.message || String(err), attempts: [], runs: [], repairs: 0 };
       }
+    }
+
+    const lastAttempt = outcome.attempts.length ? outcome.attempts[outcome.attempts.length - 1] : null;
+    if (lastAttempt && lastAttempt.text) {
+      outputs.push(String(lastAttempt.text).slice(0, 6000));
+      state.thread.push({
+        role: "assistant",
+        content: lastAttempt.text,
+        at: Date.now(),
+        model: lastAttempt.model ? lastAttempt.model.id : undefined,
+        usage: lastAttempt.usage,
+        step: i,
+        tag: "STEP " + (i + 1),
+      });
+      scheduleSave();
+    }
+
+    if (outcome.status === "done") {
+      const run = outcome.runs.length ? outcome.runs[outcome.runs.length - 1] : null;
+      setStep(pEl, i, "done", run ? "VERIFIED · exit " + run.code : lastAttempt && lastAttempt.model && lastAttempt.model.line ? "LINE " + String(lastAttempt.model.line).padStart(2, "0") : "TOOLS");
+      completeStep(task, stepId, { kind: "verify", text: run ? "verified by execution: " + runLine(run) : "step completed" });
+      scheduleSave();
+    } else if (outcome.status === "unverified") {
+      setStep(pEl, i, "done", "UNVERIFIED");
+      completeStep(task, stepId, { kind: "note", text: "completed without execution evidence — " + outcome.reason });
+      scheduleSave();
+    } else if (outcome.status === "halted") {
+      if (outcome.code === "ABORT") {
+        if (lastAttempt) finalizeAborted(stepShell);
+        setStep(pEl, i, "halt");
+        failStep(task, stepId, "stopped by operator", { kind: "note", text: "partial output preserved" });
+      } else {
+        if (lastAttempt) showError(stepShell, { code: outcome.code || "ERROR", msg: outcome.error });
+        setStep(pEl, i, "fail");
+        failStep(task, stepId, outcome.error || "step failed");
+      }
+      scheduleSave();
+      planAbort = true;
+    } else {
+      const run = outcome.runs.length ? outcome.runs[outcome.runs.length - 1] : null;
+      setStep(pEl, i, "fail", run ? "FAILED · exit " + run.code : "FAILED");
+      failStep(task, stepId, outcome.reason || "the step did not verify", run ? { kind: "command", text: renderRunText(run) } : "");
+      addLog("err", "SESSION", "step " + (i + 1) + " did not verify — " + String(outcome.reason || "").slice(0, 140));
+      scheduleSave();
+      planAbort = true;
     }
   }
 
@@ -502,12 +604,32 @@ async function runPlan(goal) {
     const li = pEl.querySelector('.plan__step[data-i="' + i + '"]');
     return li && li.classList.contains("is-done");
   }).length;
-  sum.querySelector(".msg__meta").textContent = done + "/" + plan.steps.length + " steps";
+
+  /* the verdict is assembled from command records, never from prose */
+  const taskCommandRuns = taskRuns(state, task.id);
+  const summary = verificationSummary(taskCommandRuns);
+  let delivered = null;
+  if (activeProject()) {
+    try {
+      delivered = await deliverProject(plan.goal || goal, task);
+    } catch (error) {
+      addLog("warn", "PROJECT", "the delivery report could not be written: " + (error && error.message ? error.message : error));
+    }
+  }
+  const verifiedText = !taskCommandRuns.length
+    ? "No command was executed for this build, so nothing here is verified by execution."
+    : summary.failed
+      ? summary.failed + " of " + summary.ran + " executed command(s) failed — the project does not pass yet."
+      : "All " + summary.ran + " executed command(s) passed (exit 0).";
+  sum.querySelector(".msg__meta").textContent =
+    done + "/" + plan.steps.length + " steps · " + summary.passed + " passed · " + summary.failed + " failed · " + summary.notRun + " not run";
   sum.querySelector(".msg__body").innerHTML =
     "<p>" +
     (done === plan.steps.length
-      ? "All " + plan.steps.length + " steps delivered. The build is framed — inspect each step above, then keep pushing."
+      ? "All " + plan.steps.length + " steps delivered."
       : done + " of " + plan.steps.length + " steps delivered before the loop halted. Retry the remaining steps from the workbench.") +
+    "</p><p>" + escapeHtml(verifiedText) +
+    (delivered ? " The delivery report was written to GUNTHER-REPORT.md in the project, with every command and exit code in it." : "") +
     "</p>";
   f.appendChild(sum);
   scrollFeed();
