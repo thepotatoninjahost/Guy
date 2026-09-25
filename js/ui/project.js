@@ -456,18 +456,40 @@ function renderCommands() {
   for (const command of manifest.commands) {
     const approved = approvals[command.name] === commandKey(command.argv);
     const availability = probe && probe.toolchain ? commandAvailability(command.argv, probe.toolchain) : { runnable: false, reason: "no toolchain probe" };
-    const row = document.createElement("button");
-    row.type = "button";
+    const row = document.createElement("div");
     row.className = "proj__cmd" + (currentCommand === command.name ? " is-current" : "");
-    row.innerHTML =
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "proj__cmdpick";
+    pick.innerHTML =
       "<b>" + escapeHtml(command.name) + "</b> <code>" + escapeHtml(command.argv.join(" ")) + "</code>" +
+      (command.label ? " <em>" + escapeHtml(command.label) + "</em>" : "") +
       '<small class="' + (approved ? "approved" : "pending") + '">' +
-      (approved ? "APPROVED" : "NEEDS APPROVAL") + (availability.runnable ? "" : " · " + escapeHtml(availability.reason.slice(0, 60))) +
+      (approved ? "APPROVED — this exact argv" : "NEEDS APPROVAL") +
+      (availability.runnable ? "" : " · " + escapeHtml(availability.reason.slice(0, 60))) +
       "</small>";
-    row.addEventListener("click", () => {
+    pick.addEventListener("click", () => {
       currentCommand = command.name;
       renderCommands();
     });
+    /* The gate is the human's: the operator approves this exact argv here,
+       and any edit to the command silently revokes that approval. */
+    const gate = document.createElement("button");
+    gate.type = "button";
+    gate.className = "btn btn--sm" + (approved ? "" : " btn--brass");
+    gate.textContent = approved ? "REVOKE" : "APPROVE";
+    gate.title = approved
+      ? "withdraw approval for " + command.name + " — it becomes unrunnable again"
+      : "approve '" + command.name + "' exactly as declared: " + command.argv.join(" ");
+    gate.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const next = approved ? revokeCommand(command.name) : approveCommand(command.name);
+      renderCommands();
+      renderActive();
+      addLog("info", "PROJECT", command.name + (next ? " approved by the operator · " : " approval withdrawn · ") + command.argv.join(" "));
+      toast(next ? "Approved: " + command.name : "Withdrawn: " + command.name, next ? "ok" : "warn");
+    });
+    row.append(pick, gate);
     el.appendChild(row);
   }
 }

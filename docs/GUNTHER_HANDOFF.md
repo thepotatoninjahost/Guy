@@ -150,8 +150,8 @@ These are product blockers, not cosmetic backlog items:
    - Android ships toybox, not node/npm/python. The probe reports what is missing instead of simulating it, so a project whose check needs `node` will honestly be unrunnable on-device today.
    - A decision is needed on how (or whether) to support such projects — not invented by the agent.
 
-3. **Command approval ergonomics**
-   - The Project room renders approval state and the gate is enforced, but there is no approve/revoke control in the room yet (approval is currently reachable only through `window.__gunther.project.approve()`); `runDeclaredCommand` already tells the operator to "approve it in the Project room first".
+3. **Command approval provenance**
+   - The room now has an APPROVE/REVOKE control per declared command, and any change to `argv` revokes the approval silently. What is still missing is a record of *who* approved *what* and when, and a way to see that history; the approval table itself (`state.projectApprovals`) is persisted with the app state.
 
 4. **Research and citations** (unchanged — work order 7)
    - Real search/fetch/source tools and durable source records attached to tasks; it must distinguish researched facts from model guesses.

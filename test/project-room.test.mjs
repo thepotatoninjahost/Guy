@@ -130,7 +130,16 @@ assert.equal(blocked.record, null, "an unapproved command produces no run record
 assert.match(window.document.querySelector("#projOutput").textContent || "", /approve/i);
 
 /* ---------- approve it in the room, then run it for real ---------- */
-G.project.approve("verify");
+const approveBtn = [...window.document.querySelectorAll("#projCommands .proj__cmd")].find((row) => /verify/.test(row.textContent));
+assert.ok(approveBtn, "the declared command is listed in the room");
+const gate = [...approveBtn.querySelectorAll("button")].find((b) => /APPROVE|REVOKE/.test(b.textContent));
+assert.ok(gate, "the room gives the operator an approve/revoke control");
+assert.match(gate.textContent, /APPROVE/);
+gate.click();
+// the room repaints on approval, so read the room again instead of the detached node
+assert.ok(await until(() => /REVOKE/.test(window.document.querySelector("#projCommands").textContent || "")), "approving flips the control to REVOKE");
+assert.match(window.document.querySelector("#projCommands").textContent, /APPROVED — this exact argv/);
+assert.match(window.document.querySelector("#projMeta").textContent, /1 approved/);
 assert.equal(G.project.approved().some((c) => c.name === "verify" && c.argv.join(" ") === "sh verify.sh"), true);
 const first = await G.project.run("verify");
 assert.equal(first.ok, false, "the project's own check really fails on a wrong answer");

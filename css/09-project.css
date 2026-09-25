@@ -207,22 +207,36 @@
 
 .proj__cmd {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 8px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 8px;
   border: 1px solid var(--line);
   background: rgba(146, 176, 222, 0.03);
+  color: var(--ink);
+}
+.proj__cmd.is-current { border-color: var(--brass); background: rgba(240, 194, 110, 0.07); }
+/* the row itself picks the command; the button beside it is the human's gate */
+.proj__cmdpick {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 4px 2px;
   cursor: pointer;
   color: var(--ink);
   font: inherit;
   text-align: left;
-  width: 100%;
 }
-.proj__cmd.is-current { border-color: var(--brass); background: rgba(240, 194, 110, 0.07); }
-.proj__cmd code { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
+.proj__cmd code { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); overflow-wrap: anywhere; }
+.proj__cmd em { font-style: normal; font-size: 11px; color: var(--ink-3); }
 .proj__cmd small { margin-left: auto; font-size: 10px; white-space: nowrap; }
 .proj__cmd small.pending { color: var(--warn); }
 .proj__cmd small.approved { color: var(--ok); }
+.proj__cmd .btn { flex: none; }
 
 .proj__output {
   margin-top: 8px;
