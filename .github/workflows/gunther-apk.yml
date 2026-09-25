@@ -2,7 +2,7 @@ name: Build GUNTHER Android APK
 
 on:
   push:
-    branches: ["main", "arena/01a0ac66-guy", "master"]
+    branches: ["main", "arena/01a0ac66-guy", "master", "arena/01a0da2a-guy"]
     paths-ignore:
       - "**.md"
   workflow_dispatch:
