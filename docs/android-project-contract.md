@@ -5,11 +5,13 @@ It exists because the console cannot reach a real project on its own: the
 console's `js/workspace.js` model is an in-memory/localStorage abstraction, and
 `localStorage` is not a project.
 
-Everything below is implemented by `GuntherProjectPlugin.java` in the APK and
-consumed by `js/host.js`. The same contract is also implemented by
-`test/hosts/node-host.mjs` so the product code can be exercised against real
-files and real processes without a device. **The rig host is a contract
-harness, not a device.**
+Everything below is implemented by `GuntherProjectPlugin.java` (registered from
+`MainActivity`, compiled by CI) and consumed by `js/host.js`. The same contract
+is implemented by `test/hosts/node-host.mjs`, so the product code can be
+exercised against real files and real processes without a device.
+**The rig host is a contract harness, not a device** — the Android
+implementation compiles and is contract-tested, but had not run on a phone as of
+2026-09-25.
 
 ## Why the native layer must own the project
 
@@ -56,6 +58,12 @@ All methods take one options object and resolve one object. Failures reject with
 | `importFolder` | `name` | `project, imported, skipped, cancelled` |
 | `importArchive` | `name` | `project, imported, skipped, cancelled` |
 | `exportArchive` | `id, name` | `saved, fileName, bytes, files, cancelled` |
+
+On Android the three import/export methods open the system picker themselves and
+need no `sourcePath`/`targetPath`. The rig host has no picker, so it requires
+`sourcePath` (imports) and accepts `targetPath` (export); that difference is a
+property of the harness, and it is the reason a rig import is never described as
+a device import.
 
 `runCommand` never uses a shell to interpret the model's text: `argv` is passed
 to `ProcessBuilder` as an argument vector. Shell syntax is only meaningful when

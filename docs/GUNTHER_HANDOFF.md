@@ -62,6 +62,17 @@ A passing internal test suite, a successful provider PING, a built APK, a polish
 - `js/agent-runtime.js`: durable tasks and steps, evidence, sources, learnings, resume behavior, and interruption handling.
 - `js/ui/console.js`: PLAN dispatches coding steps through the workspace tool loop.
 
+### Real project access and execution (added this session)
+
+- `docs/android-project-contract.md`: the contract between the console and Android — app-private project storage, thirteen host methods, argv-vector execution limited to system binaries, the `gunther.project.json` command manifest, and the evidence record shape.
+- `js/host.js`: the single door to the device. `hostKind()` is `android | rig | none`; no host is a stated verdict (`NO_HOST`), never a silent stand-in.
+- `js/project.js`: hydrate a real project into the mirror and report what could not be mirrored; flush the mirror back to real files; write the delivery report from records only.
+- `js/evidence.js`: `executeCommand()` is the only source of run records; verdicts come from real exit codes.
+- `js/build-loop.js`: `verifiedStep()` — run the project's own declared command, and when it fails, hand the model the real command record and run it again (bounded).
+- `js/ui/project.js` + `css/09-project.css`: the Project room — host badge and probed tool chips, projects, file browser and editor, command approval, run and evidence ledger.
+- `android/app/src/main/java/com/gunther/console/GuntherProjectPlugin.java`: the Android host (registered in `MainActivity`). Compiles in CI; not yet exercised on a physical device.
+- `test/hosts/node-host.mjs`: a contract harness implementing the same thirteen methods against real files and real processes. It is explicitly labelled a harness, never a device.
+
 ### Model fleet
 
 - `js/models.js`: provider/model manifest and limits.
@@ -79,30 +90,42 @@ A passing internal test suite, a successful provider PING, a built APK, a polish
 - `test/agent-runner.test.mjs`
 - `test/qualification.test.mjs`
 - `test/archive.test.mjs`
+- `test/project.test.mjs` — the host/project contract against the rig
+- `test/evidence.test.mjs` — command records and verdicts
+- `test/repair-loop.test.mjs` — fail → repair → pass, including a lying model
+- `test/project-room.test.mjs` — the real UI in jsdom, working a real project
 - `test/smoke.test.mjs`
-- `.github/workflows/gunther-apk.yml`: Android test/package workflow.
+- `test/_harness.mjs` — counts assertions that actually ran
+- `test/hosts/node-host.mjs` — the rig host (real files, real processes, NOT a device)
+- `.github/workflows/gunther-apk.yml`: Android test/package workflow. Note: this session's branch was added to its push trigger list so pushes build; remove it when the branch is merged.
 
 ## 5. Evidence currently available
 
 ### Isolated deterministic evidence
 
-The complete local suite has most recently reported:
+The complete local suite (`npm test`, re-run 2026-09-25) reports **489 assertions across twelve suites, 0 failures**:
 
-- Engine: 54/54
-- Agent runtime: 16/16
-- Workspace: 15/15
-- Agent tools: 14/14
-- Agent runner: 5/5
-- Qualification logic: 7/7
-- Archive: 24/24
-- Smoke: 121/121
-- Combined: 256/256
+- Engine: 54 · Agent runtime: 18 · Workspace: 13 · Agent tools: 15 · Agent runner: 5
+- Qualification logic: 6 · Archive: 24 · Project/host contract: 67 · Command evidence: 47
+- Repair loop: 53 · Project room (whole product in jsdom + rig host): 50 · Smoke (whole app): 137
 
-This proves only that the tested internal contracts behave as written. It does not prove that Gunther is a useful autonomous coding product.
+The counts are now *measured* at runtime by `test/_harness.mjs`; earlier counts in this document were hand-typed and drifted from reality. The suite passes on a clean CI runner as well.
+
+Two of these suites go beyond internal contracts:
+
+- `test/repair-loop.test.mjs` builds a real project on disk, runs its real `verify.sh`, watches it fail, repairs it, and watches it pass — including a "model" that lies about the result, whose prose is ignored in favour of the exit code.
+- `test/project-room.test.mjs` boots the real `index.html` in jsdom and works the room against the rig host: create → hydrate → unapproved run refused → run (exit 1) → edit in the room's editor → run (exit 0) → approve invalidation on argv change → report written into the real project.
+
+This proves the loop works against the rig host (real files, real processes). It does **not** prove the Android plugin behaves identically on a device.
 
 ### Android build evidence
 
-The Android CI workflow has successfully run tests and produced debug/release APK artifacts in previous runs. This proves packaging/build health only, not end-to-end agent capability.
+CI run `36185981833` (branch `arena/01a0da2a-guy`, 2026-09-25) ran the full suite, `cap sync android`, and built both APKs:
+
+- `gunther-debug-apk` — 4 249 336 bytes
+- `gunther-release-apk` — 3 017 465 bytes
+
+The first CI run on this branch caught a real compile error in the plugin (`JSONArray cannot be converted to JSArray`); it was fixed and the second run built. Before that, the plugin had **never been compiled anywhere**. This is compile evidence, not device evidence — no APK has been run on a phone in this session.
 
 ### Live model evidence
 
@@ -119,24 +142,28 @@ Qualification uses `transport.call`; PING is only endpoint/key response testing.
 
 These are product blockers, not cosmetic backlog items:
 
-1. **Project import/export and file browser**
-   - The user needs to bring a real project into Gunther and retrieve it afterward.
-   - The UI must show the actual project files and changes.
-   - Persistence must work across restart.
+1. **Device validation of the whole loop** (work order 6 — the only step that can close the others)
+   - Import a real small project through the system picker on a phone, run its real command, watch it fail, repair it, watch it pass.
+   - Storage/import, file browser, command execution, evidence and the repair loop are now implemented and rig-tested; **none of it has run on a device**. Until it has, treat every device claim as unverified.
 
-2. **Android-native project access**
-   - The APK needs a real, permission-safe way to access an imported project.
-   - The current workspace model is an in-memory/state abstraction, not proof of native project access.
+2. **Toolchain reality on device**
+   - Android ships toybox, not node/npm/python. The probe reports what is missing instead of simulating it, so a project whose check needs `node` will honestly be unrunnable on-device today.
+   - A decision is needed on how (or whether) to support such projects — not invented by the agent.
 
-3. **In-product command execution**
-   - Gunther must execute the imported project's actual verification commands from inside the APK.
-   - Output must be captured as durable evidence.
-   - Unsupported platforms/commands must be reported honestly rather than simulated.
+3. **Command approval ergonomics**
+   - The Project room renders approval state and the gate is enforced, but there is no approve/revoke control in the room yet (approval is currently reachable only through `window.__gunther.project.approve()`); `runDeclaredCommand` already tells the operator to "approve it in the Project room first".
 
-4. **Test-and-repair loop**
-   - A failed command must become model-readable evidence.
-   - The model must be able to repair files, rerun the command, and stop only on pass or an honest block.
-   - A model's final prose must never be treated as proof that a command passed.
+4. **Research and citations** (unchanged — work order 7)
+   - Real search/fetch/source tools and durable source records attached to tasks; it must distinguish researched facts from model guesses.
+
+5. **Reusable memory and skills** (unchanged — work order 8)
+   - Learnings need controlled persistence and reuse across projects; any self-improvement must be reviewable, bounded, and reversible.
+
+6. **Complete delivery** (partially there)
+   - `GUNTHER-REPORT.md` is written from command records at the end of a plan, and projects export as `.zip`. A finished-project flow with files, verification evidence and known limitations still needs review on a device.
+
+7. **Qualification diagnostics** (unchanged — work order 9)
+   - Show each qualification task's pass/fail, missing evidence, and provider/error reason, not only N/4.
 
 5. **Research and citations**
    - Gunther needs real search/fetch/source tools and durable source records attached to tasks.
@@ -168,6 +195,8 @@ Do not jump back to cosmetic work or more fleet polishing. Work in this order:
 9. Improve delivery and qualification diagnostics.
 
 Each stage must be demonstrated in the actual product, not only covered by isolated tests.
+
+Status against this order after the current session: **items 1–5 are implemented** (native contract, import/export + browser, command execution, command output as durable evidence, repair/rerun in PLAN), rig-tested end to end, and compile-verified in CI. **Item 6 — validation in the APK on a real device — is not done** and is the gate on calling any of it device-proven. Items 7–9 are untouched.
 
 ## 8. How the next conversation must begin
 
