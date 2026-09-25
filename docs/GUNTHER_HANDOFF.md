@@ -8,7 +8,7 @@ This is the durable handoff for the next conversation. Read it before inspecting
 - Product in the repository: **Gunther**
 - The repository name is historical access infrastructure. Do not rename it.
 - Guy is not the product and is intentionally not being recovered.
-- Gunther is intended to be a personal autonomous coding agent in an Android/Capacitor application, not merely a chat screen.
+- Gunther is intended to be a personal autonomous coding agent implemented as a native Android application—not a web application packaged inside a WebView and not merely a chat screen.
 
 ## 2. Owner's actual acceptance bar
 
@@ -46,11 +46,12 @@ A passing internal test suite, a successful provider PING, a built APK, a polish
 
 ## 4. What exists now
 
-### Product shell
+### Current repository state (not the final architecture)
 
-- Hand-built HTML/CSS/JavaScript console.
-- Capacitor Android shell under `android/`.
-- CHAT and PLAN modes.
+- The current repository contains a hand-built HTML/CSS/JavaScript console packaged by a Capacitor Android shell.
+- That web UI is a prototype/foundation and does **not** satisfy the required product architecture.
+- The final Gunther product must be a native Android application. Do not continue treating the WebView UI as the product to finish.
+- CHAT and PLAN behavior exists only in the current prototype and must be re-evaluated during the native implementation.
 - Fleet credentials, rotation, usage ledgers, dials, work log, archive, and mobile layout.
 
 ### Workspace and agent foundations
