@@ -444,7 +444,7 @@ public class GuntherProjectPlugin extends Plugin {
     @PluginMethod
     public void listProjects(PluginCall call) {
         JSArray out = new JSArray();
-        JSArray index = readIndex();
+        JSONArray index = readIndex();
         for (int i = 0; i < index.length(); i++) {
             JSONObject entry = index.optJSONObject(i);
             if (entry == null) continue;
