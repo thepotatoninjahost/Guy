@@ -128,11 +128,25 @@ class RemoteHttpGateway(
         }
     }
 
+    /**
+     * Some providers (notably OpenRouter wrapping an upstream brain) answer HTTP 200
+     * with an {"error": {...}} body instead of choices. That is a failure, never a
+     * reply — surface it as one so the plain-words and rotation machinery can act.
+     */
+    private fun providerErrorMessage(err: JSONObject): String {
+        val message = err.optString("message").ifBlank { "provider error" }
+        val code = err.optInt("code", -1)
+        return if (code > 0) "$message (provider code $code)" else message
+    }
+
     private fun parseCompletionBody(text: String): ModelResponse {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return ModelResponse.Failure("Model returned an empty response")
         val json = runCatching { JSONObject(trimmed) }.getOrNull()
             ?: return JsonModelResponseParser().parse(trimmed)
+        json.optJSONObject("error")?.let { err ->
+            return ModelResponse.Failure(providerErrorMessage(err))
+        }
         val choice = json.optJSONArray("choices")?.optJSONObject(0)
         val message = choice?.optJSONObject("message") ?: choice?.optJSONObject("delta")
         if (message != null) return responseFromChatMessage(message)

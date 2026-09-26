@@ -40,6 +40,31 @@ data: [DONE]
         assertEquals(ModelResponse.ToolCall("read_file", "{\"path\":\"src/Main.kt\"}", "", "call_1"), result)
     }
 
+    @Test
+    fun `http 200 with error object is a failure not a reply`() {
+        val gateway = RemoteHttpGateway("http://127.0.0.1:8080/v1", "", "remote", connectionFactory = { _ ->
+            fakeConnection("""{"id":"gen-1","error":{"message":"Upstream error from Nvidia: Service temporarily overloaded","code":503,"metadata":{}}}""")
+        })
+
+        val result = gateway.complete(ModelRequest("system", "inspect", emptyList()))
+
+        assertTrue(result is ModelResponse.Failure)
+        assertTrue((result as ModelResponse.Failure).message.contains("temporarily overloaded"))
+        assertTrue(result.message.contains("503"))
+    }
+
+    @Test
+    fun `streamed error chunk is a failure not a reply`() {
+        val gateway = RemoteHttpGateway("http://127.0.0.1:8080/v1", "", "remote", connectionFactory = { _ ->
+            fakeConnection("data: {\"error\":{\"message\":\"Upstream error from Nvidia: Service temporarily overloaded\",\"code\":503}}\n\ndata: [DONE]\n")
+        })
+
+        val result = gateway.stream(ModelRequest("system", "inspect", emptyList())) {}
+
+        assertTrue(result is ModelResponse.Failure)
+        assertTrue((result as ModelResponse.Failure).message.contains("temporarily overloaded"))
+    }
+
     private fun fakeConnection(body: String, onRequest: (String) -> Unit = {}): HttpURLConnection = object : HttpURLConnection(java.net.URL("http://127.0.0.1:8080/v1/chat/completions")) {
         private val request = java.io.ByteArrayOutputStream()
         override fun connect() = Unit
