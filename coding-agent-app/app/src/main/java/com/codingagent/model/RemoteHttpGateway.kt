@@ -66,6 +66,9 @@ class RemoteHttpGateway(
                 if (payload.isEmpty()) continue
                 if (payload == "[DONE]") break
                 val chunk = runCatching { JSONObject(payload) }.getOrNull() ?: continue
+                chunk.optJSONObject("error")?.let { err ->
+                    return ModelResponse.Failure(providerErrorMessage(err))
+                }
                 val delta = chunk.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta") ?: continue
 
                 val textPiece = delta.optString("content")
