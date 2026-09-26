@@ -552,7 +552,7 @@ internal fun fieldColors() = androidx.compose.material3.OutlinedTextFieldDefault
     unfocusedContainerColor = DarkPurple
 )
 
-internal data class ProjectInfo(
+data class ProjectInfo(
     val name: String,
     val path: String,
     val fileCount: Int,
@@ -560,7 +560,7 @@ internal data class ProjectInfo(
 )
 
 /** Every project folder on this phone, newest first. */
-internal fun listProjects(privateDir: File): List<ProjectInfo> {
+fun listProjects(privateDir: File): List<ProjectInfo> {
     val projectsRoot = privateDir.resolve("projects")
     val dirs = projectsRoot.listFiles { file -> file.isDirectory }?.toList().orEmpty()
     return dirs.map { dir ->
@@ -579,7 +579,7 @@ internal fun listProjects(privateDir: File): List<ProjectInfo> {
 }
 
 /** Deletes a whole project folder. Refuses anything outside the projects root. */
-internal fun deleteProject(dir: File, privateDir: File) {
+fun deleteProject(dir: File, privateDir: File) {
     val projectsRoot = privateDir.resolve("projects").canonicalFile
     require(dir.canonicalFile.toPath().startsWith(projectsRoot.toPath())) { "Refusing to delete outside the projects folder" }
     require(dir.isDirectory) { "Project folder is already gone" }
@@ -590,7 +590,7 @@ internal fun deleteProject(dir: File, privateDir: File) {
  * Create a genuinely empty project under app-private storage.
  * No SAF import required — this is the first-class "start from nothing" path.
  */
-internal fun createEmptyProject(privateDir: File, nameHint: String? = null): File {
+fun createEmptyProject(privateDir: File, nameHint: String? = null): File {
     val projectsRoot = privateDir.resolve("projects")
     if (!projectsRoot.exists()) require(projectsRoot.mkdirs()) { "Could not create projects root" }
     val safeName = nameHint

@@ -722,9 +722,9 @@ private fun CodingAgentApp(privateDir: File) {
                             mountProject(File(path), "Switched project · ${File(path).name}")
                             tab = SurfaceTab.CHAT
                         },
-                        onDelete = ::deleteProjectByPath
+                        onDelete = { deleteProjectByPath(it) }
                     )
-                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = ::deleteWorkspaceFile)
+                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) })
                     SurfaceTab.REVIEW -> ReviewSurface(pendingApproval, approvalCount, pendingReason, onApprove = {
                         val id = pendingProposalId ?: return@ReviewSurface
                         val coordinator = mutationCoordinator ?: return@ReviewSurface
