@@ -1,0 +1,108 @@
+name: Build Coding Agent (repaired)
+
+# Temporary home: this session can only write to the Guy repo, so the
+# repaired Coding-Agent source lives in coding-agent-app/ until the
+# Coding-Agent repo itself can receive the fix. Same steps as that
+# repo's own Android build, plus a phone-friendly release.
+
+on:
+  push:
+    branches: ["arena/01a0da5b-guy"]
+    paths:
+      - "coding-agent-app/**"
+      - ".github/workflows/build-coding-agent.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and test repaired Coding Agent
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: coding-agent-app
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Compile unit test sources
+        run: ./gradlew :app:compileDebugUnitTestKotlin --no-daemon --stacktrace
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Acceptance path tests (explicit)
+        run: ./gradlew :app:testDebugUnitTest --tests "com.codingagent.core.AcceptancePathTest" --tests "com.codingagent.core.StorageGuardTest" --tests "com.codingagent.core.AutonomousLoopTest" --no-daemon --stacktrace
+
+      - name: Upload unit test reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: unit-test-reports
+          path: |
+            coding-agent-app/app/build/reports/tests/testDebugUnitTest/
+            coding-agent-app/app/build/test-results/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 5
+
+      - name: Run Android lint
+        run: ./gradlew :app:lintDebug --no-daemon --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: coding-agent-debug-apk
+          path: coding-agent-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 9
+
+      - name: Stage the APK under its final name
+        run: cp app/build/outputs/apk/debug/app-debug.apk ../CodingAgent.apk
+
+      - name: Publish APK as a Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: coding-agent-step1-${{ github.run_number }}
+          name: "Coding Agent (repaired) — install on phone"
+          body: |
+            Repaired Coding Agent (Step 1): the erased front-door screen is
+            restored, the backup-models box is real, brain failures are
+            reported in plain words, and the setup guide points at a live
+            free model.
+
+            **Install on the phone:**
+            1. Download `CodingAgent.apk` below
+            2. Tap it → allow "install unknown apps" for your browser when asked
+            3. Launch **Coding Agent**, open Model settings, enter the free
+               key and model, press Test
+
+            Commit: ${{ github.sha }}
+          files: ./CodingAgent.apk
+          make_latest: "true"
