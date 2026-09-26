@@ -448,23 +448,6 @@ private fun CodingAgentApp(privateDir: File) {
         }.onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
     }
 
-    fun deleteProjectByPath(path: String) {
-        scope.launch(Dispatchers.IO) {
-            val dir = File(path)
-            val mountedSame = workspace?.projectRoot()?.absolutePath == dir.absolutePath
-            withContext(Dispatchers.Main) {
-                if (mountedSame) clearProject()
-                runCatching { deleteProject(dir, privateDir) }
-                    .onSuccess {
-                        projectList = listProjects(privateDir)
-                        status = AgentStatus.READY
-                        detail = "Deleted project ${dir.name}"
-                    }
-                    .onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
-            }
-        }
-    }
-
     fun clearProject() {
         workspace = null
         fileList = emptyList()
@@ -482,6 +465,24 @@ private fun CodingAgentApp(privateDir: File) {
             )
         )
         chatMessages = store.recentChatMessages().asReversed()
+    }
+
+    // Declared after clearProject(): local functions cannot be forward-referenced.
+    fun deleteProjectByPath(path: String) {
+        scope.launch(Dispatchers.IO) {
+            val dir = File(path)
+            val mountedSame = workspace?.projectRoot()?.absolutePath == dir.absolutePath
+            withContext(Dispatchers.Main) {
+                if (mountedSame) clearProject()
+                runCatching { deleteProject(dir, privateDir) }
+                    .onSuccess {
+                        projectList = listProjects(privateDir)
+                        status = AgentStatus.READY
+                        detail = "Deleted project ${dir.name}"
+                    }
+                    .onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
+            }
+        }
     }
 
     /** When no project is mounted, handle conversation + create/restart without requiring the agent root. */

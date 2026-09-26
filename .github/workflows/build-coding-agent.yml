@@ -51,27 +51,6 @@ jobs:
       - name: Compile unit test sources
         run: ./gradlew :app:compileDebugUnitTestKotlin --no-daemon --stacktrace
 
-      # TEMPORARY diagnostic (remove once the compile error is fixed): the agent
-      # sandbox cannot download Actions logs or artifacts (egress allows only
-      # github.com), so on failure the runner commits the compiler output to the
-      # branch itself, where it can be fetched and read. The committed file lives
-      # outside the workflow's path filter, so it triggers no new run.
-      - name: Commit compile output where the sandbox can read it
-        if: failure()
-        run: |
-          ./gradlew :app:compileDebugUnitTestKotlin --no-daemon --console=plain > /tmp/compile-out.txt 2>&1 || true
-          {
-            echo "# compile output — run ${{ github.run_id }} sha ${{ github.sha }}"
-            echo '```'
-            tail -c 40000 /tmp/compile-out.txt
-            echo '```'
-          } > ../ci-compile-error.md
-          git config user.name "arena-agent"
-          git config user.email "arena-agent@local"
-          git add ../ci-compile-error.md
-          git commit -m "TEMP diagnostic: compile output run ${{ github.run_id }}" || true
-          git push origin HEAD:${{ github.ref_name }}
-
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
 
