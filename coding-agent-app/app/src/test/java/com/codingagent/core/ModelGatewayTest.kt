@@ -50,7 +50,7 @@ data: [DONE]
 
         assertTrue(result is ModelResponse.Failure)
         assertTrue((result as ModelResponse.Failure).message.contains("temporarily overloaded"))
-        assertTrue(result.message.contains("503"))
+        assertTrue((result as ModelResponse.Failure).message.contains("503"))
     }
 
     @Test
