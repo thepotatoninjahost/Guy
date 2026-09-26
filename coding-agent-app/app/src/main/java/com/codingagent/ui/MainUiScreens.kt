@@ -233,9 +233,11 @@ internal fun FilesSurface(
     document: EditorDocument?,
     tools: AgentTools?,
     mutationCoordinator: MutationCoordinator?,
-    onStatus: (Pair<AgentStatus, String>) -> Unit
+    onStatus: (Pair<AgentStatus, String>) -> Unit,
+    onDelete: ((String) -> Unit)? = null
 ) {
     var showEditor by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf<String?>(null) }
     val filtered = files.filter { it.contains(query.trim(), ignoreCase = true) }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("PROJECT FILES", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -288,7 +290,23 @@ internal fun FilesSurface(
                     ) {
                         Text("{ }", color = FluoroOrange, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(12.dp))
-                        Text(file, color = NeonGreen, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                        Text(file, color = NeonGreen, fontFamily = FontFamily.Monospace, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        if (onDelete != null) {
+                            TextButton(onClick = {
+                                if (confirmDelete == file) {
+                                    confirmDelete = null
+                                    onDelete(file)
+                                } else {
+                                    confirmDelete = file
+                                }
+                            }) {
+                                Text(
+                                    if (confirmDelete == file) "Sure?" else "Delete",
+                                    color = if (confirmDelete == file) Danger else SoftGreen,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -534,6 +552,40 @@ internal fun fieldColors() = androidx.compose.material3.OutlinedTextFieldDefault
     unfocusedContainerColor = DarkPurple
 )
 
+internal data class ProjectInfo(
+    val name: String,
+    val path: String,
+    val fileCount: Int,
+    val updatedAt: Long
+)
+
+/** Every project folder on this phone, newest first. */
+internal fun listProjects(privateDir: File): List<ProjectInfo> {
+    val projectsRoot = privateDir.resolve("projects")
+    val dirs = projectsRoot.listFiles { file -> file.isDirectory }?.toList().orEmpty()
+    return dirs.map { dir ->
+        var count = 0
+        var latest = dir.lastModified()
+        runCatching {
+            dir.walkTopDown().maxDepth(8).forEach { entry ->
+                if (entry.isFile) {
+                    count++
+                    if (entry.lastModified() > latest) latest = entry.lastModified()
+                }
+            }
+        }
+        ProjectInfo(dir.name, dir.absolutePath, count, latest)
+    }.sortedByDescending { it.updatedAt }
+}
+
+/** Deletes a whole project folder. Refuses anything outside the projects root. */
+internal fun deleteProject(dir: File, privateDir: File) {
+    val projectsRoot = privateDir.resolve("projects").canonicalFile
+    require(dir.canonicalFile.toPath().startsWith(projectsRoot.toPath())) { "Refusing to delete outside the projects folder" }
+    require(dir.isDirectory) { "Project folder is already gone" }
+    require(dir.deleteRecursively()) { "Could not delete ${dir.name}" }
+}
+
 /**
  * Create a genuinely empty project under app-private storage.
  * No SAF import required — this is the first-class "start from nothing" path.
@@ -559,6 +611,84 @@ internal fun createEmptyProject(privateDir: File, nameHint: String? = null): Fil
         "# ${safeName ?: "New project"}\n\nEmpty workspace created by Coding Agent.\nAsk the agent to add files, or import sources.\n"
     )
     return destination
+}
+
+@Composable
+internal fun ProjectsSurface(
+    projects: List<ProjectInfo>,
+    currentPath: String?,
+    onSwitch: (String) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    var confirmDelete by remember { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("PROJECTS ON THIS PHONE", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "Switch moves you — old jobs and chat stay behind. Delete removes the whole folder.",
+            color = SoftGreen,
+            fontSize = 12.sp
+        )
+        if (projects.isEmpty()) {
+            EmptyState("No projects yet", "Tap New up top for an empty project, or Import a folder.")
+        }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(projects, key = { it.path }) { project ->
+                val isCurrent = currentPath != null && File(currentPath).absolutePath == File(project.path).absolutePath
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Panel, RoundedCornerShape(12.dp))
+                        .border(1.dp, if (isCurrent) NeonGreen.copy(alpha = 0.5f) else LinePurple, RoundedCornerShape(12.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (isCurrent) "● " else "○ ",
+                            color = if (isCurrent) NeonGreen else SoftGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            project.name,
+                            color = NeonGreen,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Text(
+                        "${project.fileCount} files" + if (isCurrent) " · current" else "",
+                        color = SoftGreen,
+                        fontSize = 12.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!isCurrent) {
+                            Button(
+                                onClick = { onSwitch(project.path) },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = DarkPurple)
+                            ) { Text("Switch") }
+                        }
+                        Button(
+                            onClick = {
+                                if (confirmDelete == project.path) {
+                                    confirmDelete = null
+                                    onDelete(project.path)
+                                } else {
+                                    confirmDelete = project.path
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (confirmDelete == project.path) Danger else Color(0xFF4A2030)
+                            )
+                        ) { Text(if (confirmDelete == project.path) "Tap again to delete" else "Delete", color = NeonGreen) }
+                    }
+                    if (confirmDelete == project.path) {
+                        Text("This removes the whole folder and its files.", color = Danger, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
 }
 
 internal fun importProject(context: Context, privateDir: File, uri: Uri): File {

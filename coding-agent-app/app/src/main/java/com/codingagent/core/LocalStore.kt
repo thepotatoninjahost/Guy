@@ -102,6 +102,11 @@ class LocalStore(context: Context) : ChatMessageStore {
         .put("taskId", message.taskId)
         .toString())
 
+    @Synchronized
+    fun clearChat() {
+        chatFile.delete()
+    }
+
     override fun recentChatMessages(limit: Int): List<ChatMessage> = read(chatFile, limit).mapNotNull {
         runCatching {
             ChatMessage(

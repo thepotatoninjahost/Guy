@@ -23,7 +23,7 @@ internal val Blue = FluoroOrange
 internal val Amber = FluoroOrange
 internal val Danger = DangerRed
 
-internal enum class SurfaceTab(val label: String) { CHAT("Chat"), FILES("Files"), REVIEW("Review"), TERMINAL("Terminal"), RESEARCH("Research") }
+internal enum class SurfaceTab(val label: String) { CHAT("Chat"), PROJECTS("Projects"), FILES("Files"), REVIEW("Review"), TERMINAL("Terminal"), RESEARCH("Research") }
 internal enum class AgentStatus(val label: String, val color: Color) {
     READY("Ready", Accent),
     PLANNING("Planning", Blue),

@@ -84,6 +84,7 @@ import com.codingagent.model.ModelGateway
 import com.codingagent.model.ModelSettings
 import com.codingagent.workspace.MutationApprovalResult
 import com.codingagent.workspace.MutationCoordinator
+import com.codingagent.workspace.OpenJobStore
 import com.codingagent.workspace.PendingChangeProposal
 import com.codingagent.workspace.ProjectWorkspace
 import com.codingagent.research.ResearchDisplayState
@@ -133,6 +134,7 @@ private fun CodingAgentApp(privateDir: File) {
     var editorDocument by remember { mutableStateOf<EditorDocument?>(null) }
     var editorContent by remember { mutableStateOf("") }
     var fileList by remember { mutableStateOf(emptyList<String>()) }
+    var projectList by remember { mutableStateOf(listProjects(privateDir)) }
     var terminalCommand by remember { mutableStateOf("") }
     var terminalHistory by remember { mutableStateOf(emptyList<TerminalEntry>()) }
     var terminalLiveOutput by remember { mutableStateOf("") }
@@ -337,6 +339,7 @@ private fun CodingAgentApp(privateDir: File) {
     }
 
     fun mountProject(dir: File, detailText: String) {
+        val previous = workspace?.projectRoot()?.absolutePath
         val mounted = ProjectWorkspace(dir)
         workspace = mounted
         fileList = mounted.summary().files.map { it.path }.sorted()
@@ -345,8 +348,21 @@ private fun CodingAgentApp(privateDir: File) {
         pendingProposal = null
         approvalCount = 0
         pendingApproval = false
+        projectList = listProjects(privateDir)
         status = AgentStatus.READY
         detail = detailText
+        if (previous != null && previous != dir.absolutePath) {
+            // Boundary marker: chat history is global, so stamp the switch or the old
+            // project keeps bleeding into the new one.
+            store.recordChatMessage(
+                ChatMessage(
+                    role = ChatRole.SYSTEM,
+                    content = "${ChatWorkspace.PROJECT_SWITCH_MARKER} now in ${dir.name}. " +
+                        "Earlier conversation was about a different project — ignore it and any old open job."
+                )
+            )
+            chatMessages = store.recentChatMessages().asReversed()
+        }
     }
 
     fun startNewProject(nameHint: String? = null) {
@@ -371,6 +387,81 @@ private fun CodingAgentApp(privateDir: File) {
                         detail = "New project failed: ${it.message.orEmpty()}"
                     }
                 }
+        }
+    }
+
+    fun dropOpenJob(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        val old = root?.let { runCatching { OpenJobStore.load(it) }.getOrNull() }
+        if (root != null) OpenJobStore.abandon(root)
+        store.recordChatMessage(
+            ChatMessage(
+                role = ChatRole.AGENT,
+                content = if (old != null) {
+                    "Dropped \"${old.goal.take(100)}\" — it's gone and won't bleed into anything else. Tell me what to work on instead, in your own words."
+                } else {
+                    "There's no open job right now — nothing to drop. Tell me what to work on, in your own words."
+                }
+            )
+        )
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Open job dropped"
+    }
+
+    fun clearConversation(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root != null) OpenJobStore.abandon(root)
+        store.clearChat()
+        store.recordChatMessage(
+            ChatMessage(
+                role = ChatRole.AGENT,
+                content = "Cleared our whole conversation and dropped the open job. Fresh page — what are we building?"
+            )
+        )
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Conversation cleared"
+    }
+
+    fun deleteWorkspaceFile(path: String) {
+        val root = workspace?.projectRoot() ?: return
+        runCatching {
+            val rootFile = root.canonicalFile
+            val target = rootFile.resolve(path).canonicalFile
+            require(target.toPath().startsWith(rootFile.toPath())) { "Unsafe path" }
+            require(!target.toPath().startsWith(rootFile.resolve(".coding-agent").toPath())) { "The app's own notebook can't be deleted from here" }
+            require(target.isFile) { "File is already gone" }
+            require(target.delete()) { "Could not delete $path" }
+            if (editorPath == path) {
+                editorPath = ""
+                editorContent = ""
+                editorDocument = null
+            }
+            fileList = workspace?.summary()?.files?.map { it.path }?.sorted().orEmpty()
+            store.recordChatMessage(ChatMessage(role = ChatRole.SYSTEM, content = "Deleted file $path."))
+            chatMessages = store.recentChatMessages().asReversed()
+            status = AgentStatus.READY
+            detail = "Deleted $path"
+        }.onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
+    }
+
+    fun deleteProjectByPath(path: String) {
+        scope.launch(Dispatchers.IO) {
+            val dir = File(path)
+            val mountedSame = workspace?.projectRoot()?.absolutePath == dir.absolutePath
+            withContext(Dispatchers.Main) {
+                if (mountedSame) clearProject()
+                runCatching { deleteProject(dir, privateDir) }
+                    .onSuccess {
+                        projectList = listProjects(privateDir)
+                        status = AgentStatus.READY
+                        detail = "Deleted project ${dir.name}"
+                    }
+                    .onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
+            }
         }
     }
 
@@ -430,8 +521,27 @@ private fun CodingAgentApp(privateDir: File) {
         if (request.isBlank()) return
         chatInput = ""
 
-        // Create / new / restart project works with or without a current project.
         val lower = request.lowercase().trim()
+        // Forget / fresh-start commands work with or without a current project.
+        val forgetJobHints = listOf(
+            "forget this job", "forget the job", "drop this task", "drop the task",
+            "close this task", "cancel this task", "start fresh", "fresh start",
+            "new task", "different task", "switch tasks", "switch gears"
+        )
+        if (forgetJobHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            dropOpenJob(request)
+            return
+        }
+        val forgetAllHints = listOf(
+            "forget everything", "clear chat", "clear the chat",
+            "clear history", "wipe chat", "wipe the chat"
+        )
+        if (forgetAllHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            clearConversation(request)
+            return
+        }
+
+        // Create / new / restart project works with or without a current project.
         val createHints = listOf(
             "create project", "new project", "start project", "start a project",
             "create a project", "make a project", "empty project", "blank project",
@@ -605,7 +715,16 @@ private fun CodingAgentApp(privateDir: File) {
                             }
                         }
                     )
-                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second })
+                    SurfaceTab.PROJECTS -> ProjectsSurface(
+                        projects = projectList,
+                        currentPath = workspace?.projectRoot()?.absolutePath,
+                        onSwitch = { path ->
+                            mountProject(File(path), "Switched project · ${File(path).name}")
+                            tab = SurfaceTab.CHAT
+                        },
+                        onDelete = ::deleteProjectByPath
+                    )
+                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = ::deleteWorkspaceFile)
                     SurfaceTab.REVIEW -> ReviewSurface(pendingApproval, approvalCount, pendingReason, onApprove = {
                         val id = pendingProposalId ?: return@ReviewSurface
                         val coordinator = mutationCoordinator ?: return@ReviewSurface

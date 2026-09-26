@@ -39,9 +39,9 @@ class CodeSynthesisEngine(
 
         if (intake.intent == TaskIntent.CREATE) {
             val path = intake.contract.targetPaths.singleOrNull() ?: defaultCreatePath(intake.contract.goal)
-            if (!isSafePath(path)) return SynthesisResult.NeedsInput("Choose a project-relative target file.")
+            if (!isSafePath(path)) return SynthesisResult.NeedsInput("What should I name the new file? Just reply with a name like notes.txt — or say \"you pick\" and I'll choose one.")
             if (root.resolve(path).exists()) {
-                return SynthesisResult.NeedsInput("$path already exists. Specify whether to replace it or edit it.")
+                return SynthesisResult.NeedsInput("$path already exists. Reply \"replace it\" to start it over, or \"edit it\" and describe the change in your own words.")
             }
             val content = generateFile(path, intake.contract.goal)
             return SynthesisResult.Ready(
@@ -54,7 +54,7 @@ class CodeSynthesisEngine(
             )
         }
 
-        return SynthesisResult.NeedsInput("Specify the exact file operation, target file, or requested code shape.")
+        return SynthesisResult.NeedsInput("Tell me in your own words what you want this to do — for example \"track my jobs and hours\" — and I'll build the first version. No code or file names needed.")
     }
 
     private fun defaultCreatePath(goal: String): String {

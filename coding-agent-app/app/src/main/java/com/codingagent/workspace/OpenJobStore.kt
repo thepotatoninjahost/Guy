@@ -84,12 +84,33 @@ object OpenJobStore {
         f.writeText(o.toString())
     }
 
+    /**
+     * Phrases that refer back to the current job instead of starting a new one.
+     * (Mirrors the agent-side resume list without a workspace→agent dependency.)
+     */
+    private val continuationHints = listOf(
+        "try again", "try it again", "retry", "continue", "keep going", "resume",
+        "show the file", "show the files", "show file", "show files",
+        "the proposal", "review proposal", "pending proposal",
+        "what did you propose", "what did you change",
+        "same session", "same conversation", "you already know", "look back"
+    )
+
     @Synchronized
     fun openOrKeep(root: File, goal: String): OpenJob {
         bind(root)
         val existing = load(root)
         if (existing != null && existing.status != "applied" && existing.status != "abandoned") {
-            return existing
+            // A live proposal waiting on the owner must survive new chatter.
+            // So must continuations ("try again") and repeats of the same goal.
+            // But a genuinely NEW goal supersedes a stale open job — otherwise the
+            // old project bleeds into every later request forever.
+            if (existing.status == "waiting-approval" ||
+                isContinuation(goal) ||
+                existing.goal.trim().equals(goal.trim(), ignoreCase = true)
+            ) {
+                return existing
+            }
         }
         val job = OpenJob(
             id = UUID.randomUUID().toString(),
@@ -101,6 +122,22 @@ object OpenJobStore {
         )
         save(root, job)
         return job
+    }
+
+    private fun isContinuation(goal: String): Boolean {
+        val t = goal.lowercase().trim()
+        if (t.isEmpty()) return false
+        if (t.length <= 24 && (t == "continue" || t == "retry" || t == "again" || t == "resume")) return true
+        return continuationHints.any { t.contains(it) }
+    }
+
+    /**
+     * Drop the open job entirely ("forget this job"). It stops attaching to new requests.
+     */
+    @Synchronized
+    fun abandon(root: File) {
+        bind(root)
+        file(root).delete()
     }
 
     @Synchronized

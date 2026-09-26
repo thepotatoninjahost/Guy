@@ -54,7 +54,7 @@ class GoalInterpreter(private val root: File) {
             }
         }
         return when {
-            matches(request, "create|add|new file|write a|generate") -> TaskIntent.CREATE
+            matches(request, "create|add|new file|write a|generate|build me|build a|build an|build my|scaffold") -> TaskIntent.CREATE
             matches(request, "test|tests|testing|verify|build") -> TaskIntent.TEST
             matches(request, "fix|debug|broken|error|crash|bug|repair|patch") -> TaskIntent.DEBUG
             matches(request, "refactor|restructure|rename|clean up|cleanup") -> TaskIntent.REFACTOR

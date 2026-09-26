@@ -50,6 +50,11 @@ object AgentOfflineStager {
             val n = file.path.lowercase()
             n.endsWith("readme.md") || n.contains(".coding-agent/")
         }
+        // A configured model translates plain English itself — even on empty projects.
+        // (Old rule forced vague requests into a code-demanding question loop on new
+        // projects: the question-asker ran before the brain, every turn, forever.)
+        // Offline synthesis stays for: explicit ops, CREATE scaffolds, and no-model.
+        if (!hasExplicit && gateway != null && intake.intent != TaskIntent.CREATE) return null
         if (!hasExplicit && gateway != null && !onlyBoilerplate) return null
 
         val staged: Pair<List<TaskOperation>, String> = if (hasExplicit) {
@@ -59,9 +64,12 @@ object AgentOfflineStager {
                 is SynthesisResult.Ready ->
                     synthesis.proposal.operations to "Offline synthesis: ${synthesis.proposal.rationale}"
                 is SynthesisResult.NeedsInput -> {
-                    if (gateway != null && !onlyBoilerplate) return null
+                    // No brain configured and nothing concrete to stage: fall through to the
+                    // honest "model is not configured" outcome instead of a question loop.
+                    // (CREATE keeps its specific plain-English questions: name / replace-or-edit.)
+                    if (gateway == null && intake.intent != TaskIntent.CREATE) return null
                     val question = synthesis.question +
-                        " Name the file to create (example: src/Agent.kt) or the exact replace."
+                        " Reply in plain words — no code or file names needed unless you know them."
                     val task = AgentTask(
                         taskId, request, "needs-input", plan, emptyList(),
                         VerificationReport(true, emptyList()),

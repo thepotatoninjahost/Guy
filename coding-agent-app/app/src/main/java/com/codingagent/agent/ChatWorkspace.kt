@@ -39,6 +39,16 @@ class ChatWorkspace(
     private val progressListener: AgentProgressListener? = null,
     private val runtimeProvider: () -> AutonomousAgent?
 ) {
+    companion object {
+        /** System marker recorded on project switch; memory before it belongs to another project. */
+        const val PROJECT_SWITCH_MARKER = "PROJECT SWITCH —"
+
+        /** Drops conversation from before the most recent project switch (marker itself kept). */
+        fun scopeToCurrentProject(prior: List<ChatMessage>): List<ChatMessage> {
+            val idx = prior.indexOfLast { it.role == ChatRole.SYSTEM && it.content.startsWith(PROJECT_SWITCH_MARKER) }
+            return if (idx >= 0) prior.drop(idx) else prior
+        }
+    }
     fun history(limit: Int = 100): List<ChatMessage> = store.recentChatMessages(limit).asReversed()
 
     fun send(request: String): ChatTurn {
@@ -168,20 +178,30 @@ class ChatWorkspace(
 
     private fun packageWithMemory(current: String): String {
         val job = OpenJobStore.loadBound()
-        val prior = store.recentChatMessages(16)
-            .asReversed()
-            .filter { it.role == ChatRole.USER || it.role == ChatRole.AGENT }
-            .takeLast(10)
-        if (prior.size <= 1 && job == null) return current
+        // Chat history is global across projects: cut everything before the last switch
+        // so the previous project stops bleeding into this one. Keep the marker itself —
+        // it tells the model a switch happened.
+        val prior = scopeToCurrentProject(
+            store.recentChatMessages(16)
+                .asReversed()
+                .filter { it.role != ChatRole.SYSTEM || it.content.startsWith(PROJECT_SWITCH_MARKER) }
+                .takeLast(10)
+        )
+        val liveJob = job?.takeUnless { it.status == "applied" || it.status == "abandoned" }
+        if (prior.size <= 1 && liveJob == null) return current
         return buildString {
-            if (job != null && job.status != "applied") {
-                append(job.promptBlock())
+            if (liveJob != null) {
+                append(liveJob.promptBlock())
                 append('\n')
             }
             if (prior.size > 1) {
                 append("Conversation so far (oldest first). The last Current request is what to do now.\n")
                 for (msg in prior.dropLast(1)) {
-                    val who = if (msg.role == ChatRole.USER) "OWNER" else "AGENT"
+                    val who = when (msg.role) {
+                        ChatRole.USER -> "OWNER"
+                        ChatRole.SYSTEM -> "SYSTEM"
+                        else -> "AGENT"
+                    }
                     append(who).append(": ").append(msg.content.take(700)).append('\n')
                 }
             }
