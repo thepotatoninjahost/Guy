@@ -1,7 +1,6 @@
 package com.codingagent.core
 
 import com.codingagent.agent.AgentKnowledge
-import com.codingagent.agent.AgentModelProtocol
 import com.codingagent.agent.AutonomousAgent
 import com.codingagent.agent.AutonomousAgentConfig
 import com.codingagent.agent.AutonomousAgentEvent
@@ -9,6 +8,7 @@ import com.codingagent.agent.ModelCodeExtractor
 import com.codingagent.intake.OperationKind
 import com.codingagent.intake.TaskIntent
 import com.codingagent.intake.TaskOperation
+import com.codingagent.model.AgentModelProtocol
 import com.codingagent.model.ModelGateway
 import com.codingagent.model.ModelRequest
 import com.codingagent.model.ModelResponse
@@ -143,9 +143,11 @@ class OwnerLawTest {
         assertTrue(firstCo.approve(firstId, true, "owner", ApprovalType.WORD) is MutationApprovalResult.Applied)
         assertTrue(root.resolve("src/New.kt").exists())
 
-        val (secondCo, secondId) = proposeChange(root)
+        val root2 = Files.createTempDirectory("law-pairs2").toFile()
+        val (secondCo, secondId) = proposeChange(root2)
         assertTrue(secondCo.approve(secondId, true, "owner", ApprovalType.WORD) is MutationApprovalResult.AwaitingSecond)
         assertTrue(secondCo.approve(secondId, true, "owner", ApprovalType.TAP) is MutationApprovalResult.Applied)
+        assertTrue(root2.resolve("src/New.kt").exists())
     }
 
     @Test
