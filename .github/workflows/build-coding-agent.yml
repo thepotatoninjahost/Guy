@@ -52,7 +52,17 @@ jobs:
         run: ./gradlew :app:compileDebugUnitTestKotlin --no-daemon --stacktrace
 
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace | tee ../test-output.txt; test ${PIPESTATUS[0]} -eq 0
+
+      - name: TEMP capture test output
+        if: always()
+        run: |
+          cd ..
+          git config user.email "ci@example.com"
+          git config user.name "ci"
+          git add test-output.txt
+          git diff --cached --quiet || git commit -m "TEMP: capture test output"
+          git push origin HEAD:arena/01a0da5b-guy
 
       - name: Acceptance path tests (explicit)
         run: ./gradlew :app:testDebugUnitTest --tests "com.codingagent.core.AcceptancePathTest" --tests "com.codingagent.core.StorageGuardTest" --tests "com.codingagent.core.AutonomousLoopTest" --no-daemon --stacktrace
