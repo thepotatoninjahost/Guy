@@ -240,4 +240,54 @@ class OwnerLawTest {
             com.codingagent.workspace.nextStepGuidance(listOf("TAP", "WORD"))
         )
     }
+
+    // ---- Wiring audit: expiry cleanup + review binding ----
+
+    @Test
+    fun clearExpiredDropsStaleProposalsAndTypes() {
+        val root = Files.createTempDirectory("law-expired").toFile()
+        var clock = System.currentTimeMillis()
+        val coordinator = MutationCoordinator(ProjectWorkspace(root), now = { clock })
+        val result = coordinator.propose(
+            "stale work",
+            listOf(TaskOperation(OperationKind.CREATE_FILE, "src/Stale.kt", text = "class Stale\n")),
+            "tests"
+        )
+        assertTrue(result is MutationProposeResult.Proposed)
+        val id = (result as MutationProposeResult.Proposed).proposal.id
+        coordinator.approve(id, true, "owner", ApprovalType.TAP)
+        assertEquals(1, coordinator.pending().size)
+        clock += com.codingagent.agent.AgentConstitution.APPROVAL_EXPIRATION_MS + 1
+        coordinator.clearExpired()
+        assertTrue(coordinator.pending().isEmpty())
+        assertTrue(coordinator.approvalTypesFor(id).isEmpty())
+    }
+
+    @Test
+    fun reviewBinderShowsLiveProposalAndHidesExpired() {
+        val root = Files.createTempDirectory("law-binder").toFile()
+        val coordinator = MutationCoordinator(ProjectWorkspace(root))
+        val result = coordinator.propose(
+            "live work",
+            listOf(TaskOperation(OperationKind.CREATE_FILE, "src/Live.kt", text = "class Live\n")),
+            "tests"
+        )
+        val id = (result as MutationProposeResult.Proposed).proposal.id
+        val live = com.codingagent.ui.ReviewBinder.bind(coordinator, id)
+        assertTrue(live.pendingApproval)
+        assertEquals(id, live.proposalId)
+
+        val staleRoot = Files.createTempDirectory("law-binder-stale").toFile()
+        val past = System.currentTimeMillis() - com.codingagent.agent.AgentConstitution.APPROVAL_EXPIRATION_MS - 60_000
+        val staleCoordinator = MutationCoordinator(ProjectWorkspace(staleRoot), now = { past })
+        val staleResult = staleCoordinator.propose(
+            "stale work",
+            listOf(TaskOperation(OperationKind.CREATE_FILE, "src/Stale.kt", text = "class Stale\n")),
+            "tests"
+        )
+        val staleId = (staleResult as MutationProposeResult.Proposed).proposal.id
+        val stale = com.codingagent.ui.ReviewBinder.bind(staleCoordinator, staleId)
+        assertTrue(!stale.pendingApproval)
+        assertNull(stale.proposalId)
+    }
 }

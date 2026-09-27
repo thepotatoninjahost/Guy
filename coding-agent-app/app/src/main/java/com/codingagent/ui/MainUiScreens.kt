@@ -248,7 +248,9 @@ internal fun FilesSurface(
     projects: List<ProjectInfo> = emptyList(),
     currentProjectPath: String? = null,
     onSwitchProject: ((String) -> Unit)? = null,
-    onDeleteProject: ((String) -> Unit)? = null
+    onDeleteProject: ((String) -> Unit)? = null,
+    onDocument: ((EditorDocument?) -> Unit)? = null,
+    onProposed: ((PendingChangeProposal) -> Unit)? = null
 ) {
     var showEditor by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<String?>(null) }
@@ -294,8 +296,10 @@ internal fun FilesSurface(
                             val coordinator = mutationCoordinator ?: error("Project mutation coordinator is unavailable")
                             val result = tools?.proposeSave(path, content, coordinator) ?: error("Project tools are unavailable")
                             when (result) {
-                                is MutationProposeResult.Proposed ->
+                                is MutationProposeResult.Proposed -> {
+                                    onProposed?.invoke(result.proposal)
                                     onStatus(AgentStatus.APPROVAL to "Save proposed; tap Confirm in Review, then type the word in chat (${result.proposal.id.take(8)})")
+                                }
                                 is MutationProposeResult.Rejected ->
                                     onStatus(AgentStatus.STOPPED to "Save proposal rejected: ${result.reason}")
                             }
@@ -319,6 +323,7 @@ internal fun FilesSurface(
                                     val loaded = tools?.read(file) ?: return@runCatching
                                     onPath(file)
                                     onContent(loaded.content)
+                                    onDocument?.invoke(loaded)
                                     showEditor = true
                                     onStatus(AgentStatus.READY to "Opened $file")
                                 }.onFailure { onStatus(AgentStatus.STOPPED to "Open failed") }
@@ -521,7 +526,7 @@ internal fun TerminalSurface(
             fontSize = 11.sp
         )
         Text(
-            "Stock Android sh in the imported project copy. No PTY. Interactive editors will hang until timeout or Stop. Java/Gradle/git exist only if they are already on PATH.",
+            "Runs shell commands inside your project folder. Programs that ask you questions (like editors) can't work here — edit in the Files tab instead.",
             color = SoftGreen,
             fontSize = 12.sp
         )

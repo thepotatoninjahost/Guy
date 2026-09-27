@@ -33,7 +33,7 @@ internal enum class AgentStatus(val label: String, val color: Color) {
     TOOL("Tool", Amber),
     EDITING("Editing", Amber),
     APPROVAL("Waiting for approval", Amber),
-    RUNNING("Verifying", Blue),
+    RUNNING("Running", Blue),
     FAILED("Failed", Danger),
     STOPPED("Stopped", Danger)
 }

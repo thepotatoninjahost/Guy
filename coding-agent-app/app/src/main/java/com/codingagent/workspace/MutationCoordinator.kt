@@ -56,6 +56,7 @@ class MutationCoordinator(
         PendingProposalStore.loadTypes(workspace.projectRoot()).forEach { (id, types) ->
             approvalTypes[id] = types.toMutableList()
         }
+        clearExpired()
     }
 
     @Synchronized
@@ -220,6 +221,15 @@ class MutationCoordinator(
 
     @Synchronized
     fun clearExpired() {
+        val timestamp = now()
+        val expired = pending.filterValues { timestamp > it.expiresAt }.keys.toList()
+        if (expired.isEmpty()) return
+        expired.forEach { id ->
+            pending.remove(id)
+            approvalTypes.remove(id)
+        }
+        persist()
+        persistTypes()
     }
 
     @Synchronized

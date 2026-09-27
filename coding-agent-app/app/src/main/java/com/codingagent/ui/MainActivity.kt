@@ -97,6 +97,7 @@ import com.codingagent.research.ResearchModeDetector
 import com.codingagent.workspace.TerminalEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -251,6 +252,18 @@ private fun CodingAgentApp(privateDir: File) {
     LaunchedEffect(modelGateway) {
         agent?.updateGateway(modelGateway)
     }
+    // Pending proposals live on disk: after a restart or project switch the UI
+    // must reflect them, or the Review tab lies about "no pending changes".
+    LaunchedEffect(mutationCoordinator) {
+        val binding = ReviewBinder.bind(mutationCoordinator, pendingProposalId)
+        if (binding.proposal != null) {
+            pendingProposal = binding.proposal
+            pendingProposalId = binding.proposalId
+            pendingApproval = true
+            approvalCount = binding.approvalCount
+            pendingReason = binding.proposal?.request ?: pendingReason
+        }
+    }
     val progressEpoch = remember { java.util.concurrent.atomic.AtomicInteger(0) }
     val chat = remember(agent, workspace) {
         ChatWorkspace(
@@ -297,6 +310,12 @@ private fun CodingAgentApp(privateDir: File) {
                         pendingProposal = null
                         approvalCount = 0
                         pendingApproval = false
+                        editorPath = ""
+                        editorContent = ""
+                        editorDocument = null
+                        terminalHistory = emptyList()
+                        terminalLiveOutput = ""
+                        terminalRunning = false
                         status = AgentStatus.READY
                         detail = "${fileList.size} files"
                     }
@@ -315,6 +334,13 @@ private fun CodingAgentApp(privateDir: File) {
         val paths = result.changeSet.changes.map { it.path }.distinct()
         workspace?.let { ws ->
             fileList = listProjectFiles(ws.projectRoot())
+        }
+        val openPath = editorPath
+        if (openPath.isNotBlank() && openPath in paths) {
+            runCatching { tools?.read(openPath) }.getOrNull()?.let { reloaded ->
+                editorContent = reloaded.content
+                editorDocument = reloaded
+            }
         }
         approvalCount = result.proposal.approvalCount
         pendingApproval = false
@@ -352,6 +378,12 @@ private fun CodingAgentApp(privateDir: File) {
         pendingProposal = null
         approvalCount = 0
         pendingApproval = false
+        editorPath = ""
+        editorContent = ""
+        editorDocument = null
+        terminalHistory = emptyList()
+        terminalLiveOutput = ""
+        terminalRunning = false
         projectList = listProjects(privateDir)
         status = AgentStatus.READY
         detail = detailText
@@ -511,6 +543,12 @@ private fun CodingAgentApp(privateDir: File) {
         pendingProposal = null
         approvalCount = 0
         pendingApproval = false
+        editorPath = ""
+        editorContent = ""
+        editorDocument = null
+        terminalHistory = emptyList()
+        terminalLiveOutput = ""
+        terminalRunning = false
         status = AgentStatus.READY
         detail = "No project — New, Import, or say create project"
         store.recordChatMessage(
@@ -795,7 +833,13 @@ private fun CodingAgentApp(privateDir: File) {
                             }
                         }
                     )
-                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) }, projects = projectList, currentProjectPath = workspace?.projectRoot()?.absolutePath, onSwitchProject = { path -> mountProject(File(path), "Switched project · ${File(path).name}") }, onDeleteProject = { deleteProjectByPath(it) })
+                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) }, projects = projectList, currentProjectPath = workspace?.projectRoot()?.absolutePath, onSwitchProject = { path -> mountProject(File(path), "Switched project · ${File(path).name}") }, onDeleteProject = { deleteProjectByPath(it) }, onDocument = { editorDocument = it }, onProposed = { proposal ->
+                        pendingProposal = proposal
+                        pendingProposalId = proposal.id
+                        pendingApproval = true
+                        approvalCount = proposal.approvalCount
+                        pendingReason = proposal.request
+                    })
                     SurfaceTab.REVIEW -> ReviewSurface(
                         pendingApproval,
                         approvalCount,
@@ -826,20 +870,24 @@ private fun CodingAgentApp(privateDir: File) {
                             terminalRunning = true
                             activeJob = scope.launch(Dispatchers.IO) {
                                 status = AgentStatus.RUNNING
-                                val entry = tools?.terminal(
-                                    command.trim().split(Regex("\\s+")).filter(String::isNotBlank),
-                                    onStdout = { line -> scope.launch(Dispatchers.Main.immediate) { terminalLiveOutput += line + "\n" } },
-                                    onStderr = { line -> scope.launch(Dispatchers.Main.immediate) { terminalLiveOutput += line + "\n" } }
-                                )
-                                withContext(Dispatchers.Main.immediate) {
+                                val entry = runCatching {
+                                    tools?.runTerminal(
+                                        command.trim(),
+                                        onStdout = { chunk -> scope.launch(Dispatchers.Main.immediate) { terminalLiveOutput += chunk } },
+                                        onStderr = { chunk -> scope.launch(Dispatchers.Main.immediate) { terminalLiveOutput += chunk } }
+                                    )
+                                }.getOrNull()
+                                withContext(NonCancellable + Dispatchers.Main.immediate) {
                                     entry?.let { terminalHistory = (terminalHistory + it).takeLast(40) }
                                     terminalRunning = false
-                                    status = AgentStatus.READY
-                                    detail = "Terminal finished"
+                                    if (status == AgentStatus.RUNNING) {
+                                        status = AgentStatus.READY
+                                        detail = "Terminal finished"
+                                    }
                                 }
                             }
                         },
-                        onStop = ::stopAgent,
+                        onStop = { tools?.cancelTerminal(); stopAgent() },
                         onClear = {
                             tools?.clearTerminalHistory()
                             terminalHistory = emptyList()
@@ -847,6 +895,7 @@ private fun CodingAgentApp(privateDir: File) {
                         }
                     )
                     SurfaceTab.RESEARCH -> ResearchSurface(researchQuery, { researchQuery = it }, researchHits, researchError, researchState, onSearch = { query ->
+                        researchError = null
                         store.saveLastResearchQuery(query)
                         activeJob = scope.launch {
                             status = AgentStatus.RESEARCHING
@@ -993,6 +1042,7 @@ private fun CodingAgentApp(privateDir: File) {
                                         baseUrl = draftBaseUrl,
                                         apiKey = draftApiKey,
                                         modelName = draftModelName,
+                                        rotationModels = draftRotationModels,
                                         extraHeaders = draftExtraHeaders,
                                         onboarded = true
                                     )
