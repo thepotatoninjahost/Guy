@@ -204,7 +204,7 @@ private fun CodingAgentApp(privateDir: File) {
             }
             runCatching {
                 val mounted = ProjectWorkspace(dir)
-                val files = mounted.summary().files.map { it.path }.sorted()
+                val files = listProjectFiles(dir)
                 store.loadLastResearchQuery() to (mounted to files)
             }.getOrNull()
         }
@@ -287,14 +287,14 @@ private fun CodingAgentApp(privateDir: File) {
                         // and is not in scope at folderPicker construction time.
                         val mounted = ProjectWorkspace(imported)
                         workspace = mounted
-                        fileList = mounted.summary().files.map { it.path }.sorted()
+                        fileList = listProjectFiles(imported)
                         store.saveProjectPath(imported.absolutePath)
                         pendingProposalId = null
                         pendingProposal = null
                         approvalCount = 0
                         pendingApproval = false
                         status = AgentStatus.READY
-                        detail = "${fileList.size} files indexed"
+                        detail = "${fileList.size} files"
                     }
                 }
                 .onFailure {
@@ -310,7 +310,7 @@ private fun CodingAgentApp(privateDir: File) {
     fun onChangeApplied(result: MutationApprovalResult.Applied) {
         val paths = result.changeSet.changes.map { it.path }.distinct()
         workspace?.let { ws ->
-            fileList = ws.summary().files.map { it.path }.sorted()
+            fileList = listProjectFiles(ws.projectRoot())
         }
         approvalCount = result.proposal.approvalCount
         pendingApproval = false
@@ -342,7 +342,7 @@ private fun CodingAgentApp(privateDir: File) {
         val previous = workspace?.projectRoot()?.absolutePath
         val mounted = ProjectWorkspace(dir)
         workspace = mounted
-        fileList = mounted.summary().files.map { it.path }.sorted()
+        fileList = listProjectFiles(dir)
         store.saveProjectPath(dir.absolutePath)
         pendingProposalId = null
         pendingProposal = null
@@ -374,7 +374,7 @@ private fun CodingAgentApp(privateDir: File) {
                         store.recordChatMessage(
                             ChatMessage(
                                 role = ChatRole.SYSTEM,
-                                content = "Created empty project `${created.name}`. Indexed sources: ${fileList.size}. " +
+                                content = "Created empty project `${created.name}`. Files: ${fileList.size}. " +
                                     "Ask me to add files, scaffold a structure, or import more code."
                             )
                         )
@@ -440,7 +440,7 @@ private fun CodingAgentApp(privateDir: File) {
                 editorContent = ""
                 editorDocument = null
             }
-            fileList = workspace?.summary()?.files?.map { it.path }?.sorted().orEmpty()
+            fileList = workspace?.let { listProjectFiles(it.projectRoot()) }.orEmpty()
             store.recordChatMessage(ChatMessage(role = ChatRole.SYSTEM, content = "Deleted file $path."))
             chatMessages = store.recentChatMessages().asReversed()
             status = AgentStatus.READY
@@ -716,16 +716,7 @@ private fun CodingAgentApp(privateDir: File) {
                             }
                         }
                     )
-                    SurfaceTab.PROJECTS -> ProjectsSurface(
-                        projects = projectList,
-                        currentPath = workspace?.projectRoot()?.absolutePath,
-                        onSwitch = { path ->
-                            mountProject(File(path), "Switched project · ${File(path).name}")
-                            tab = SurfaceTab.CHAT
-                        },
-                        onDelete = { deleteProjectByPath(it) }
-                    )
-                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) })
+                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) }, projects = projectList, currentProjectPath = workspace?.projectRoot()?.absolutePath, onSwitchProject = { path -> mountProject(File(path), "Switched project · ${File(path).name}") }, onDeleteProject = { deleteProjectByPath(it) })
                     SurfaceTab.REVIEW -> ReviewSurface(pendingApproval, approvalCount, pendingReason, onApprove = {
                         val id = pendingProposalId ?: return@ReviewSurface
                         val coordinator = mutationCoordinator ?: return@ReviewSurface

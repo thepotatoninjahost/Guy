@@ -234,13 +234,41 @@ internal fun FilesSurface(
     tools: AgentTools?,
     mutationCoordinator: MutationCoordinator?,
     onStatus: (Pair<AgentStatus, String>) -> Unit,
-    onDelete: ((String) -> Unit)? = null
+    onDelete: ((String) -> Unit)? = null,
+    projects: List<ProjectInfo> = emptyList(),
+    currentProjectPath: String? = null,
+    onSwitchProject: ((String) -> Unit)? = null,
+    onDeleteProject: ((String) -> Unit)? = null
 ) {
     var showEditor by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<String?>(null) }
+    var showProjects by remember(currentProjectPath) { mutableStateOf(currentProjectPath == null && projects.isNotEmpty()) }
     val filtered = files.filter { it.contains(query.trim(), ignoreCase = true) }
+    if (showProjects && onSwitchProject != null && onDeleteProject != null) {
+        ProjectsSurface(
+            projects = projects,
+            currentPath = currentProjectPath,
+            onSwitch = { path ->
+                showProjects = false
+                onSwitchProject(path)
+            },
+            onDelete = onDeleteProject
+        )
+        return
+    }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("PROJECT FILES", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "PROJECT: " + (currentProjectPath?.let { File(it).name } ?: "(none)"),
+                color = SoftGreen,
+                fontSize = 12.sp,
+                modifier = Modifier.weight(1f)
+            )
+            if (onSwitchProject != null) {
+                TextButton(onClick = { showProjects = true }) { Text("Change", color = NeonGreen, fontSize = 12.sp) }
+            }
+        }
         OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), placeholder = { Text("Filter files", color = SoftGreen) }, singleLine = true, colors = fieldColors())
         if (showEditor) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -559,7 +587,7 @@ data class ProjectInfo(
     val updatedAt: Long
 )
 
-/** Every project folder on this phone, newest first. */
+/** Every project folder on this phone, newest first. Counts match the Files list. */
 fun listProjects(privateDir: File): List<ProjectInfo> {
     val projectsRoot = privateDir.resolve("projects")
     val dirs = projectsRoot.listFiles { file -> file.isDirectory }?.toList().orEmpty()
@@ -568,7 +596,7 @@ fun listProjects(privateDir: File): List<ProjectInfo> {
         var latest = dir.lastModified()
         runCatching {
             dir.walkTopDown().maxDepth(8).forEach { entry ->
-                if (entry.isFile) {
+                if (entry.isFile && !isAppNotebook(dir, entry)) {
                     count++
                     if (entry.lastModified() > latest) latest = entry.lastModified()
                 }
@@ -576,6 +604,26 @@ fun listProjects(privateDir: File): List<ProjectInfo> {
         }
         ProjectInfo(dir.name, dir.absolutePath, count, latest)
     }.sortedByDescending { it.updatedAt }
+}
+
+/** True for the app's own notebook folder (open job, research) — never shown as project files. */
+fun isAppNotebook(projectRoot: File, entry: File): Boolean {
+    val relative = runCatching { entry.relativeTo(projectRoot).invariantSeparatorsPath }.getOrElse { return false }
+    return relative == ".coding-agent" || relative.startsWith(".coding-agent/")
+}
+
+/**
+ * Every real file in a project, any extension — this is what the Files screen shows.
+ * (The agent's indexed-sources whitelist is separate and unchanged.)
+ */
+fun listProjectFiles(projectRoot: File): List<String> {
+    if (!projectRoot.isDirectory) return emptyList()
+    return runCatching {
+        projectRoot.walkTopDown().maxDepth(10)
+            .filter { it.isFile && !isAppNotebook(projectRoot, it) }
+            .map { it.relativeTo(projectRoot).invariantSeparatorsPath }
+            .sorted().take(2000).toList()
+    }.getOrElse { emptyList() }
 }
 
 /** Deletes a whole project folder. Refuses anything outside the projects root. */
@@ -624,7 +672,7 @@ internal fun ProjectsSurface(
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("PROJECTS ON THIS PHONE", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Switch moves you — old jobs and chat stay behind. Delete removes the whole folder.",
+            "Tap a project to open its files. Delete removes the whole folder.",
             color = SoftGreen,
             fontSize = 12.sp
         )
@@ -639,6 +687,7 @@ internal fun ProjectsSurface(
                         .fillMaxWidth()
                         .background(Panel, RoundedCornerShape(12.dp))
                         .border(1.dp, if (isCurrent) NeonGreen.copy(alpha = 0.5f) else LinePurple, RoundedCornerShape(12.dp))
+                        .clickable { onSwitch(project.path) }
                         .padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -663,10 +712,12 @@ internal fun ProjectsSurface(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (!isCurrent) {
-                            Button(
-                                onClick = { onSwitch(project.path) },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = DarkPurple)
-                            ) { Text("Switch") }
+                            Text(
+                                "Tap to open",
+                                color = SoftGreen,
+                                fontSize = 12.sp,
+                                modifier = Modifier.weight(1f).align(Alignment.CenterVertically)
+                            )
                         }
                         Button(
                             onClick = {

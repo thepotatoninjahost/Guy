@@ -26,6 +26,7 @@ import com.codingagent.model.ModelRequest
 import com.codingagent.model.ModelResponse
 import com.codingagent.ui.createEmptyProject
 import com.codingagent.ui.deleteProject
+import com.codingagent.ui.listProjectFiles
 import com.codingagent.ui.listProjects
 import com.codingagent.workspace.KnowledgeHit
 import com.codingagent.workspace.MutationCoordinator
@@ -174,5 +175,30 @@ class PlainEnglishTest {
         val result = runCatching { deleteProject(outside, privateDir) }
         assertTrue(result.isFailure)
         assertTrue(outside.exists())
+    }
+
+    @Test
+    fun fileListShowsEveryExtensionExceptAppNotebook() {
+        val root = Files.createTempDirectory("all-files").toFile()
+        root.resolve("notes.txt").writeText("hi\n")
+        root.resolve("data.csv").writeText("a,b\n")
+        root.resolve("Main.kt").writeText("fun main() = 1\n")
+        root.resolve(".coding-agent").mkdirs()
+        root.resolve(".coding-agent/open-job.json").writeText("{}\n")
+        val listed = listProjectFiles(root)
+        assertTrue(listed.contains("notes.txt"))
+        assertTrue(listed.contains("data.csv"))
+        assertTrue(listed.contains("Main.kt"))
+        assertTrue(listed.none { it.contains(".coding-agent") })
+    }
+
+    @Test
+    fun projectCountsMatchVisibleFiles() {
+        val privateDir = Files.createTempDirectory("counts").toFile()
+        val project = createEmptyProject(privateDir, "gamma")
+        project.resolve(".coding-agent").mkdirs()
+        project.resolve(".coding-agent/open-job.json").writeText("{}\n")
+        val info = listProjects(privateDir).single { it.path == project.absolutePath }
+        assertEquals(listProjectFiles(project).size, info.fileCount)
     }
 }
