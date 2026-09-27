@@ -63,8 +63,14 @@ import com.codingagent.agent.ChatRole
 import com.codingagent.workspace.DeepResearchProgress
 import com.codingagent.workspace.EditorDocument
 import com.codingagent.model.ModelDownloadProgress
+import com.codingagent.workspace.ChangeDiff
+import com.codingagent.workspace.ChangeOperation
+import com.codingagent.workspace.ChangeRecord
+import com.codingagent.workspace.DiffLine
+import com.codingagent.workspace.DiffLineKind
 import com.codingagent.workspace.MutationCoordinator
 import com.codingagent.workspace.MutationProposeResult
+import com.codingagent.workspace.PendingChangeProposal
 import com.codingagent.research.ResearchDisplayState
 import com.codingagent.workspace.ResearchHit
 import com.codingagent.workspace.TerminalEntry
@@ -136,6 +142,8 @@ internal fun ChatSurface(
     pendingApproval: Boolean,
     approvalCount: Int,
     reason: String,
+    filesSummary: String,
+    nextStep: String,
     onApprove: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -161,7 +169,7 @@ internal fun ChatSurface(
             }
             items(messages, key = { it.id }) { ChatBubble(it) }
         }
-        if (pendingApproval) ApprovalCard(approvalCount, reason, onApprove)
+        if (pendingApproval) ApprovalCard(approvalCount, reason, filesSummary, nextStep, onApprove)
         if (busy) {
             Text("Agent is working…", color = FluoroOrange, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
         }
@@ -200,7 +208,7 @@ internal fun ChatSurface(
 }
 
 @Composable
-internal fun ApprovalCard(approvalCount: Int, reason: String, onApprove: () -> Unit) {
+internal fun ApprovalCard(approvalCount: Int, reason: String, filesSummary: String, nextStep: String, onApprove: () -> Unit) {
     Card(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = RaisedPurple),
@@ -209,13 +217,15 @@ internal fun ApprovalCard(approvalCount: Int, reason: String, onApprove: () -> U
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("CODE CHANGE REVIEW", color = FluoroOrange, fontWeight = FontWeight.Bold)
             Text(reason, color = NeonGreen, fontSize = 13.sp)
-            Text("Two explicit approvals are required before a code transaction can proceed.", color = SoftGreen, fontSize = 12.sp)
+            Text(filesSummary, color = SoftGreen, fontSize = 12.sp)
+            Text("Nothing is written until you tap Confirm AND type approve in chat.", color = SoftGreen, fontSize = 12.sp)
+            Text(nextStep, color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${approvalCount}/2", color = SoftGreen, modifier = Modifier.weight(1f))
                 Button(
                     onClick = onApprove,
                     colors = ButtonDefaults.buttonColors(containerColor = FluoroOrange, contentColor = DarkPurple)
-                ) { Text(if (approvalCount == 0) "Confirm" else "Confirm again") }
+                ) { Text("Tap to confirm") }
             }
         }
     }
@@ -380,24 +390,106 @@ internal fun highlightCode(content: String): AnnotatedString = buildAnnotatedStr
 }
 
 @Composable
-internal fun ReviewSurface(pending: Boolean, approvals: Int, reason: String, onApprove: () -> Unit, onReject: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("CHANGE REVIEW", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+internal fun ReviewSurface(
+    pending: Boolean,
+    approvals: Int,
+    reason: String,
+    proposal: PendingChangeProposal?,
+    nextStep: String,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Text("CHANGE REVIEW", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
         if (!pending) {
-            EmptyState("No pending changes", "Agent proposals appear here before any file transaction.")
+            item { EmptyState("No pending changes", "Agent proposals appear here before anything is written.") }
         } else {
-            Card(colors = CardDefaults.cardColors(containerColor = Panel), border = androidx.compose.foundation.BorderStroke(1.dp, FluoroOrange)) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Pending transactional proposal", color = FluoroOrange, fontWeight = FontWeight.Bold)
-                    Text(reason, color = NeonGreen)
-                    Text("Review changed files before confirming. Transactional writes remain checksum-guarded.", color = SoftGreen, fontSize = 12.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onReject, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A2030))) { Text("Reject", color = NeonGreen) }
-                        Button(onClick = onApprove, colors = ButtonDefaults.buttonColors(containerColor = FluoroOrange, contentColor = DarkPurple)) { Text("Confirm ${approvals + 1}/2") }
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), border = androidx.compose.foundation.BorderStroke(1.dp, FluoroOrange)) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Proposed changes", color = FluoroOrange, fontWeight = FontWeight.Bold)
+                        Text(reason, color = NeonGreen)
+                        val count = proposal?.changeSet?.changes?.size
+                        Text(
+                            when {
+                                count == null -> "Loading the proposal…"
+                                count == 1 -> "1 file would change. Nothing is written until you approve."
+                                else -> "$count files would change. Nothing is written until you approve."
+                            },
+                            color = SoftGreen, fontSize = 12.sp
+                        )
+                        if (proposal != null) {
+                            val ok = proposal.verification.passed
+                            Text(verificationLine(proposal), color = if (ok) NeonGreen else FluoroOrange, fontSize = 12.sp)
+                        }
+                        Text(nextStep, color = NeonGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onReject, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A2030))) { Text("Reject", color = NeonGreen) }
+                            Button(onClick = onApprove, colors = ButtonDefaults.buttonColors(containerColor = FluoroOrange, contentColor = DarkPurple)) { Text("Tap to confirm") }
+                        }
                     }
                 }
             }
+            proposal?.changeSet?.changes?.forEach { record ->
+                item(key = record.operation.name + ":" + record.path) {
+                    FileReviewCard(record)
+                }
+            }
         }
+    }
+}
+
+private val DiffRed = Color(0xFFFF7B7B)
+
+@Composable
+private fun FileReviewCard(record: ChangeRecord) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), border = androidx.compose.foundation.BorderStroke(1.dp, FluoroOrange)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(record.path, color = NeonGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            val lines = remember(record) { ChangeDiff.unified(record) }
+            val added = lines.count { it.kind == DiffLineKind.ADD }
+            val removed = lines.count { it.kind == DiffLineKind.REMOVE }
+            Text("${plainOp(record.operation)} · +$added lines, -$removed lines", color = SoftGreen, fontSize = 12.sp)
+            if (record.reason.isNotBlank()) {
+                Text(record.reason.take(200), color = SoftGreen, fontSize = 12.sp)
+            }
+            Text(
+                diffAnnotated(lines),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                lineHeight = 14.sp
+            )
+        }
+    }
+}
+
+private fun plainOp(op: ChangeOperation): String = when (op) {
+    ChangeOperation.CREATE -> "New file"
+    ChangeOperation.REPLACE -> "Edits"
+    ChangeOperation.APPEND -> "Adds to the end"
+    ChangeOperation.REMOVE -> "Deletes"
+}
+
+private fun verificationLine(proposal: PendingChangeProposal): String {
+    val v = proposal.verification
+    if (v.passed && v.issues.isEmpty()) return "Checks passed."
+    if (v.passed) return "Checks passed with ${v.issues.size} note(s)."
+    val first = v.issues.firstOrNull()?.message.orEmpty().take(120)
+    return "Checks found ${v.issues.size} problem(s). First: $first"
+}
+
+private fun diffAnnotated(lines: List<DiffLine>): AnnotatedString = buildAnnotatedString {
+    lines.forEach { line ->
+        val color = when (line.kind) {
+            DiffLineKind.ADD -> NeonGreen
+            DiffLineKind.REMOVE -> DiffRed
+            DiffLineKind.HEADER -> FluoroOrange
+            DiffLineKind.CONTEXT -> SoftGreen
+        }
+        withStyle(SpanStyle(color = color)) { append(line.text) }
+        append("\n")
     }
 }
 

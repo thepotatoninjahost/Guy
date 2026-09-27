@@ -18,3 +18,15 @@ fun ApprovalType.finishGuidance(): String = when (this) {
     ApprovalType.TAP -> "Tap Confirm (Review tab or the approval card) to finish."
     ApprovalType.WORD -> "Type approve in chat to finish."
 }
+
+/** What the owner must still do, given the approval types recorded so far. */
+fun nextStepGuidance(recordedTypes: List<String>): String {
+    val haveTap = recordedTypes.contains(ApprovalType.TAP.name)
+    val haveWord = recordedTypes.contains(ApprovalType.WORD.name)
+    return when {
+        haveTap && haveWord -> "Both approvals recorded."
+        haveTap -> "Tap recorded. Now type approve in chat."
+        haveWord -> "Word received. Now tap Confirm."
+        else -> "Tap Confirm below, then type approve in chat."
+    }
+}

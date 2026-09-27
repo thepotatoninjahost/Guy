@@ -188,6 +188,10 @@ class MutationCoordinator(
     @Synchronized
     fun pending(): List<PendingChangeProposal> = pending.values.toList()
 
+    /** Approval kinds recorded so far for [id] (TAP/WORD), oldest first. */
+    @Synchronized
+    fun approvalTypesFor(id: String): List<String> = approvalTypes[id].orEmpty().toList()
+
     @Synchronized
     fun clear(id: String): Boolean {
         val gone = pending.remove(id) != null

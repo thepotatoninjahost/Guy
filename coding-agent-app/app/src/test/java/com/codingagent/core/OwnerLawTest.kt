@@ -209,4 +209,35 @@ class OwnerLawTest {
         assertTrue(events.last() is AutonomousAgentEvent.Completed)
         assertTrue(MutationCoordinator(ProjectWorkspace(root)).pending().isEmpty())
     }
+
+    // ---- Review screen support ----
+
+    @Test
+    fun approvalTypesCanBeReadBack() {
+        val root = Files.createTempDirectory("law-types-read").toFile()
+        val (coordinator, id) = proposeChange(root)
+        assertTrue(coordinator.approvalTypesFor(id).isEmpty())
+        coordinator.approve(id, true, "owner", ApprovalType.TAP)
+        assertEquals(listOf("TAP"), coordinator.approvalTypesFor(id))
+    }
+
+    @Test
+    fun nextStepGuidanceFollowsThePair() {
+        assertEquals(
+            "Tap Confirm below, then type approve in chat.",
+            com.codingagent.workspace.nextStepGuidance(emptyList())
+        )
+        assertEquals(
+            "Tap recorded. Now type approve in chat.",
+            com.codingagent.workspace.nextStepGuidance(listOf("TAP"))
+        )
+        assertEquals(
+            "Word received. Now tap Confirm.",
+            com.codingagent.workspace.nextStepGuidance(listOf("WORD"))
+        )
+        assertEquals(
+            "Both approvals recorded.",
+            com.codingagent.workspace.nextStepGuidance(listOf("TAP", "WORD"))
+        )
+    }
 }

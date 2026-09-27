@@ -90,6 +90,7 @@ import com.codingagent.workspace.PendingChangeProposal
 import com.codingagent.workspace.PlanScope
 import com.codingagent.workspace.ProjectWorkspace
 import com.codingagent.workspace.finishGuidance
+import com.codingagent.workspace.nextStepGuidance
 import com.codingagent.research.ResearchDisplayState
 import com.codingagent.workspace.ResearchHit
 import com.codingagent.research.ResearchModeDetector
@@ -778,6 +779,12 @@ private fun CodingAgentApp(privateDir: File) {
                         pendingApproval = pendingApproval,
                         approvalCount = approvalCount,
                         reason = pendingReason,
+                        filesSummary = run {
+                            val p = pendingProposal ?: pendingProposalId?.let { mutationCoordinator?.get(it) }
+                            val files = p?.changeSet?.changes?.map { it.path }.orEmpty()
+                            if (files.isEmpty()) "Files: nothing staged." else "Files (${files.size}): ${files.take(4).joinToString()}${if (files.size > 4) "…" else ""}"
+                        },
+                        nextStep = nextStepGuidance(pendingProposalId?.let { mutationCoordinator?.approvalTypesFor(it) }.orEmpty()),
                         onApprove = {
                             val id = pendingProposalId ?: return@ChatSurface
                             val coordinator = mutationCoordinator ?: return@ChatSurface
@@ -789,7 +796,13 @@ private fun CodingAgentApp(privateDir: File) {
                         }
                     )
                     SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) }, projects = projectList, currentProjectPath = workspace?.projectRoot()?.absolutePath, onSwitchProject = { path -> mountProject(File(path), "Switched project · ${File(path).name}") }, onDeleteProject = { deleteProjectByPath(it) })
-                    SurfaceTab.REVIEW -> ReviewSurface(pendingApproval, approvalCount, pendingReason, onApprove = {
+                    SurfaceTab.REVIEW -> ReviewSurface(
+                        pendingApproval,
+                        approvalCount,
+                        pendingReason,
+                        proposal = pendingProposal ?: pendingProposalId?.let { mutationCoordinator?.get(it) },
+                        nextStep = nextStepGuidance(pendingProposalId?.let { mutationCoordinator?.approvalTypesFor(it) }.orEmpty()),
+                        onApprove = {
                         val id = pendingProposalId ?: return@ReviewSurface
                         val coordinator = mutationCoordinator ?: return@ReviewSurface
                         when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.TAP)) {
