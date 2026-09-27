@@ -20,7 +20,7 @@ object ReviewBinder {
         val now = System.currentTimeMillis()
         val pending = coordinator?.pending().orEmpty().filter { it.expiresAt > now }
         val proposal = when {
-            !wantedId.isNullOrBlank() -> coordinator?.get(wantedId) ?: pending.firstOrNull { it.id == wantedId } ?: pending.lastOrNull()
+            !wantedId.isNullOrBlank() -> pending.firstOrNull { it.id == wantedId } ?: pending.lastOrNull()
             else -> pending.lastOrNull()
         }
         return ReviewBinding(
