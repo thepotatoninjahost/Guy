@@ -111,7 +111,7 @@ class AutonomousAgent(
     override fun execute(request: String): AgentRuntimeResult {
         val events = run(request)
         return when (val terminalEvent = events.lastOrNull()) {
-            is AutonomousAgentEvent.ApprovalRequired -> AgentRuntimeResult.NeedsApproval(terminalEvent.task, "Review proposal ${terminalEvent.proposal.id} and confirm twice before applying any code change.", terminalEvent.proposal.id)
+            is AutonomousAgentEvent.ApprovalRequired -> AgentRuntimeResult.NeedsApproval(terminalEvent.task, "Review proposal ${terminalEvent.proposal.id}: tap Confirm, then type the word in chat, before any code change is applied.", terminalEvent.proposal.id)
             is AutonomousAgentEvent.Completed -> AgentRuntimeResult.Completed(terminalEvent.task)
             is AutonomousAgentEvent.Failed -> terminalEvent.task?.let { AgentRuntimeResult.Failed(it) } ?: error(terminalEvent.message)
             is AutonomousAgentEvent.Stopped -> AgentRuntimeResult.Failed(terminalEvent.task)
@@ -120,7 +120,12 @@ class AutonomousAgent(
     }
 
     fun pendingProposals(): List<PendingChangeProposal> = mutations.pending()
-    fun approveProposal(id: String, ownerVerified: Boolean, ownerLabel: String): MutationApprovalResult = mutations.approve(id, ownerVerified, ownerLabel)
+    fun approveProposal(
+        id: String,
+        ownerVerified: Boolean,
+        ownerLabel: String,
+        approvalType: com.codingagent.workspace.ApprovalType
+    ): MutationApprovalResult = mutations.approve(id, ownerVerified, ownerLabel, approvalType)
     fun rejectProposal(id: String): Boolean = mutations.reject(id)
 
     fun run(request: String, onEvent: (AutonomousAgentEvent) -> Unit = {}): List<AutonomousAgentEvent> {
@@ -402,6 +407,34 @@ class AutonomousAgent(
                         "${Instant.now()}: answered listing from tool evidence (model text ignored); evidence=$evidenceLabel"
                     } else {
                         "${Instant.now()}: model reply (${response.content.length} chars); evidence=$evidenceLabel; verify_issues=${report.issues.size}"
+                    }
+                    // Model wrote code as chat text instead of tool calls: stage it as a
+                    // proposal under the plan lock rather than letting asked-for code vanish.
+                    val stagedCode = if (changeSets.isEmpty()) {
+                        val knownTargets = (intake.contract.targetPaths + state.readPaths).distinct()
+                        ModelCodeExtractor.decide(response.content, intake.intent, knownTargets)
+                    } else null
+                    if (stagedCode != null && com.codingagent.workspace.PlanScope.check(root, listOf(stagedCode.path)) == null) {
+                        val current = runCatching { files.read(stagedCode.path).content }.getOrNull()
+                        val op = if (current != null) {
+                            com.codingagent.intake.TaskOperation(com.codingagent.intake.OperationKind.REPLACE, stagedCode.path, current, stagedCode.content)
+                        } else {
+                            com.codingagent.intake.TaskOperation(com.codingagent.intake.OperationKind.CREATE_FILE, stagedCode.path, text = stagedCode.content)
+                        }
+                        when (val stagedResult = mutations.propose("Staged from model reply: ${stagedCode.path}", listOf(op), "Model wrote complete code in chat")) {
+                            is com.codingagent.workspace.MutationProposeResult.Proposed -> {
+                                val stagedTask = AgentTask(
+                                    taskId, normalized, "needs-approval", plan,
+                                    stagedResult.proposal.changeSet.changes, report,
+                                    listOf("${Instant.now()}: staged ${stagedCode.path} from model reply"),
+                                    "Staged ${stagedCode.path} from my reply — review to apply."
+                                )
+                                recordTask(stagedTask)
+                                emit(AutonomousAgentEvent.ApprovalRequired(stagedTask, stagedResult.proposal))
+                                return events
+                            }
+                            is com.codingagent.workspace.MutationProposeResult.Rejected -> Unit
+                        }
                     }
                     val task = AgentTask(
                         taskId, normalized, status, plan,

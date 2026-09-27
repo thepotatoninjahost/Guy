@@ -2,8 +2,10 @@ package com.codingagent.agent
 
 import java.util.UUID
 import com.codingagent.workspace.AgentTask
+import com.codingagent.workspace.ApprovalType
 import com.codingagent.workspace.MutationApprovalResult
 import com.codingagent.workspace.VerificationReport
+import com.codingagent.workspace.finishGuidance
 
 /**
  * ONE JOB: Apply a pending mutation when the user types an explicit approval word.
@@ -17,18 +19,20 @@ object ChatApproval {
     fun tryApprove(agent: AutonomousAgent, text: String): AgentRuntimeResult? {
         if (!isApprovalPhrase(text)) return null
         val pending = agent.pendingProposals().firstOrNull() ?: return null
-        return when (val result = agent.approveProposal(pending.id, ownerVerified = true, ownerLabel = "owner")) {
-            is MutationApprovalResult.AwaitingSecond ->
+        return when (val result = agent.approveProposal(pending.id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.WORD)) {
+            is MutationApprovalResult.AwaitingSecond -> {
+                val guidance = result.missingType?.finishGuidance() ?: "Confirm once more to write the files."
                 AgentRuntimeResult.NeedsApproval(
                     task(
                         request = text,
-                        summary = "First approval recorded. Type approve or confirm once more to write the files.",
+                        summary = "Approval recorded. $guidance",
                         status = "waiting-approval",
                         proposalId = pending.id
                     ),
-                    "First approval recorded. Type approve or confirm once more to write the files.",
+                    "Approval recorded. $guidance",
                     pending.id
                 )
+            }
             is MutationApprovalResult.Applied -> {
                 val paths = result.changeSet.changes.map { it.path }.distinct()
                 AgentRuntimeResult.Completed(

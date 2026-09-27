@@ -79,14 +79,7 @@ class LiveModelStore(private val root: File) {
                     (pack.invalid.joinToString().takeIf { it.isNotBlank() }?.let { "; invalid $it" }.orEmpty())
             )
         }
-        val violations = AgentConstitution.check(
-            action.copy(
-                sandboxPassed = true,
-                ownerVerified = true,
-                approvalCount = maxOf(2, action.approvalCount),
-                clearPermission = true
-            )
-        )
+        val violations = AgentConstitution.check(action.copy(sandboxPassed = evaluation.passed))
         if (violations.isNotEmpty()) {
             return ModelInstallResult.Rejected(violations.joinToString("; ") { "${it.rule}: ${it.message}" })
         }
@@ -121,14 +114,7 @@ class LiveModelStore(private val root: File) {
         evaluation: VerificationReport
     ): ModelInstallResult {
         if (!source.isFile) return ModelInstallResult.Rejected("Model file does not exist")
-        val violations = AgentConstitution.check(
-            action.copy(
-                sandboxPassed = true,
-                ownerVerified = true,
-                approvalCount = maxOf(2, action.approvalCount),
-                clearPermission = true
-            )
-        )
+        val violations = AgentConstitution.check(action.copy(sandboxPassed = evaluation.passed))
         if (violations.isNotEmpty()) {
             return ModelInstallResult.Rejected(violations.joinToString("; ") { "${it.rule}: ${it.message}" })
         }

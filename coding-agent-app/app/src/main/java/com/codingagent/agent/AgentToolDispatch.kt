@@ -11,6 +11,7 @@ import com.codingagent.workspace.ChangeSet
 import com.codingagent.workspace.MutationApprovalResult
 import com.codingagent.workspace.MutationCoordinator
 import com.codingagent.workspace.MutationProposeResult
+import com.codingagent.workspace.PlanScope
 import com.codingagent.workspace.ProjectFileService
 import com.codingagent.workspace.ProjectWorkspace
 import com.codingagent.workspace.TerminalSession
@@ -150,6 +151,7 @@ class AgentToolDispatch(
 
     private fun replaceText(arguments: JSONObject): String {
         val path = arguments.getString("path")
+        PlanScope.check(workspace.projectRoot(), listOf(path))?.let { return "ERROR: $it" }
         return when (val result = mutations.propose(
             request = "replace_text $path",
             operations = listOf(
@@ -164,8 +166,8 @@ class AgentToolDispatch(
         )) {
             is MutationProposeResult.Proposed ->
                 "PROPOSAL_READY id=${result.proposal.id} path=$path " +
-                    "changes=${result.proposal.changeSet.changes.size} approval_required=2 " +
-                    "Confirm twice in Review or chat to APPLY this change to disk."
+                    "changes=${result.proposal.changeSet.changes.size} approval_required=tap+word " +
+                    "The owner taps Confirm, then types the word in chat, to APPLY this change to disk."
             is MutationProposeResult.Rejected ->
                 "ERROR: replace_text proposal rejected — ${result.reason}"
         }
@@ -173,6 +175,7 @@ class AgentToolDispatch(
 
     private fun createFile(arguments: JSONObject): String {
         val path = arguments.getString("path")
+        PlanScope.check(workspace.projectRoot(), listOf(path))?.let { return "ERROR: $it" }
         return when (val result = mutations.propose(
             request = "create_file $path",
             operations = listOf(
@@ -186,28 +189,18 @@ class AgentToolDispatch(
         )) {
             is MutationProposeResult.Proposed ->
                 "PROPOSAL_READY id=${result.proposal.id} path=$path " +
-                    "changes=${result.proposal.changeSet.changes.size} approval_required=2 " +
-                    "Confirm twice in Review or chat to APPLY this file to disk."
+                    "changes=${result.proposal.changeSet.changes.size} approval_required=tap+word " +
+                    "The owner taps Confirm, then types the word in chat, to APPLY this file to disk."
             is MutationProposeResult.Rejected ->
                 "ERROR: create_file proposal rejected — ${result.reason}"
         }
     }
 
     private fun approveChange(arguments: JSONObject): String {
-        val result = mutations.approve(
-            id = arguments.getString("id"),
-            ownerVerified = arguments.optBoolean("ownerVerified", false),
-            ownerLabel = arguments.optString("ownerLabel", "owner")
-        )
-        return when (result) {
-            is MutationApprovalResult.AwaitingSecond ->
-                "AWAITING_SECOND_APPROVAL id=${result.proposal.id} approvals=${result.proposal.approvalCount}"
-            is MutationApprovalResult.Applied -> {
-                onApplied(result.changeSet)
-                promoteAppliedChanges(result)
-                "APPLIED id=${result.proposal.id} changes=${result.changeSet.changes.size}"
-            }
-            is MutationApprovalResult.Rejected -> "ERROR: ${result.reason}"
-        }
+        // Owner-only by law: the model has no approval tool and this legacy entry
+        // point refuses every call, so owner approval can never be faked.
+        return "ERROR: approve_change is owner-only. You cannot approve changes — " +
+            "not with flags, labels, or words. Tell the owner the proposal is ready " +
+            "for their tap plus their typed word, then stop."
     }
 }

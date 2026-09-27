@@ -14,7 +14,9 @@ data class OpenJob(
     val status: String,
     val proposalId: String?,
     val paths: List<String>,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val planLocked: Boolean = false,
+    val planPaths: List<String> = emptyList()
 ) {
     fun promptBlock(): String = buildString {
         append("OPEN JOB (do not claim there is no prior task):\n")
@@ -25,6 +27,10 @@ data class OpenJob(
         if (paths.isNotEmpty()) {
             append("- staged paths:\n")
             paths.forEach { append("  - ").append(it).append('\n') }
+        }
+        if (planLocked) {
+            val scope = if (planPaths.isEmpty()) "(approved in spirit, no file names captured)" else planPaths.take(12).joinToString()
+            append("- plan: LOCKED files: ").append(scope).append('\n')
         }
         append("\"try again\" / \"continue\" / \"show the file\" means this job, not a new empty project.\n")
     }
@@ -62,7 +68,11 @@ object OpenJobStore {
                 paths = o.optJSONArray("paths")?.let { arr ->
                     (0 until arr.length()).map { arr.getString(it) }
                 } ?: emptyList(),
-                updatedAt = o.optLong("updatedAt", 0L)
+                updatedAt = o.optLong("updatedAt", 0L),
+                planLocked = o.optBoolean("planLocked", false),
+                planPaths = o.optJSONArray("planPaths")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }
+                } ?: emptyList()
             )
         }.getOrNull()
     }
@@ -78,9 +88,13 @@ object OpenJobStore {
             .put("status", job.status)
             .put("proposalId", job.proposalId ?: JSONObject.NULL)
             .put("updatedAt", job.updatedAt)
+            .put("planLocked", job.planLocked)
         val paths = JSONArray()
         job.paths.forEach { paths.put(it) }
         o.put("paths", paths)
+        val planPaths = JSONArray()
+        job.planPaths.forEach { planPaths.put(it) }
+        o.put("planPaths", planPaths)
         f.writeText(o.toString())
     }
 
@@ -150,7 +164,9 @@ object OpenJobStore {
             status = "waiting-approval",
             proposalId = proposalId,
             paths = paths.ifEmpty { current?.paths ?: emptyList() },
-            updatedAt = System.currentTimeMillis()
+            updatedAt = System.currentTimeMillis(),
+            planLocked = current?.planLocked ?: false,
+            planPaths = current?.planPaths ?: emptyList()
         )
         save(root, job)
     }
@@ -160,6 +176,51 @@ object OpenJobStore {
         bind(root)
         val current = load(root) ?: return
         save(root, current.copy(status = "applied", updatedAt = System.currentTimeMillis()))
+    }
+
+    /**
+     * ONE JOB: The owner's plan lock. "Approve plan" freezes the file scope; model
+     * change tools stay inside it until "amend plan" widens it or "unlock plan"
+     * releases it. A fresh job is created when none exists so the lock has a home.
+     */
+    @Synchronized
+    fun lockPlan(root: File, paths: List<String>) {
+        bind(root)
+        val current = load(root)
+        val base = current ?: OpenJob(
+            id = UUID.randomUUID().toString(),
+            goal = "(plan approved)",
+            status = "open",
+            proposalId = null,
+            paths = emptyList(),
+            updatedAt = System.currentTimeMillis()
+        )
+        save(root, base.copy(planLocked = true, planPaths = paths.distinct(), updatedAt = System.currentTimeMillis()))
+    }
+
+    @Synchronized
+    fun addPlanPaths(root: File, paths: List<String>) {
+        bind(root)
+        val current = load(root)
+        if (current == null) {
+            lockPlan(root, paths)
+            return
+        }
+        save(
+            root,
+            current.copy(
+                planLocked = true,
+                planPaths = (current.planPaths + paths).distinct(),
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    @Synchronized
+    fun unlockPlan(root: File) {
+        bind(root)
+        val current = load(root) ?: return
+        save(root, current.copy(planLocked = false, updatedAt = System.currentTimeMillis()))
     }
 
     @Synchronized

@@ -285,7 +285,7 @@ internal fun FilesSurface(
                             val result = tools?.proposeSave(path, content, coordinator) ?: error("Project tools are unavailable")
                             when (result) {
                                 is MutationProposeResult.Proposed ->
-                                    onStatus(AgentStatus.APPROVAL to "Save proposed; confirm twice in Review (${result.proposal.id.take(8)})")
+                                    onStatus(AgentStatus.APPROVAL to "Save proposed; tap Confirm in Review, then type the word in chat (${result.proposal.id.take(8)})")
                                 is MutationProposeResult.Rejected ->
                                     onStatus(AgentStatus.STOPPED to "Save proposal rejected: ${result.reason}")
                             }

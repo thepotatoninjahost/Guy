@@ -39,7 +39,7 @@ class LiveModuleStore(private val root: File) {
     init { moduleRoot.mkdirs() }
 
     fun install(source: String, kind: String, version: Int = 1, action: AgentAction, evaluation: VerificationReport): ModuleInstallResult {
-        val violations = AgentConstitution.check(action.copy(sandboxPassed = true, ownerVerified = true, approvalCount = maxOf(2, action.approvalCount), clearPermission = true))
+        val violations = AgentConstitution.check(action.copy(sandboxPassed = evaluation.passed))
         if (violations.isNotEmpty()) return ModuleInstallResult.Rejected(violations.joinToString("; ") { "${it.rule}: ${it.message}" })
         val parsed = runCatching { parse(source) }.getOrElse { return ModuleInstallResult.Rejected("Invalid module: ${it.message}") }
         if (parsed.kind != kind) return ModuleInstallResult.Rejected("Module kind does not match requested kind")
@@ -49,6 +49,24 @@ class LiveModuleStore(private val root: File) {
         destination.writeText(source)
         val module = LiveModule(id, kind, version, destination.absolutePath, checksum(source), System.currentTimeMillis())
         historyFile.appendText(listOf(module.id, module.kind, module.version, module.checksum, module.createdAt).joinToString("\t") + "\n")
+        activeFile.writeText(module.id)
+        return ModuleInstallResult.Installed(module)
+    }
+
+    /**
+     * Install a module that ships inside the app itself. This is not an agent
+     * self-modification, so there is no owner approval to check — provenance is
+     * recorded instead of pretending an approval happened.
+     */
+    fun installBuiltIn(source: String, kind: String, version: Int = 1): ModuleInstallResult {
+        val parsed = runCatching { parse(source) }.getOrElse { return ModuleInstallResult.Rejected("Invalid module: ${it.message}") }
+        if (parsed.kind != kind) return ModuleInstallResult.Rejected("Module kind does not match requested kind")
+        if (parsed.version != version) return ModuleInstallResult.Rejected("Module version does not match requested version")
+        val id = "builtin-$kind-$version"
+        val destination = moduleRoot.resolve(id).apply { mkdirs() }.resolve("module.json")
+        destination.writeText(source)
+        val module = LiveModule(id, kind, version, destination.absolutePath, checksum(source), System.currentTimeMillis())
+        historyFile.appendText(listOf("builtin", module.id, module.kind, module.version, module.checksum, module.createdAt).joinToString("\t") + "\n")
         activeFile.writeText(module.id)
         return ModuleInstallResult.Installed(module)
     }

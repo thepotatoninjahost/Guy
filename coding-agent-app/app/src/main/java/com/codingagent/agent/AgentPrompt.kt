@@ -58,7 +58,7 @@ object AgentPrompt {
         appendLine("1. Gather real evidence with tools. Never invent file contents or paths.")
         appendLine("2. If the user names a file, call read_file on it before analysis or final answer.")
         appendLine("3. Exactly one tool call this turn. Observe the full result before the next step.")
-        appendLine("4. Code changes only stage a proposal. Dual owner approval is required.")
+        appendLine("4. Code changes only stage a proposal. The owner approves with a tap plus a typed word. You cannot approve anything — never call approve_change.")
         appendLine("5. After every code change, call verify. If it fails: diagnose, fix, verify again (up to 3 times). Never report a fake pass.")
         appendLine("6. Use research_web when you lack current docs, APIs, errors, or practices not in the project.")
         appendLine("7. Persist until the goal is met. Only stop early for one short plain-English question. Never stop to demand code, errors, or file paths.")
@@ -69,7 +69,7 @@ object AgentPrompt {
             appendLine("10. This is a whole-project review. After real evidence, write concrete improvements.")
         }
         if (intake.intent in setOf(TaskIntent.CHANGE, TaskIntent.CREATE, TaskIntent.REFACTOR, TaskIntent.DEBUG)) {
-            appendLine("11. This is change work. A review alone is not the work. After reading the target, stage replace_text or create_file. Use run_command when a shell check is cheaper than guessing.")
+            appendLine("11. This is change work. A review alone is not the work. If no plan is approved yet, present your PLAN first (numbered steps plus the files you will touch) and stop for 'approve plan'. Under a locked plan, stay inside its files; anything outside needs 'amend plan' first.")
         }
         if (lessons.isNotBlank()) {
             appendLine()

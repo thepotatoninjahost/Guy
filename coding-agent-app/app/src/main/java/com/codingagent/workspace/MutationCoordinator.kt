@@ -20,7 +20,11 @@ sealed class MutationProposeResult {
 }
 
 sealed class MutationApprovalResult {
-    data class AwaitingSecond(val proposal: PendingChangeProposal, val approval: ApprovalRecord) : MutationApprovalResult()
+    data class AwaitingSecond(
+        val proposal: PendingChangeProposal,
+        val approval: ApprovalRecord,
+        val missingType: ApprovalType? = null
+    ) : MutationApprovalResult()
     data class Applied(val proposal: PendingChangeProposal, val changeSet: ChangeSet) : MutationApprovalResult()
     data class Rejected(val reason: String) : MutationApprovalResult()
 }
@@ -43,11 +47,15 @@ class MutationCoordinator(
     private val now: () -> Long = { System.currentTimeMillis() }
 ) {
     private val pending = linkedMapOf<String, PendingChangeProposal>()
+    private val approvalTypes = mutableMapOf<String, MutableList<String>>()
     private val evolution = SelfEvolution(workspace.projectRoot())
 
     init {
         OpenJobStore.bind(workspace.projectRoot())
         PendingProposalStore.load(workspace.projectRoot()).forEach { pending[it.id] = it }
+        PendingProposalStore.loadTypes(workspace.projectRoot()).forEach { (id, types) ->
+            approvalTypes[id] = types.toMutableList()
+        }
     }
 
     @Synchronized
@@ -105,7 +113,12 @@ class MutationCoordinator(
     fun get(id: String): PendingChangeProposal? = pending[id]
 
     @Synchronized
-    fun approve(id: String, ownerVerified: Boolean, ownerLabel: String): MutationApprovalResult {
+    fun approve(
+        id: String,
+        ownerVerified: Boolean,
+        ownerLabel: String,
+        approvalType: ApprovalType
+    ): MutationApprovalResult {
         val proposal = pending[id] ?: return MutationApprovalResult.Rejected("Change proposal does not exist")
         val timestamp = now()
         if (timestamp > proposal.expiresAt) {
@@ -125,6 +138,20 @@ class MutationCoordinator(
             clearPermission = true
         )
         val violations = AgentConstitution.check(action, timestamp, proposal.createdAt)
+        // The owner's law: one tap plus one typed word — two genuinely different acts.
+        // Legacy approvals predate types and satisfy neither side of the pair.
+        val types = approvalTypes.getOrPut(id) { mutableListOf() }
+        while (types.size < proposal.approvals.size) types += "UNKNOWN"
+        types += approvalType.name
+        persistTypes()
+        val haveTap = types.contains(ApprovalType.TAP.name)
+        val haveWord = types.contains(ApprovalType.WORD.name)
+        val missingType = when {
+            haveTap && haveWord -> null
+            haveTap -> ApprovalType.WORD
+            haveWord -> ApprovalType.TAP
+            else -> approvalType // unreachable: a type was just recorded
+        }
         if (violations.isNotEmpty()) {
             pending[id] = candidate
             persist()
@@ -134,15 +161,22 @@ class MutationCoordinator(
                         it.rule == ConstitutionRule.PERMISSION_EXPIRATION
                 }
             ) {
-                MutationApprovalResult.AwaitingSecond(candidate, approval)
+                MutationApprovalResult.AwaitingSecond(candidate, approval, missingType)
             } else {
                 MutationApprovalResult.Rejected(violations.joinToString("; ") { "${it.rule}: ${it.message}" })
             }
         }
+        if (missingType != null) {
+            pending[id] = candidate
+            persist()
+            return MutationApprovalResult.AwaitingSecond(candidate, approval, missingType)
+        }
         return try {
             val applied = workspace.applyApproved(proposal.changeSet)
             pending.remove(id)
+            approvalTypes.remove(id)
             persist()
+            persistTypes()
             OpenJobStore.markApplied(workspace.projectRoot())
             recordEvolution(candidate, applied)
             MutationApprovalResult.Applied(candidate, applied)
@@ -157,15 +191,27 @@ class MutationCoordinator(
     @Synchronized
     fun clear(id: String): Boolean {
         val gone = pending.remove(id) != null
-        if (gone) persist()
+        if (gone) {
+            approvalTypes.remove(id)
+            persist()
+            persistTypes()
+        }
         return gone
     }
 
     @Synchronized
     fun reject(id: String): Boolean {
         val gone = pending.remove(id) != null
-        if (gone) persist()
+        if (gone) {
+            approvalTypes.remove(id)
+            persist()
+            persistTypes()
+        }
         return gone
+    }
+
+    private fun persistTypes() {
+        PendingProposalStore.saveTypes(workspace.projectRoot(), approvalTypes)
     }
 
     @Synchronized

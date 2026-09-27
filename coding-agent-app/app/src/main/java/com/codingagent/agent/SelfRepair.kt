@@ -87,7 +87,7 @@ object SelfRepair {
                 mutations = mutations,
                 operations = listOf(targeted),
                 reason = "Self-repair: stamp ${targeted.path}",
-                summary = "Self-repair proposal staged for ${targeted.path}. Confirm twice to apply."
+                summary = "Self-repair proposal staged for ${targeted.path}. Tap Confirm, then type the word in chat, to apply."
             )
         }
 
@@ -111,7 +111,7 @@ object SelfRepair {
             mutations = mutations,
             operations = listOf(op),
             reason = "Self-repair: bootstrap src/SelfRepair.kt",
-            summary = "Self-repair proposal staged. Confirm twice to apply src/SelfRepair.kt."
+            summary = "Self-repair proposal staged. Tap Confirm, then type the word in chat, to apply src/SelfRepair.kt."
         )
     }
 

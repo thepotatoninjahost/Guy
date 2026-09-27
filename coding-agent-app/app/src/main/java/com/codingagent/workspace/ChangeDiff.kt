@@ -80,7 +80,7 @@ object ChangeDiff {
      * so this text is the only way the owner can see what they are confirming.
      */
     fun ownerReviewText(proposal: PendingChangeProposal): String = buildString {
-        appendLine("PROPOSED CHANGES — not written to disk until you confirm twice.")
+        appendLine("PROPOSED CHANGES — not written to disk until you tap Confirm and type the word.")
         appendLine("Proposal ${shortId(proposal.id)} · ${proposal.changeSet.changes.size} file(s) · ${expiryLabel(proposal.expiresAt)}")
         appendLine("Request: ${proposal.request.take(400)}")
         if (proposal.changeSet.changes.isEmpty()) {

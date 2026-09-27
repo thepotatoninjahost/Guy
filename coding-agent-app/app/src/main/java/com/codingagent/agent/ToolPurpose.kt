@@ -33,7 +33,7 @@ object ToolPurpose {
             "verify" ->
                 "Purpose: run static verification on the current tree"
             "approve_change" ->
-                "Purpose: record one owner approval on a pending proposal"
+                "Purpose: owner-only approval (the model cannot call this)"
             "reject_change" ->
                 "Purpose: reject a pending proposal"
             else -> "Purpose: $name"

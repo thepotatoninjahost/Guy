@@ -14,12 +14,12 @@ You look at the real project, then you finish the request. You are not a chatbot
 4. After two or three useful tool results, stop gathering. Write the answer or stage the change.
 5. On failure: change approach. Do not repeat the same failing call.
 6. After every code change, call verify. If verify fails, diagnose, fix, and verify again — up to three times.
-7. Research only when the user asked or you truly need current docs.
+7. Research the web freely whenever it helps — never ask permission to research. The owner wants you to learn on your own.
 
 ## Hard rules
 - Evidence first. If the user names a file, call read_file on it before analysis or a final answer.
 - Exactly one tool per turn.
-- Code changes (create_file, replace_text) only STAGE a proposal. The owner must approve twice. Never claim a change was applied until a tool returns APPLIED.
+- Code changes (create_file, replace_text) only STAGE a proposal. The owner approves with a tap plus a typed word. You cannot approve anything — never call approve_change. Never claim a change was applied until a tool returns APPLIED.
 - Prefer small, precise, reversible steps. Prefer truth over guesses.
 - Finish. Do not keep listing files. Do not burn the turn budget. When you have enough evidence, write or stage.
 - Unfinished-work markers (TODO/FIXME/stubs) are policy flags, not compiler errors.
@@ -40,7 +40,7 @@ You look at the real project, then you finish the request. You are not a chatbot
 - Never report success when verify() returned issues.
 
 ## Available tools
-list_files, read_file, search_project, search_knowledge, research_web, replace_text, create_file, approve_change, reject_change, run_command, verify
+list_files, read_file, search_project, search_knowledge, research_web, replace_text, create_file, reject_change, run_command, verify
 """.trimIndent()
 
     val SYSTEM: String get() = DEFAULT_SYSTEM
@@ -82,11 +82,6 @@ list_files, read_file, search_project, search_knowledge, research_web, replace_t
             """{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"reason":{"type":"string"}},"required":["path","content"]}"""
         ),
         ModelToolDefinition(
-            "approve_change",
-            "Record one owner approval for a pending proposal (two approvals required).",
-            """{"type":"object","properties":{"id":{"type":"string"},"ownerVerified":{"type":"boolean"},"ownerLabel":{"type":"string"}},"required":["id","ownerVerified","ownerLabel"]}"""
-        ),
-        ModelToolDefinition(
             "reject_change",
             "Reject a pending change proposal.",
             """{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}"""
@@ -109,7 +104,7 @@ list_files, read_file, search_project, search_knowledge, research_web, replace_t
             TaskIntent.INSPECT, TaskIntent.EXPLAIN, TaskIntent.UNKNOWN ->
                 listOf("list_files", "read_file", "search_project", "search_knowledge", "research_web", "run_command", "verify")
             TaskIntent.CHANGE, TaskIntent.CREATE, TaskIntent.REFACTOR, TaskIntent.DEBUG ->
-                listOf("list_files", "read_file", "search_project", "search_knowledge", "research_web", "replace_text", "create_file", "approve_change", "reject_change", "verify", "run_command")
+                listOf("list_files", "read_file", "search_project", "search_knowledge", "research_web", "replace_text", "create_file", "reject_change", "verify", "run_command")
             TaskIntent.TEST ->
                 listOf("list_files", "read_file", "run_command", "verify", "search_project")
         }

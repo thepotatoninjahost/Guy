@@ -20,6 +20,39 @@ object PendingProposalStore {
         f.writeText(arr.toString())
     }
 
+    fun typesFile(root: File): File = File(root, ".coding-agent/approval-types.json")
+
+    /**
+     * ONE JOB: Persist which approval kinds (TAP/WORD) each proposal has received,
+     * so the tap-plus-word pair survives process death. Legacy proposals predate
+     * types and satisfy neither side of the pair.
+     */
+    @Synchronized
+    fun saveTypes(root: File, typesByProposal: Map<String, List<String>>) {
+        val f = typesFile(root)
+        f.parentFile?.mkdirs()
+        val o = JSONObject()
+        typesByProposal.forEach { (id, types) ->
+            val arr = JSONArray()
+            types.forEach { arr.put(it) }
+            o.put(id, arr)
+        }
+        f.writeText(o.toString())
+    }
+
+    @Synchronized
+    fun loadTypes(root: File): Map<String, List<String>> {
+        val f = typesFile(root)
+        if (!f.isFile) return emptyMap()
+        return runCatching {
+            val o = JSONObject(f.readText().trim().ifEmpty { "{}" })
+            o.keys().asSequence().associateWith { id ->
+                val arr = o.optJSONArray(id) ?: JSONArray()
+                (0 until arr.length()).map { arr.getString(it) }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
     @Synchronized
     fun load(root: File): List<PendingChangeProposal> {
         val f = file(root)

@@ -47,8 +47,8 @@ class OperationalAgentTest {
         val proposal = (saveResult as MutationProposeResult.Proposed).proposal
         assertEquals(ChangeOperation.REPLACE, proposal.changeSet.changes.single().operation)
         assertEquals("fun main() = 1\n", files.read("src/Main.kt").content)
-        assertTrue(coordinator.approve(proposal.id, true, "test") is MutationApprovalResult.AwaitingSecond)
-        assertTrue(coordinator.approve(proposal.id, true, "test") is MutationApprovalResult.Applied)
+        assertTrue(coordinator.approve(proposal.id, true, "test", com.codingagent.workspace.ApprovalType.TAP) is MutationApprovalResult.AwaitingSecond)
+        assertTrue(coordinator.approve(proposal.id, true, "test", com.codingagent.workspace.ApprovalType.WORD) is MutationApprovalResult.Applied)
         assertEquals("fun main() = 2\n", files.read("src/Main.kt").content)
     }
 
@@ -87,8 +87,8 @@ class OperationalAgentTest {
         assertTrue(result.proposalId.isNotBlank())
         assertEquals("fun main() = 1\n", root.resolve("src/Main.kt").readText())
 
-        assertTrue(spine.approveProposal(result.proposalId, true, "owner") is MutationApprovalResult.AwaitingSecond)
-        assertTrue(spine.approveProposal(result.proposalId, true, "owner") is MutationApprovalResult.Applied)
+        assertTrue(spine.approveProposal(result.proposalId, true, "owner", com.codingagent.workspace.ApprovalType.TAP) is MutationApprovalResult.AwaitingSecond)
+        assertTrue(spine.approveProposal(result.proposalId, true, "owner", com.codingagent.workspace.ApprovalType.WORD) is MutationApprovalResult.Applied)
         assertEquals("fun main() = 2\n", root.resolve("src/Main.kt").readText())
     }
 
@@ -103,8 +103,8 @@ class OperationalAgentTest {
         assertTrue(result.proposalId.isNotBlank())
         assertTrue(!root.resolve("src/Helper.kt").exists())
 
-        assertTrue(spine.approveProposal(result.proposalId, true, "owner") is MutationApprovalResult.AwaitingSecond)
-        assertTrue(spine.approveProposal(result.proposalId, true, "owner") is MutationApprovalResult.Applied)
+        assertTrue(spine.approveProposal(result.proposalId, true, "owner", com.codingagent.workspace.ApprovalType.WORD) is MutationApprovalResult.AwaitingSecond)
+        assertTrue(spine.approveProposal(result.proposalId, true, "owner", com.codingagent.workspace.ApprovalType.TAP) is MutationApprovalResult.Applied)
         val written = root.resolve("src/Helper.kt").readText()
         assertTrue(written.contains("class Helper"))
         assertTrue(written.contains("fun run"))

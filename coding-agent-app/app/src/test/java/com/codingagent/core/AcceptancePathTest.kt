@@ -50,11 +50,11 @@ class AcceptancePathTest {
         assertEquals("fun a() = 1\n", root.resolve("src/A.kt").readText())
         assertEquals("fun b() = 1\n", root.resolve("src/B.kt").readText())
 
-        val first = coordinator.approve(proposal.id, ownerVerified = true, ownerLabel = "owner")
+        val first = coordinator.approve(proposal.id, ownerVerified = true, ownerLabel = "owner", approvalType = com.codingagent.workspace.ApprovalType.TAP)
         assertTrue(first is MutationApprovalResult.AwaitingSecond)
         assertEquals("fun a() = 1\n", root.resolve("src/A.kt").readText())
 
-        val second = coordinator.approve(proposal.id, ownerVerified = true, ownerLabel = "owner")
+        val second = coordinator.approve(proposal.id, ownerVerified = true, ownerLabel = "owner", approvalType = com.codingagent.workspace.ApprovalType.WORD)
         assertTrue(second is MutationApprovalResult.Applied)
         assertEquals("fun a() = 2\n", root.resolve("src/A.kt").readText())
         assertEquals("fun b() = 2\n", root.resolve("src/B.kt").readText())
@@ -94,9 +94,9 @@ class AcceptancePathTest {
         val proposal = (proposeResult as MutationProposeResult.Proposed).proposal
 
         assertFalse(root.resolve("src/New.kt").exists())
-        coordinator.approve(proposal.id, true, "owner")
+        coordinator.approve(proposal.id, true, "owner", com.codingagent.workspace.ApprovalType.TAP)
         assertFalse(root.resolve("src/New.kt").exists())
-        val applied = coordinator.approve(proposal.id, true, "owner")
+        val applied = coordinator.approve(proposal.id, true, "owner", com.codingagent.workspace.ApprovalType.WORD)
         assertTrue(applied is MutationApprovalResult.Applied)
         assertEquals("class New\n", root.resolve("src/New.kt").readText())
     }
@@ -148,7 +148,7 @@ class AcceptancePathTest {
         assertEquals(
             listOf(
                 "list_files", "read_file", "search_project", "search_knowledge", "research_web",
-                "replace_text", "create_file", "approve_change", "reject_change", "run_command", "verify"
+                "replace_text", "create_file", "reject_change", "run_command", "verify"
             ),
             names
         )

@@ -11,7 +11,7 @@ import com.codingagent.workspace.VerificationReport
 class BuiltInModules(context: Context) {
     private val store = LiveModuleStore(context.filesDir)
 
-    fun installDefault(): ModuleInstallResult = store.install(
+    fun installDefault(): ModuleInstallResult = store.installBuiltIn(
         """
         {"kind":"coding","version":1,"steps":[
           {"op":"emit","value":"Live coding module active for: ${'$'}{input}"},
@@ -19,8 +19,6 @@ class BuiltInModules(context: Context) {
           {"op":"project_search","value":"${'$'}{input}"},
           {"op":"verify"}
         ]}
-        """.trimIndent(), "coding", 1,
-        AgentAction("Install built-in coding module", AgentActionCategory.CODE_CHANGE, ownerVerified = true, approvalCount = 2),
-        VerificationReport(true, emptyList())
+        """.trimIndent(), "coding", 1
     )
 }

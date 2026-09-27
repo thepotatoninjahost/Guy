@@ -82,11 +82,14 @@ import com.codingagent.model.ModelBackend
 import com.codingagent.model.ModelDownloadProgress
 import com.codingagent.model.ModelGateway
 import com.codingagent.model.ModelSettings
+import com.codingagent.workspace.ApprovalType
 import com.codingagent.workspace.MutationApprovalResult
 import com.codingagent.workspace.MutationCoordinator
 import com.codingagent.workspace.OpenJobStore
 import com.codingagent.workspace.PendingChangeProposal
+import com.codingagent.workspace.PlanScope
 import com.codingagent.workspace.ProjectWorkspace
+import com.codingagent.workspace.finishGuidance
 import com.codingagent.research.ResearchDisplayState
 import com.codingagent.workspace.ResearchHit
 import com.codingagent.research.ResearchModeDetector
@@ -410,6 +413,57 @@ private fun CodingAgentApp(privateDir: File) {
         detail = "Open job dropped"
     }
 
+    fun approveLockedPlan(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root == null) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "No project is mounted, so there's no plan to lock. Mount a project first."))
+        } else {
+            val lastAgent = store.recentChatMessages().firstOrNull { it.role == ChatRole.AGENT }?.content
+            if (lastAgent == null || !lastAgent.contains("plan", ignoreCase = true)) {
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "There's no plan on the table yet. Ask me to make a plan first, then say 'approve plan'."))
+            } else {
+                val paths = PlanScope.extractPlanPaths(lastAgent)
+                OpenJobStore.lockPlan(root, paths)
+                val scope = if (paths.isEmpty()) "no file names found — I'll still ask before each change" else paths.take(8).joinToString()
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Plan locked: $scope. I'll stay inside it. Say 'amend plan' to widen it."))
+            }
+        }
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Plan approved"
+    }
+
+    fun amendLockedPlan(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root == null) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "No project is mounted, so there's no plan to amend."))
+        } else {
+            val paths = PlanScope.extractPlanPaths(request)
+            if (paths.isEmpty()) {
+                OpenJobStore.unlockPlan(root)
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "I couldn't spot file names in that, so I unlocked the plan instead. Name the files to add, like 'amend plan to include src/Other.kt'."))
+            } else {
+                OpenJobStore.addPlanPaths(root, paths)
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Plan widened to include: ${paths.joinToString()}."))
+            }
+        }
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Plan amended"
+    }
+
+    fun unlockLockedPlan(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root != null) OpenJobStore.unlockPlan(root)
+        store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Plan unlocked. I'll present a fresh plan before changing files."))
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Plan unlocked"
+    }
+
     fun clearConversation(request: String) {
         store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
         val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
@@ -542,6 +596,23 @@ private fun CodingAgentApp(privateDir: File) {
             return
         }
 
+        // Plan lock: one approval freezes the file scope; amend widens it; unlock releases it.
+        val approvePlanHints = listOf("approve plan", "lock plan", "lock it in", "accept plan")
+        if (approvePlanHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            approveLockedPlan(request)
+            return
+        }
+        val amendPlanHints = listOf("amend plan", "widen plan", "expand plan")
+        if (amendPlanHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            amendLockedPlan(request)
+            return
+        }
+        val unlockPlanHints = listOf("unlock plan", "drop plan", "release plan")
+        if (unlockPlanHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            unlockLockedPlan(request)
+            return
+        }
+
         // Create / new / restart project works with or without a current project.
         val createHints = listOf(
             "create project", "new project", "start project", "start a project",
@@ -586,11 +657,12 @@ private fun CodingAgentApp(privateDir: File) {
                 chatMessages = store.recentChatMessages().asReversed()
                 return
             }
-            when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner")) {
+            when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.WORD)) {
                 is MutationApprovalResult.AwaitingSecond -> {
                     approvalCount = result.proposal.approvalCount
-                    detail = "Confirmation ${approvalCount}/2 recorded; tap Approve or type approve again"
-                    store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "First approval recorded. Confirm once more to write the files."))
+                    val guidance = result.missingType?.finishGuidance() ?: "Confirm once more to write the files."
+                    detail = "Confirmation ${approvalCount}/2 recorded; $guidance"
+                    store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Approval recorded. $guidance"))
                 }
                 is MutationApprovalResult.Applied -> onChangeApplied(result)
                 is MutationApprovalResult.Rejected -> {
@@ -709,8 +781,8 @@ private fun CodingAgentApp(privateDir: File) {
                         onApprove = {
                             val id = pendingProposalId ?: return@ChatSurface
                             val coordinator = mutationCoordinator ?: return@ChatSurface
-                            when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner")) {
-                                is MutationApprovalResult.AwaitingSecond -> { approvalCount = result.proposal.approvalCount; detail = "Confirmation ${approvalCount}/2 recorded; transaction remains unapplied" }
+                            when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.TAP)) {
+                                is MutationApprovalResult.AwaitingSecond -> { approvalCount = result.proposal.approvalCount; detail = "Confirmation ${approvalCount}/2 recorded; ${result.missingType?.finishGuidance().orEmpty()}" }
                                 is MutationApprovalResult.Applied -> onChangeApplied(result)
                                 is MutationApprovalResult.Rejected -> { status = AgentStatus.STOPPED; detail = result.reason }
                             }
@@ -720,8 +792,8 @@ private fun CodingAgentApp(privateDir: File) {
                     SurfaceTab.REVIEW -> ReviewSurface(pendingApproval, approvalCount, pendingReason, onApprove = {
                         val id = pendingProposalId ?: return@ReviewSurface
                         val coordinator = mutationCoordinator ?: return@ReviewSurface
-                        when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner")) {
-                            is MutationApprovalResult.AwaitingSecond -> { approvalCount = result.proposal.approvalCount; detail = "Confirmation ${approvalCount}/2 recorded" }
+                        when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.TAP)) {
+                            is MutationApprovalResult.AwaitingSecond -> { approvalCount = result.proposal.approvalCount; detail = "Confirmation ${approvalCount}/2 recorded; ${result.missingType?.finishGuidance().orEmpty()}" }
                             is MutationApprovalResult.Applied -> onChangeApplied(result)
                             is MutationApprovalResult.Rejected -> { status = AgentStatus.STOPPED; detail = result.reason }
                         }
