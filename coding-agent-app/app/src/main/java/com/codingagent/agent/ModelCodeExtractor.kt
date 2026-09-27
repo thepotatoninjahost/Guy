@@ -38,10 +38,14 @@ object ModelCodeExtractor {
         if (intent != TaskIntent.CREATE && intent != TaskIntent.CHANGE && intent != TaskIntent.REFACTOR) return null
         val fences = extractFences(reply).filter { isCompleteBlock(it.code) }
         if (fences.size != 1) return null
-        val targets = knownTargets.map { it.trim().trimStart('.', '/') }.filter { it.isNotBlank() }.distinct()
-        if (targets.size != 1) return null
-        val path = targets.single()
-        if (path.startsWith("/") || ".." in path || "\\" in path) return null
+        val rawTargets = knownTargets.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        if (rawTargets.size != 1) return null
+        // Traversal is rejected on the RAW target: normalizing first would turn
+        // "../evil.txt" into the innocent-looking "evil.txt" and hide the escape.
+        val raw = rawTargets.single()
+        if (raw.startsWith("/") || ".." in raw || "\\" in raw) return null
+        val path = raw.trimStart('.', '/')
+        if (path.isBlank()) return null
         return StagedCode(path, fences.single().code)
     }
 }
