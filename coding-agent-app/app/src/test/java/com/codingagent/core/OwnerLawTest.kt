@@ -73,9 +73,11 @@ class OwnerLawTest {
     }
 
     @Test
-    fun changeWithoutAnyJobIsNotBlocked() {
+    fun changeWithoutAnyJobDemandsAPlanFirst() {
         val root = Files.createTempDirectory("plan-no-job").toFile()
-        assertNull(PlanScope.check(root, listOf("src/A.kt")))
+        val message = PlanScope.check(root, listOf("src/A.kt"))
+        assertNotNull(message)
+        assertTrue(message!!.contains("approve plan", ignoreCase = true))
     }
 
     @Test

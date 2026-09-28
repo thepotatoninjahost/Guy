@@ -24,8 +24,8 @@ object PlanScope {
      * the model when the plan lock blocks them.
      */
     fun check(root: File, paths: List<String>): String? {
-        val job = runCatching { OpenJobStore.load(root) }.getOrNull() ?: return null
-        if (!job.planLocked) {
+        val job = runCatching { OpenJobStore.load(root) }.getOrNull()
+        if (job == null || !job.planLocked) {
             return "No approved plan covers this change yet. Present your PLAN as numbered steps " +
                 "plus the files you will touch, then STOP — end your turn with " +
                 "'Say approve plan and I will do it.' Do not call change tools again until the owner approves the plan."
