@@ -19,9 +19,9 @@ data class ModelSettings(
     val modelName: String = "",
     /**
      * Optional ordered fallback model IDs that share the same base URL and API key.
-     * Comma, semicolon, or newline separated. When the primary model returns a
-     * rate-limit / capacity / overfill error, [RotatingModelGateway] automatically
-     * tries the next id in this list.
+     * Comma, semicolon, or newline separated. When the primary model fails for any
+     * reason except a bad key / missing config, [RotatingModelGateway] automatically
+     * tries the next id in this list, so the brain stays reachable.
      */
     val rotationModels: String = "",
     val systemPrompt: String = "",

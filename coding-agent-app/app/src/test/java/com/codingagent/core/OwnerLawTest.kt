@@ -433,3 +433,21 @@ class PlainChangeSummaryLawTest {
         assertTrue(lines.any { it.contains("It touches: old.") })
     }
 }
+
+class RotationLawTest {
+    @Test fun `network failure rotates to the next model`() {
+        assertTrue(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model request failed: Unable to resolve host"))
+        assertTrue(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model request failed: Connect timed out"))
+    }
+
+    @Test fun `retired model and empty replies rotate`() {
+        assertTrue(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model HTTP 404: model not found"))
+        assertTrue(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model returned an empty response"))
+        assertTrue(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model HTTP 429: rate limit reached"))
+    }
+
+    @Test fun `bad key and missing config stop rotation`() {
+        assertFalse(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model HTTP 401: Unauthorized"))
+        assertFalse(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model gateway configuration is incomplete"))
+    }
+}

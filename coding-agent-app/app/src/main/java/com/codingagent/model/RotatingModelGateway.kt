@@ -3,10 +3,11 @@ package com.codingagent.model
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * ONE JOB: Try the next configured model when the current one is rate-limited,
- * at capacity, or otherwise overloaded. Same base URL + API key; only the model
- * id changes. Sticks on the first model that succeeds so subsequent turns stay
- * on a working endpoint until it fails again.
+ * ONE JOB: Try the next configured model when the current one fails — any failure
+ * except a bad key / missing config (those hit every entry identically, so there
+ * is no point burning the list). Same base URL + API key; only the model id
+ * changes. Sticks on the first model that succeeds so subsequent turns stay on
+ * a working endpoint until it fails again.
  */
 class RotatingModelGateway(
     private val entries: List<Entry>,
@@ -50,7 +51,7 @@ class RotatingModelGateway(
 
             lastFailure = response
             if (!isRotatableFailure(response.message)) {
-                // Auth / bad request / etc. — do not burn the rest of the list.
+                // Bad key / missing config hits every entry identically — stop here.
                 return response
             }
 
@@ -73,28 +74,24 @@ class RotatingModelGateway(
 
     companion object {
         /**
-         * Same signals [com.codingagent.agent.ModelFailure] uses for rate/capacity,
-         * kept local so the model package does not depend on the agent package.
+         * Rotation exists so the brain is never unreachable: every failure moves
+         * to the next model EXCEPT failures that would hit every entry identically
+         * (bad key / missing config — all entries share one base URL and key).
          */
-        fun isRotatableFailure(message: String): Boolean {
+        fun isRotatableFailure(message: String): Boolean = !isFinalFailure(message)
+
+        private fun isFinalFailure(message: String): Boolean {
             val lower = message.lowercase()
-            return "429" in lower ||
-                "rate_limit" in lower ||
-                "rate limit" in lower ||
-                "too many requests" in lower ||
-                "tokens per minute" in lower ||
-                "tpm" in lower ||
-                "quota" in lower ||
-                "resourceexhausted" in lower ||
-                "resource exhausted" in lower ||
-                "overloaded" in lower ||
-                "capacity" in lower ||
-                "request limit reached" in lower ||
-                "worker local" in lower ||
-                "503" in lower ||
-                "service unavailable" in lower ||
-                "overfill" in lower ||
-                "provider at capacity" in lower
+            return "configuration is incomplete" in lower ||
+                "401" in lower ||
+                "unauthorized" in lower ||
+                "invalid api key" in lower ||
+                "invalid-api-key" in lower ||
+                "incorrect api key" in lower ||
+                "invalid authentication" in lower ||
+                "authentication failed" in lower ||
+                "no api key" in lower ||
+                "must provide an api key" in lower
         }
 
         fun build(
