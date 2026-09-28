@@ -88,8 +88,7 @@ object ChangeDiff {
         }
         proposal.changeSet.changes.forEach { record ->
             appendLine()
-            appendLine("=== ${record.operation} ${record.path} ===")
-            unified(record).forEach { line -> appendLine(line.text) }
+            PlainChangeSummary.describe(record).forEach { append("  - ").appendLine(it) }
         }
         appendLine()
         val qualityNotes = proposal.changeSet.changes.flatMap { CodeQualityNotes.analyze(it.path, it.after) }.distinct()

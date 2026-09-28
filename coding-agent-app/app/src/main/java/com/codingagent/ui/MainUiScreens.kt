@@ -462,19 +462,24 @@ private fun FileReviewCard(record: ChangeRecord) {
     Card(colors = CardDefaults.cardColors(containerColor = Panel), border = androidx.compose.foundation.BorderStroke(1.dp, FluoroOrange)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(record.path, color = NeonGreen, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            val lines = remember(record) { ChangeDiff.unified(record) }
-            val added = lines.count { it.kind == DiffLineKind.ADD }
-            val removed = lines.count { it.kind == DiffLineKind.REMOVE }
-            Text("${plainOp(record.operation)} · +$added lines, -$removed lines", color = SoftGreen, fontSize = 12.sp)
+            val summary = remember(record) { com.codingagent.workspace.PlainChangeSummary.describe(record) }
+            summary.forEach { line -> Text(line, color = SoftGreen, fontSize = 12.sp) }
             if (record.reason.isNotBlank()) {
                 Text(record.reason.take(200), color = SoftGreen, fontSize = 12.sp)
             }
-            Text(
-                diffAnnotated(lines),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                lineHeight = 14.sp
-            )
+            val showCode = remember(record) { androidx.compose.runtime.mutableStateOf(false) }
+            androidx.compose.material3.TextButton(onClick = { showCode.value = !showCode.value }) {
+                Text(if (showCode.value) "Hide code details" else "Show code details", color = NeonGreen, fontSize = 12.sp)
+            }
+            if (showCode.value) {
+                val lines = remember(record) { ChangeDiff.unified(record) }
+                Text(
+                    diffAnnotated(lines),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp
+                )
+            }
         }
     }
 }

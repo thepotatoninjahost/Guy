@@ -58,11 +58,11 @@ object AgentOfflineStager {
         if (!hasExplicit && gateway != null && !onlyBoilerplate) return null
 
         val staged: Pair<List<TaskOperation>, String> = if (hasExplicit) {
-            listOf(intake.operation) to "Offline explicit ${intake.operation.kind.name.lowercase()} from request"
+            listOf(intake.operation) to "Done on the phone from your exact words (the AI brain couldn't be reached)."
         } else {
             when (val synthesis = CodeSynthesisEngine(workspace.projectRoot(), knowledge).synthesize(intake)) {
                 is SynthesisResult.Ready ->
-                    synthesis.proposal.operations to "Offline synthesis: ${synthesis.proposal.rationale}"
+                    synthesis.proposal.operations to synthesis.proposal.rationale
                 is SynthesisResult.NeedsInput -> {
                     // No brain configured and nothing concrete to stage: fall through to the
                     // honest "model is not configured" outcome instead of a question loop.

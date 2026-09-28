@@ -31,7 +31,7 @@ class CodeSynthesisEngine(
                 SynthesisProposal(
                     goal = intake.contract.goal,
                     operations = listOf(operation),
-                    rationale = "Preserved the explicit operation from the task request.",
+                    rationale = "Built exactly what your message asked for.",
                     knowledgeUsed = evidence
                 )
             )
@@ -48,7 +48,7 @@ class CodeSynthesisEngine(
                 SynthesisProposal(
                     goal = intake.contract.goal,
                     operations = listOf(TaskOperation(OperationKind.CREATE_FILE, path = path, text = content)),
-                    rationale = "Staged $path from the create request so the owner can review a real file, not README.md.",
+                    rationale = "The AI brain couldn't be reached, so the phone built a starter skeleton on its own. This is not the finished work.",
                     knowledgeUsed = evidence
                 )
             )

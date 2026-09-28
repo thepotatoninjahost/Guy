@@ -399,3 +399,37 @@ class FailureMemoryLawTest {
         assertEquals("failed", line.split('\t')[3])
     }
 }
+
+class PlainChangeSummaryLawTest {
+    @Test fun `new file is described in plain words`() {
+        val record = com.codingagent.workspace.ChangeRecord(
+            path = "src/SaidSophisticatedProfessional.kt",
+            operation = com.codingagent.workspace.ChangeOperation.CREATE,
+            before = null,
+            after = "class SaidSophisticatedProfessional {\n  fun run(input: String): String = input\n}\n",
+            reason = "",
+            beforeChecksum = "",
+            afterChecksum = ""
+        )
+        val lines = com.codingagent.workspace.PlainChangeSummary.describe(record)
+        assertTrue(lines[0].contains("New file: src/SaidSophisticatedProfessional.kt"))
+        assertTrue(lines.any { it.contains("It creates: SaidSophisticatedProfessional, run.") })
+        assertTrue(lines.none { it.contains("+class") || it.contains("fun run(input") })
+    }
+
+    @Test fun `edits are described in plain words`() {
+        val record = com.codingagent.workspace.ChangeRecord(
+            path = "src/Main.kt",
+            operation = com.codingagent.workspace.ChangeOperation.REPLACE,
+            before = "fun old(): Int = 1\n",
+            after = "fun old(): Int = 2\n",
+            reason = "",
+            beforeChecksum = "",
+            afterChecksum = ""
+        )
+        val lines = com.codingagent.workspace.PlainChangeSummary.describe(record)
+        assertTrue(lines[0].startsWith("Edits src/Main.kt"))
+        assertTrue(lines[0].contains("1 line in, 1 line out"))
+        assertTrue(lines.any { it.contains("It touches: old.") })
+    }
+}
