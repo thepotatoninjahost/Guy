@@ -372,3 +372,28 @@ class CodeQualityNotesLawTest {
         )
     }
 }
+
+class FailureMemoryLawTest {
+    @Test fun `failed tasks record a failed verification so lessons file them as failures`() {
+        val task = com.codingagent.agent.AgentTaskBuilders.failed(
+            "t1",
+            "do the thing",
+            com.codingagent.workspace.AgentPlan("do the thing", emptyList(), emptyList()),
+            "it broke",
+            emptyList()
+        )
+        assertEquals("failed", task.status)
+        assertFalse(task.verification.passed)
+    }
+
+    @Test fun `legacy poisoned lines are repaired on read`() {
+        val root = java.nio.file.Files.createTempDirectory("exp-repair").toFile()
+        val recorder = com.codingagent.agent.ExperienceRecorder(root)
+        val file = root.resolve(".coding-agent/experience.tsv")
+        file.parentFile!!.mkdirs()
+        file.writeText("123\ttrue\tdo the thing\tfailed\tit broke\t\n")
+        val line = recorder.all().single()
+        assertEquals("false", line.split('\t')[1])
+        assertEquals("failed", line.split('\t')[3])
+    }
+}

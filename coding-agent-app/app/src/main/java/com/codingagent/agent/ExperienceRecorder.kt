@@ -21,5 +21,21 @@ class ExperienceRecorder(private val root: File) {
         )
     }
 
-    fun all(): List<String> = if (file.isFile) file.readLines() else emptyList()
+    fun all(): List<String> = if (!file.isFile) emptyList() else file.readLines().map(::repairLegacyLine)
+
+    /**
+     * Older builds recorded failed jobs as passed=true. A line whose status
+     * column says failed/stopped is a failure no matter what the flag says,
+     * so repair it on read instead of letting poisoned history linger.
+     */
+    private fun repairLegacyLine(line: String): String {
+        val cols = line.split('\t').toMutableList()
+        if (cols.size > 3 && cols[1].trim().equals("true", ignoreCase = true) &&
+            (cols[3].trim() == "failed" || cols[3].trim() == "stopped")
+        ) {
+            cols[1] = "false"
+            return cols.joinToString("\t")
+        }
+        return line
+    }
 }
