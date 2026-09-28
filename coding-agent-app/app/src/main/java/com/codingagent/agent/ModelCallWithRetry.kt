@@ -41,6 +41,15 @@ object ModelCallWithRetry {
                     Thread.currentThread().interrupt()
                     return null
                 }
+            } else if (ModelFailure.isNetwork(response.message)) {
+                val waitSec = (4 * attempt).coerceIn(1, 12)
+                onPhase("Connection trouble — waiting ${waitSec}s then retry $attempt/3")
+                try {
+                    Thread.sleep(waitSec * 1000L)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return null
+                }
             } else {
                 onPhase("Empty model response — retry $attempt/3")
             }

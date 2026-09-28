@@ -451,3 +451,54 @@ class RotationLawTest {
         assertFalse(com.codingagent.model.RotatingModelGateway.isRotatableFailure("Model gateway configuration is incomplete"))
     }
 }
+
+class NoSilentFailureLawTest {
+    private class FailGateway(private val msg: String) : com.codingagent.model.ModelGateway {
+        override fun complete(request: com.codingagent.model.ModelRequest): com.codingagent.model.ModelResponse =
+            com.codingagent.model.ModelResponse.Failure(msg)
+    }
+
+    @Test fun `exhausted rotation reports every attempt`() {
+        val gateway = com.codingagent.model.RotatingModelGateway(
+            listOf(
+                com.codingagent.model.RotatingModelGateway.Entry("model-a", FailGateway("Model request failed: down")),
+                com.codingagent.model.RotatingModelGateway.Entry("model-b", FailGateway("Model HTTP 404: gone"))
+            )
+        )
+        val request = com.codingagent.model.ModelRequest(system = "s", user = "u", tools = emptyList())
+        val response = gateway.complete(request) as com.codingagent.model.ModelResponse.Failure
+        assertTrue(response.message.contains("model-a"))
+        assertTrue(response.message.contains("model-b"))
+        assertTrue(response.message.contains("Attempts:"))
+    }
+
+    @Test fun `network failures are retryable`() {
+        assertTrue(com.codingagent.agent.ModelFailure.isRetryable("Model request failed: Unable to resolve host"))
+        assertTrue(com.codingagent.agent.ModelFailure.isRetryable("Model request timed out"))
+        assertFalse(com.codingagent.agent.ModelFailure.isRetryable("Model HTTP 401: Unauthorized"))
+    }
+
+    @Test fun `corrupt proposals back up and report instead of vanishing`() {
+        val root = java.nio.file.Files.createTempDirectory("heal-proposals").toFile()
+        val file = com.codingagent.workspace.PendingProposalStore.file(root)
+        file.parentFile!!.mkdirs()
+        file.writeText("{not valid json!!!")
+        val loaded = com.codingagent.workspace.PendingProposalStore.load(root)
+        assertTrue(loaded.isEmpty())
+        assertTrue(file.parentFile!!.listFiles()!!.any { it.name.startsWith("pending-proposals.json.corrupt-") })
+        val notes = com.codingagent.workspace.FailureJournal.drain()
+        assertTrue(notes.any { it.contains("Proposal notebook was scrambled") })
+    }
+
+    @Test fun `corrupt open job backs up and reports instead of vanishing`() {
+        val root = java.nio.file.Files.createTempDirectory("heal-job").toFile()
+        val dir = root.resolve(".coding-agent")
+        dir.mkdirs()
+        dir.resolve("open-job.json").writeText("{broken!!!")
+        val loaded = com.codingagent.workspace.OpenJobStore.load(root)
+        assertNull(loaded)
+        assertTrue(dir.listFiles()!!.any { it.name.startsWith("open-job.json.corrupt-") })
+        val notes = com.codingagent.workspace.FailureJournal.drain()
+        assertTrue(notes.any { it.contains("Job notebook was scrambled") })
+    }
+}

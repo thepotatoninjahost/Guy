@@ -336,11 +336,14 @@ class AutonomousAgent(
                     val named = extractInspectTarget(normalized) ?: extractExplicitReadPath(normalized)
                     val localExtra = named?.let { buildLocalFileReport(it) }
                         ?.asUserText(includePolicy = true, includeStructure = true)
-                    val summary = if (localExtra != null) {
+                    val attemptLines = response.message.substringAfter("Attempts:", "").trim().take(600)
+                    val attemptsBlock = if (attemptLines.isNotEmpty()) "\n\nEach model I tried:\n$attemptLines" else ""
+                    val base = if (localExtra != null) {
                         "I could not reach the AI brain, so I could not do the work.\n$friendly\n\nWhat I checked in your files instead (this is NOT the answer — the brain never replied):\n$localExtra\n\nCheck your connection, or open Model settings and tap Test, then try again."
                     } else {
                         "I could not reach the AI brain, so I could not do the work.\n$friendly\n\nCheck your connection, or open Model settings and tap Test, then try again."
                     }
+                    val summary = base + attemptsBlock
                     val task = failedTask(taskId, normalized, plan, summary, changeSets.flatMap { it.changes })
                     emit(AutonomousAgentEvent.Failed(task, summary))
                     recordTask(task)

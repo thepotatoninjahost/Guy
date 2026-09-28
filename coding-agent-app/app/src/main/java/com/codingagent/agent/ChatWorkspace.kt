@@ -139,6 +139,7 @@ class ChatWorkspace(
     }
 
     private fun persist(result: AgentRuntimeResult?, workLog: List<String> = emptyList()): ChatTurn {
+        val journaled = workLog + com.codingagent.workspace.FailureJournal.drain().map { "Notice: $it" }
         val root = OpenJobStore.boundRoot()
         if (root != null) {
             when (result) {
@@ -157,10 +158,10 @@ class ChatWorkspace(
             }
         }
         val response = when (result) {
-            is AgentRuntimeResult.Completed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, workLog), taskId = result.task.id)
+            is AgentRuntimeResult.Completed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, journaled), taskId = result.task.id)
             is AgentRuntimeResult.NeedsInput -> ChatMessage(role = ChatRole.AGENT, content = result.question, taskId = result.task.id)
             is AgentRuntimeResult.NeedsApproval -> ChatMessage(role = ChatRole.AGENT, content = result.question, taskId = result.task.id)
-            is AgentRuntimeResult.Failed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, workLog), taskId = result.task.id)
+            is AgentRuntimeResult.Failed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, journaled), taskId = result.task.id)
             null -> ChatMessage(role = ChatRole.SYSTEM, content = unavailableMessageProvider())
         }
         store.recordChatMessage(response)

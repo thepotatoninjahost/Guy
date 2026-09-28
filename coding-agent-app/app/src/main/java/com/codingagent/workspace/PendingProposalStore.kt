@@ -44,13 +44,20 @@ object PendingProposalStore {
     fun loadTypes(root: File): Map<String, List<String>> {
         val f = typesFile(root)
         if (!f.isFile) return emptyMap()
-        return runCatching {
+        try {
             val o = JSONObject(f.readText().trim().ifEmpty { "{}" })
-            o.keys().asSequence().associateWith { id ->
+            return o.keys().asSequence().associateWith { id ->
                 val arr = o.optJSONArray(id) ?: JSONArray()
                 (0 until arr.length()).map { arr.getString(it) }
             }
-        }.getOrDefault(emptyMap())
+        } catch (_: Exception) {
+            val kept = FailureJournal.backupCorrupt(f)
+            FailureJournal.note(
+                if (kept) "Approval records were scrambled, so I set them aside (backup kept) and restarted the counts."
+                else "Approval records were scrambled and the backup failed too — counts restarted."
+            )
+            return emptyMap()
+        }
     }
 
     @Synchronized
@@ -59,12 +66,27 @@ object PendingProposalStore {
         if (!f.isFile) return emptyList()
         val text = f.readText().trim()
         if (text.isEmpty()) return emptyList()
-        return runCatching {
+        try {
             val arr = JSONArray(text)
-            (0 until arr.length()).mapNotNull { i ->
-                runCatching { fromJson(arr.getJSONObject(i)) }.getOrNull()
+            var dropped = 0
+            return (0 until arr.length()).mapNotNull { i ->
+                try {
+                    fromJson(arr.getJSONObject(i))
+                } catch (_: Exception) {
+                    dropped++
+                    null
+                }
+            }.also {
+                if (dropped > 0) FailureJournal.note("Proposal notebook: $dropped saved proposal(s) were scrambled and couldn't be read. The rest loaded.")
             }
-        }.getOrDefault(emptyList())
+        } catch (_: Exception) {
+            val kept = FailureJournal.backupCorrupt(f)
+            FailureJournal.note(
+                if (kept) "Proposal notebook was scrambled, so I set it aside (backup kept) and started fresh."
+                else "Proposal notebook was scrambled and the backup failed too — starting fresh."
+            )
+            return emptyList()
+        }
     }
 
     private fun toJson(p: PendingChangeProposal): JSONObject {

@@ -58,9 +58,9 @@ object OpenJobStore {
         bind(root)
         val f = file(root)
         if (!f.isFile) return null
-        return runCatching {
+        try {
             val o = JSONObject(f.readText())
-            OpenJob(
+            return OpenJob(
                 id = o.getString("id"),
                 goal = o.getString("goal"),
                 status = o.getString("status"),
@@ -74,7 +74,14 @@ object OpenJobStore {
                     (0 until arr.length()).map { arr.getString(it) }
                 } ?: emptyList()
             )
-        }.getOrNull()
+        } catch (_: Exception) {
+            val kept = FailureJournal.backupCorrupt(f)
+            FailureJournal.note(
+                if (kept) "Job notebook was scrambled, so I set it aside (backup kept) and started fresh."
+                else "Job notebook was scrambled and the backup failed too — starting fresh."
+            )
+            return null
+        }
     }
 
     @Synchronized

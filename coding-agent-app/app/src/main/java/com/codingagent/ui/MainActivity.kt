@@ -184,6 +184,7 @@ private fun CodingAgentApp(privateDir: File) {
         draftExtraHeaders = normalized.extraHeaders
         val gateway = normalized.remoteGateway(onRotated = { from, to, reason ->
             modelStatus = "Remote · switched $from → $to (${reason.take(80)})"
+            com.codingagent.workspace.FailureJournal.note("Brain switched from $from to $to (${reason.take(200)})")
         })
         if (gateway != null) {
             modelGateway = gateway

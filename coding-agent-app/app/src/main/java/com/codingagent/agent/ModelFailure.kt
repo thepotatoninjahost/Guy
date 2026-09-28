@@ -38,7 +38,23 @@ object ModelFailure {
             "returned an empty response" in lower
     }
 
-    fun isRetryable(message: String): Boolean = isRateLimit(message) || isEmpty(message)
+    fun isNetwork(message: String): Boolean {
+        val lower = message.lowercase()
+        return "model request failed" in lower ||
+            "timeout" in lower ||
+            "timed out" in lower ||
+            "connection" in lower ||
+            "unreachable" in lower ||
+            "unknownhost" in lower ||
+            "no address associated" in lower ||
+            "network" in lower ||
+            "socket" in lower ||
+            "econnrefused" in lower ||
+            "econnreset" in lower ||
+            "stream was reset" in lower
+    }
+
+    fun isRetryable(message: String): Boolean = isRateLimit(message) || isEmpty(message) || isNetwork(message)
 
     fun waitSeconds(message: String): Int {
         val match = Regex("try again in ([0-9.]+)", RegexOption.IGNORE_CASE).find(message)

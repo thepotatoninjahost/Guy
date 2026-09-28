@@ -173,7 +173,7 @@ class RemoteHttpGateway(
     }
 
     private fun configure(connection: HttpURLConnection) {
-        connection.connectTimeout = timeoutMillis
+        connection.connectTimeout = timeoutMillis.coerceAtMost(10_000)
         connection.readTimeout = timeoutMillis
         connection.requestMethod = "POST"
         connection.doOutput = true

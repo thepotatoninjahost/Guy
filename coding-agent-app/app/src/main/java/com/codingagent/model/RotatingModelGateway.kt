@@ -35,6 +35,7 @@ class RotatingModelGateway(
     private fun runWithRotation(call: (ModelGateway) -> ModelResponse): ModelResponse {
         val start = index.get().coerceIn(0, entries.lastIndex)
         var lastFailure: ModelResponse.Failure? = null
+        val attempts = mutableListOf<Pair<String, String>>()
 
         for (offset in entries.indices) {
             val idx = (start + offset) % entries.size
@@ -50,6 +51,7 @@ class RotatingModelGateway(
             }
 
             lastFailure = response
+            attempts += entry.modelId to response.message.take(200)
             if (!isRotatableFailure(response.message)) {
                 // Bad key / missing config hits every entry identically — stop here.
                 return response
@@ -69,7 +71,14 @@ class RotatingModelGateway(
             }
         }
 
-        return lastFailure ?: ModelResponse.Failure("All rotation models failed")
+        val last = lastFailure?.message.orEmpty()
+        return ModelResponse.Failure(buildString {
+            append("All ${entries.size} models failed. Last error: $last")
+            if (attempts.isNotEmpty()) {
+                append("\nAttempts:")
+                attempts.forEach { (id, msg) -> append("\n- ").append(id).append(": ").append(msg.take(160)) }
+            }
+        })
     }
 
     companion object {
