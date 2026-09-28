@@ -428,6 +428,15 @@ internal fun ReviewSurface(
                         if (proposal != null) {
                             val ok = proposal.verification.passed
                             Text(verificationLine(proposal), color = if (ok) NeonGreen else FluoroOrange, fontSize = 12.sp)
+                            val qualityNotes = proposal.changeSet.changes.flatMap {
+                                com.codingagent.workspace.CodeQualityNotes.analyze(it.path, it.after)
+                            }.distinct()
+                            if (qualityNotes.isNotEmpty()) {
+                                Text(
+                                    "Heads-up (warnings only):\n" + qualityNotes.joinToString("\n") { "• $it" },
+                                    color = FluoroOrange, fontSize = 12.sp
+                                )
+                            }
                         }
                         Text(nextStep, color = NeonGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

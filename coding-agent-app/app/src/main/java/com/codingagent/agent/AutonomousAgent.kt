@@ -337,9 +337,9 @@ class AutonomousAgent(
                     val localExtra = named?.let { buildLocalFileReport(it) }
                         ?.asUserText(includePolicy = true, includeStructure = true)
                     val summary = if (localExtra != null) {
-                        "I could not reach the AI brain, so I could not do the work.\n$friendly\n\nWhat I checked in your files instead (this is NOT the answer — the brain never replied):\n$localExtra"
+                        "I could not reach the AI brain, so I could not do the work.\n$friendly\n\nWhat I checked in your files instead (this is NOT the answer — the brain never replied):\n$localExtra\n\nCheck your connection, or open Model settings and tap Test, then try again."
                     } else {
-                        "I could not reach the AI brain, so I could not do the work.\n$friendly"
+                        "I could not reach the AI brain, so I could not do the work.\n$friendly\n\nCheck your connection, or open Model settings and tap Test, then try again."
                     }
                     val task = failedTask(taskId, normalized, plan, summary, changeSets.flatMap { it.changes })
                     emit(AutonomousAgentEvent.Failed(task, summary))

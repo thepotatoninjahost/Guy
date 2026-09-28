@@ -38,7 +38,7 @@ class ProjectWorkspace(private val root: File) {
     fun projectRoot(): File = root
     fun terminal(): TerminalSession = terminalSession
     fun summary(): ProjectSummary = indexer.summarize(root)
-    fun search(query: String): List<SearchHit> = indexer.search(root, query)
+    fun search(query: String): List<SearchHit> = indexer.search(root, query).filter { !NotebookGuard.isNotebookPath(it.path) }
 
     @Synchronized
     fun transaction(reason: String, block: Transaction.() -> Unit): ChangeSet {
@@ -59,6 +59,7 @@ class ProjectWorkspace(private val root: File) {
 
     fun preview(operations: List<TaskOperation>, reason: String): ChangeSet {
         require(operations.isNotEmpty()) { "At least one operation is required" }
+        operations.forEach { require(!NotebookGuard.isNotebookPath(it.path ?: "")) { NotebookGuard.refusal() } }
         val transaction = Transaction("Preview: $reason")
         return try {
             operations.forEach { operation ->

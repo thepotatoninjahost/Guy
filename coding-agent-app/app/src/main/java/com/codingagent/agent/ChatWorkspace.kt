@@ -207,8 +207,13 @@ class ChatWorkspace(
             }
             append("Current request:\n")
             append(current)
+            append('\n')
+            PlanRevision.contextFor(current, recentAgentTexts())?.let { append(it) }
         }
     }
+
+    private fun recentAgentTexts(): List<String> =
+        store.recentChatMessages(20).filter { it.role == ChatRole.AGENT }.map { it.content }
 
     private fun formatTask(task: AgentTask, workLog: List<String> = emptyList()): String = buildString {
         if (workLog.isNotEmpty()) {

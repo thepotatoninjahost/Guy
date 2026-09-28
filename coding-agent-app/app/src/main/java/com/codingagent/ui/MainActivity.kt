@@ -686,11 +686,11 @@ private fun CodingAgentApp(privateDir: File) {
             return
         }
 
-        val approvalWords = setOf("approve", "confirm", "yes", "apply", "ok")
-        if (pendingApproval && pendingProposalId != null && lower in approvalWords) {
+        val approvalWords = setOf("approve", "approved", "confirm", "confirmed", "yes", "yeah", "apply", "applied", "ok", "okay")
+        if (pendingApproval && lower in approvalWords) {
             store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
             val coordinator = mutationCoordinator
-            val id = pendingProposalId
+            val id = pendingProposalId ?: coordinator?.pending()?.firstOrNull()?.id
             if (coordinator == null || id == null) {
                 store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "No pending proposal to approve."))
                 chatMessages = store.recentChatMessages().asReversed()

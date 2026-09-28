@@ -12,7 +12,7 @@ import com.codingagent.workspace.finishGuidance
  * Returns null when this turn is not an approval, so chat continues normally.
  */
 object ChatApproval {
-    private val phrases = setOf("approve", "confirm", "apply")
+    private val phrases = setOf("approve", "approved", "confirm", "confirmed", "yes", "yeah", "apply", "applied", "ok", "okay")
 
     fun isApprovalPhrase(text: String): Boolean = text.lowercase().trim() in phrases
 
@@ -44,7 +44,7 @@ object ChatApproval {
                         changes = result.changeSet.changes,
                         verification = VerificationReport(true, emptyList()),
                         events = listOf("applied ${pending.id}"),
-                        summary = "APPLIED to disk after dual approval.\nFiles:\n" +
+                        summary = "APPLIED to disk after your tap + typed word.\nFiles:\n" +
                             paths.joinToString("\n") { "- $it" }
                     )
                 )

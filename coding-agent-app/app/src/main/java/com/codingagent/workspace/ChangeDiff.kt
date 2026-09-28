@@ -92,6 +92,11 @@ object ChangeDiff {
             unified(record).forEach { line -> appendLine(line.text) }
         }
         appendLine()
+        val qualityNotes = proposal.changeSet.changes.flatMap { CodeQualityNotes.analyze(it.path, it.after) }.distinct()
+        if (qualityNotes.isNotEmpty()) {
+            appendLine("Quality notes (warnings only — nothing is blocked):")
+            qualityNotes.forEach { append("  - ").appendLine(it) }
+        }
         appendLine("Open the Review tab to confirm or reject. Files tab only lists files already on disk.")
     }.take(MAX_OWNER_REVIEW_CHARS)
 

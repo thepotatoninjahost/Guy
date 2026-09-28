@@ -14,6 +14,7 @@ class ProjectFileService(private val workspace: ProjectWorkspace) {
     private val tools = AgentTools(workspace)
 
     fun list(path: String = ""): List<String> {
+        require(!NotebookGuard.isNotebookPath(path)) { NotebookGuard.refusal() }
         val directory = resolveDirectory(path)
         val root = workspace.projectRoot()
         return directory.listFiles()
@@ -24,13 +25,15 @@ class ProjectFileService(private val workspace: ProjectWorkspace) {
 
     fun listSourceFileNames(): List<String> {
         return workspace.summary().files
-            .map { File(it.path).name }
+            .map { it.path }
+            .filter { !NotebookGuard.isNotebookPath(it) }
+            .map { File(it).name }
             .distinct()
             .sortedBy { it.lowercase() }
     }
 
     fun listSourceFilePaths(): List<String> {
-        return workspace.summary().files.map { it.path }.sorted()
+        return workspace.summary().files.map { it.path }.filter { !NotebookGuard.isNotebookPath(it) }.sorted()
     }
 
     fun read(path: String): EditorDocument = tools.read(path)

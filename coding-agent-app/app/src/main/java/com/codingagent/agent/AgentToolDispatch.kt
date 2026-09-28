@@ -54,9 +54,14 @@ class AgentToolDispatch(
                 "replace_text" -> replaceText(arguments)
                 "create_file" -> createFile(arguments)
                 "run_command" -> {
-                    val entry = terminal.execute(arguments.getString("command"))
-                    "exit=${entry.exitCode} timeout=${entry.timedOut}\n${entry.stdout}\n${entry.stderr}"
-                        .take(maxOutputCharacters)
+                    val command = arguments.getString("command")
+                    if (".coding-agent" in command) {
+                        "ERROR: ${com.codingagent.workspace.NotebookGuard.refusal()}"
+                    } else {
+                        val entry = terminal.execute(command)
+                        "exit=${entry.exitCode} timeout=${entry.timedOut}\n${entry.stdout}\n${entry.stderr}"
+                            .take(maxOutputCharacters)
+                    }
                 }
                 "verify" -> {
                     val report = workspace.verify()

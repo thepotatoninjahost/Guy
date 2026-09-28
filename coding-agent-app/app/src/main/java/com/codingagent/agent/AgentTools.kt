@@ -17,6 +17,7 @@ class AgentTools(private val workspace: ProjectWorkspace) {
     private val terminalSession = workspace.terminal()
 
     fun read(path: String): EditorDocument {
+        require(!com.codingagent.workspace.NotebookGuard.isNotebookPath(path)) { com.codingagent.workspace.NotebookGuard.refusal() }
         val file = resolveExistingFile(path)
         val content = file.readText()
         val relative = file.relativeTo(workspace.projectRoot()).invariantSeparatorsPath

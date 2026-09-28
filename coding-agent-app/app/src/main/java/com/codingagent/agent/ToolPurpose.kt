@@ -25,9 +25,9 @@ object ToolPurpose {
                 "Purpose: fetch current docs for ${query.ifBlank { "an external API or error" }}"
             "replace_text" ->
                 "Purpose: stage an exact edit in ${path.ifBlank { "the target file" }}" +
-                    if (reason.isNotBlank()) " ($reason)" else " (dual approval still required)"
+                    if (reason.isNotBlank()) " ($reason)" else " (tap + typed word still required)"
             "create_file" ->
-                "Purpose: stage a new file at ${path.ifBlank { "the requested path" }} (dual approval still required)"
+                "Purpose: stage a new file at ${path.ifBlank { "the requested path" }} (tap + typed word still required)"
             "run_command" ->
                 "Purpose: run in the project terminal: ${command.ifBlank { "(command)" }}"
             "verify" ->

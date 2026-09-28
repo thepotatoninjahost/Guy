@@ -291,3 +291,84 @@ class OwnerLawTest {
         assertNull(stale.proposalId)
     }
 }
+
+class PlanRevisionLawTest {
+    @Test fun `better-plan request injects the earlier plan`() {
+        val ctx = com.codingagent.agent.PlanRevision.contextFor(
+            "make a better plan. this one is shit",
+            listOf("Here is your PLAN:\n1. step one\n2. step two")
+        )
+        assertNotNull(ctx)
+        assertTrue(ctx!!.contains("Do NOT search the project"))
+        assertTrue(ctx.contains("step one"))
+    }
+
+    @Test fun `ordinary request gets no injection`() {
+        assertNull(
+            com.codingagent.agent.PlanRevision.contextFor(
+                "list my files",
+                listOf("Here is your PLAN:\n1. step one")
+            )
+        )
+    }
+
+    @Test fun `revision with no earlier plan gets no injection`() {
+        assertNull(
+            com.codingagent.agent.PlanRevision.contextFor(
+                "make a better plan",
+                listOf("hello there")
+            )
+        )
+    }
+}
+
+class NotebookGuardLawTest {
+    @Test fun `notebook paths are detected`() {
+        assertTrue(com.codingagent.workspace.NotebookGuard.isNotebookPath(".coding-agent/open-job.json"))
+        assertTrue(com.codingagent.workspace.NotebookGuard.isNotebookPath(".coding-agent"))
+        assertTrue(com.codingagent.workspace.NotebookGuard.isNotebookPath("./.coding-agent/x.json"))
+        assertTrue(com.codingagent.workspace.NotebookGuard.isNotebookPath("/.coding-agent/x.json"))
+        assertFalse(com.codingagent.workspace.NotebookGuard.isNotebookPath("src/Main.kt"))
+        assertFalse(com.codingagent.workspace.NotebookGuard.isNotebookPath("coding-agent/x.json"))
+    }
+}
+
+class CodeQualityNotesLawTest {
+    @Test fun `identity function is flagged`() {
+        val notes = com.codingagent.workspace.CodeQualityNotes.analyze(
+            "src/Compiler.kt",
+            "fun run(input: String): String = input\n"
+        )
+        assertEquals(1, notes.size)
+        assertTrue(notes[0].contains("pass-through"))
+    }
+
+    @Test fun `two-line pass-through is flagged`() {
+        val notes = com.codingagent.workspace.CodeQualityNotes.analyze(
+            "src/Compiler.kt",
+            "fun run(input: String): String =\n    input\n"
+        )
+        assertTrue(notes.any { it.contains("pass-through") })
+    }
+
+    @Test fun `empty body and markers are flagged`() {
+        val notes = com.codingagent.workspace.CodeQualityNotes.analyze(
+            "src/Widget.kt",
+            "class Widget {\n    // TODO: finish this\n    fun render(): String {}\n}\n"
+        )
+        assertTrue(notes.any { it.contains("TODO") })
+        assertTrue(notes.any { it.contains("empty") })
+    }
+
+    @Test fun `clean code and non-source files are quiet`() {
+        assertTrue(
+            com.codingagent.workspace.CodeQualityNotes.analyze(
+                "src/Real.kt",
+                "fun double(x: Int): Int = x * 2\n"
+            ).isEmpty()
+        )
+        assertTrue(
+            com.codingagent.workspace.CodeQualityNotes.analyze("notes.md", "# TODO list\n").isEmpty()
+        )
+    }
+}
