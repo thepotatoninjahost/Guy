@@ -55,6 +55,23 @@ class ChatWorkspace(
         val trimmed = request.trim()
         require(trimmed.isNotEmpty()) { "A message is required" }
         store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = trimmed))
+        if (com.codingagent.workspace.OwnerLaws.isLawMessage(trimmed)) {
+            val fresh = com.codingagent.workspace.OwnerLaws.add(OpenJobStore.boundRoot(), trimmed)
+            val mentionsBanned = com.codingagent.workspace.OwnerLaws.containsHelloWorld(trimmed)
+            val ack = when {
+                !fresh -> "That's already one of my standing laws. I won't break it."
+                mentionsBanned -> "Locked in. That's now one of my standing laws — I won't break it."
+                else -> "Locked in — standing law: \"$trimmed\". I won't break it."
+            }
+            val task = AgentTask(
+                UUID.randomUUID().toString(), trimmed, "completed",
+                AgentPlan(trimmed, emptyList(), emptyList()), emptyList(),
+                VerificationReport(true, emptyList()),
+                listOf("${java.time.Instant.now()}: owner law recorded"),
+                ack
+            )
+            return persist(result = AgentRuntimeResult.Completed(task))
+        }
         val agent = runtimeProvider()
         if (agent != null && looksLikeNewGoal(trimmed)) {
             OpenJobStore.boundRoot()?.let { OpenJobStore.openOrKeep(it, trimmed) }

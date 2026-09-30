@@ -60,7 +60,10 @@ class CodeSynthesisEngine(
     private fun defaultCreatePath(goal: String): String {
         val stop = setOf(
             "create", "make", "build", "write", "add", "new", "a", "an", "the",
-            "file", "project", "app", "please", "just", "simple", "my"
+            "file", "project", "app", "please", "just", "simple", "my",
+            "never", "always", "not", "dont", "can", "you", "your", "me",
+            "this", "that", "with", "for", "from", "and", "are", "will",
+            "would", "should", "could", "use", "using"
         )
         val parts = goal.split(Regex("[^A-Za-z0-9]+"))
             .map { it.trim() }
@@ -96,7 +99,7 @@ class CodeSynthesisEngine(
         return """
 /**
  * Goal: ${escape(goal.take(200))}
- * This is a staged starting spine, not a README and not a hello-world demo.
+ * This is a staged starting spine, not a README and not a toy demo.
  */
 class $className(
     private val tools: (String, String) -> String = { toolName, toolArgs -> "unsupported: " + toolName + " " + toolArgs }

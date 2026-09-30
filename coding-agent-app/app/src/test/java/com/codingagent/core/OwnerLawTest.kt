@@ -502,3 +502,51 @@ class NoSilentFailureLawTest {
         assertTrue(notes.any { it.contains("Job notebook was scrambled") })
     }
 }
+
+class OwnerBanLawTest {
+    @Test fun `law messages are detected`() {
+        assertTrue(com.codingagent.workspace.OwnerLaws.isLawMessage("never create a hello world. never mention it. do i make myself clear?"))
+        assertTrue(com.codingagent.workspace.OwnerLaws.isLawMessage("from now on, nothing fails silently"))
+        assertTrue(com.codingagent.workspace.OwnerLaws.isLawMessage("always explain in plain words please"))
+        assertFalse(com.codingagent.workspace.OwnerLaws.isLawMessage("never mind, forget it"))
+        assertFalse(com.codingagent.workspace.OwnerLaws.isLawMessage("never"))
+        assertFalse(com.codingagent.workspace.OwnerLaws.isLawMessage("make me a compiler"))
+    }
+
+    @Test fun `hello world is detected in any spacing`() {
+        assertTrue(com.codingagent.workspace.OwnerLaws.containsHelloWorld("src/HelloWorld.kt"))
+        assertTrue(com.codingagent.workspace.OwnerLaws.containsHelloWorld("hello-world demo"))
+        assertTrue(com.codingagent.workspace.OwnerLaws.containsHelloWorld("Hello World"))
+        assertFalse(com.codingagent.workspace.OwnerLaws.containsHelloWorld("src/Compiler.kt"))
+    }
+
+    @Test fun `laws persist per project`() {
+        val root = java.nio.file.Files.createTempDirectory("owner-laws").toFile()
+        assertTrue(com.codingagent.workspace.OwnerLaws.add(root, "never use red buttons anywhere"))
+        assertFalse(com.codingagent.workspace.OwnerLaws.add(root, "never use red buttons anywhere"))
+        val laws = com.codingagent.workspace.OwnerLaws.list(root)
+        assertEquals(1, laws.size)
+        assertTrue(laws.any { it.contains("red buttons") })
+    }
+
+    @Test fun `preview blocks hello world files and content`() {
+        val root = java.nio.file.Files.createTempDirectory("ban-preview").toFile()
+        val workspace = com.codingagent.workspace.ProjectWorkspace(root)
+        val pathErr = runCatching {
+            workspace.preview(
+                listOf(com.codingagent.intake.TaskOperation(com.codingagent.intake.OperationKind.CREATE_FILE, path = "src/HelloWorld.kt", text = "class A {}\n")),
+                "tests"
+            )
+        }.exceptionOrNull()
+        assertNotNull(pathErr)
+        assertTrue(pathErr!!.message!!.contains("banned hello-world"))
+        val contentErr = runCatching {
+            workspace.preview(
+                listOf(com.codingagent.intake.TaskOperation(com.codingagent.intake.OperationKind.CREATE_FILE, path = "src/Real.kt", text = "println(\"Hello World\")\n")),
+                "tests"
+            )
+        }.exceptionOrNull()
+        assertNotNull(contentErr)
+        assertTrue(contentErr!!.message!!.contains("banned hello-world"))
+    }
+}

@@ -66,6 +66,11 @@ object AgentPrompt {
         appendLine("9. Prefer research_web over guessing external APIs. Prefer project files over inventing local paths.")
         appendLine("12. Lead with the conclusion. Do not dump chain-of-thought or <think> blocks. Every project claim must appear in the evidence below.")
         appendLine("13. Never list, read, run commands on, or change anything under .coding-agent/ — that folder is the app's private notebook and is off limits to you.")
+        val standingLaws = com.codingagent.workspace.OwnerLaws.list()
+        if (standingLaws.isNotEmpty()) {
+            appendLine("Standing owner laws:")
+            standingLaws.take(5).forEach { appendLine("- $it") }
+        }
         if (AgentRequestKind.isWholeProjectReview(request)) {
             appendLine("10. This is a whole-project review. After real evidence, write concrete improvements.")
         }
