@@ -113,6 +113,25 @@ class PlainEnglishTest {
     }
 
     @Test
+    fun modelBuildsVagueCreateOnEmptyProject() {
+        val root = Files.createTempDirectory("stage-create-model").toFile()
+        root.resolve("README.md").writeText("# demo\n")
+        val workspace = ProjectWorkspace(root)
+        val intake = TaskIntakeParser(root).parse("build me a compiler")
+        val plan = AgentPlanner(workspace).plan(intake)
+        val gateway = object : ModelGateway {
+            override fun complete(request: ModelRequest): ModelResponse = ModelResponse.Text("ok")
+        }
+        // Null = not staged offline = the brain builds the real thing, no skeleton theft.
+        assertNull(
+            AgentOfflineStager.stage(
+                "t1", "build me a compiler", intake, plan,
+                workspace, knowledge, MutationCoordinator(workspace), gateway
+            )
+        )
+    }
+
+    @Test
     fun offlineVagueChangeSaysNoModelInsteadOfLooping() {
         val root = Files.createTempDirectory("stage-nomodel").toFile()
         root.resolve("README.md").writeText("# demo\n")

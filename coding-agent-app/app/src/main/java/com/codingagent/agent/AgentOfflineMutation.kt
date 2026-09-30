@@ -43,19 +43,11 @@ object AgentOfflineStager {
             intake.intent == TaskIntent.REFACTOR
         if (!wantsEdit) return null
 
-        // Old rule: if any model was configured, skip offline staging and hope the model
-        // writes files. On free/rate-limited models that became README-only "completed".
-        // Empty (or README-only) workspaces now stage locally first so a 429 cannot eat the job.
-        val onlyBoilerplate = workspace.summary().files.all { file ->
-            val n = file.path.lowercase()
-            n.endsWith("readme.md") || n.contains(".coding-agent/")
-        }
-        // A configured model translates plain English itself — even on empty projects.
-        // (Old rule forced vague requests into a code-demanding question loop on new
-        // projects: the question-asker ran before the brain, every turn, forever.)
-        // Offline synthesis stays for: explicit ops, CREATE scaffolds, and no-model.
-        if (!hasExplicit && gateway != null && intake.intent != TaskIntent.CREATE) return null
-        if (!hasExplicit && gateway != null && !onlyBoilerplate) return null
+        // A configured brain does the work — even on empty projects. Offline staging
+        // is only for explicit ops ("replace X with Y in file") and for no-model
+        // setups. (Staging skeletons ahead of a working brain stole the job and hid
+        // real model failures; rotation plus retry now survive rate limits instead.)
+        if (!hasExplicit && gateway != null) return null
 
         val staged: Pair<List<TaskOperation>, String> = if (hasExplicit) {
             listOf(intake.operation) to "Done on the phone from your exact words (the AI brain couldn't be reached)."
