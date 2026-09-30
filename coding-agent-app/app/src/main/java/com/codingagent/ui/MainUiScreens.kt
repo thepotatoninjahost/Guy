@@ -96,7 +96,7 @@ internal fun CompactStatusBar(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                val appVersion = remember { androidx.compose.ui.platform.LocalContext.current.getString(com.codingagent.R.string.app_version) }
+                val appVersion = androidx.compose.ui.platform.LocalContext.current.getString(com.codingagent.R.string.app_version)
                 Text("CODING AGENT $appVersion", color = NeonGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
                     if (mounted) "project mounted · $modelStatus" else "no project · $modelStatus",
