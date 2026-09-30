@@ -96,7 +96,8 @@ internal fun CompactStatusBar(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("CODING AGENT", color = NeonGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                val appVersion = remember { androidx.compose.ui.platform.LocalContext.current.getString(com.codingagent.R.string.app_version) }
+                Text("CODING AGENT $appVersion", color = NeonGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
                     if (mounted) "project mounted · $modelStatus" else "no project · $modelStatus",
                     color = SoftGreen,
@@ -250,7 +251,8 @@ internal fun FilesSurface(
     onSwitchProject: ((String) -> Unit)? = null,
     onDeleteProject: ((String) -> Unit)? = null,
     onDocument: ((EditorDocument?) -> Unit)? = null,
-    onProposed: ((PendingChangeProposal) -> Unit)? = null
+    onProposed: ((PendingChangeProposal) -> Unit)? = null,
+    onBackup: (() -> Unit)? = null
 ) {
     var showEditor by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<String?>(null) }
@@ -279,6 +281,9 @@ internal fun FilesSurface(
             )
             if (onSwitchProject != null) {
                 TextButton(onClick = { showProjects = true }) { Text("Change", color = NeonGreen, fontSize = 12.sp) }
+            }
+            if (onBackup != null) {
+                TextButton(onClick = onBackup) { Text("Back up", color = NeonGreen, fontSize = 12.sp) }
             }
         }
         OutlinedTextField(query, onQuery, Modifier.fillMaxWidth(), placeholder = { Text("Filter files", color = SoftGreen) }, singleLine = true, colors = fieldColors())
@@ -877,3 +882,28 @@ internal fun copyDocumentTree(context: Context, source: DocumentFile, destinatio
 }
 
 internal val ImportFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+/** Copy every project into a timestamped folder under the owner's chosen [uri]. Returns file count. */
+internal fun backupProjects(context: Context, privateDir: File, uri: Uri): Int {
+    val dest = DocumentFile.fromTreeUri(context, uri) ?: error("Folder is unavailable")
+    val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+    val folder = dest.createDirectory("coding-agent-backup-$stamp") ?: error("Could not create backup folder")
+    var count = 0
+    copyLocalTreeToDocument(context, privateDir.resolve("projects"), folder) { count++ }
+    return count
+}
+
+internal fun copyLocalTreeToDocument(context: Context, source: File, dest: DocumentFile, onFile: () -> Unit) {
+    for (child in source.listFiles() ?: return) {
+        if (child.isDirectory) {
+            val dir = dest.createDirectory(child.name) ?: error("Could not create ${child.name}")
+            copyLocalTreeToDocument(context, child, dir, onFile)
+        } else if (child.isFile) {
+            val out = dest.createFile("*/*", child.name) ?: error("Could not write ${child.name}")
+            context.contentResolver.openOutputStream(out.uri)?.use { output ->
+                child.inputStream().use { input -> input.copyTo(output) }
+            } ?: error("Could not write ${child.name}")
+            onFile()
+        }
+    }
+}

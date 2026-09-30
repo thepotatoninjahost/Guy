@@ -84,25 +84,24 @@ jobs:
           compression-level: 9
 
       - name: Stage the APK under its final name
-        run: cp app/build/outputs/apk/debug/app-debug.apk ../CodingAgent.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk ../CodingAgent-step1-${{ github.run_number }}.apk
 
       - name: Publish APK as a Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: coding-agent-step1-${{ github.run_number }}
-          name: "Coding Agent (repaired) — install on phone"
+          name: "Coding Agent step1-${{ github.run_number }} — install on phone"
           body: |
-            Repaired Coding Agent (Step 1): the erased front-door screen is
-            restored, the backup-models box is real, brain failures are
-            reported in plain words, and the setup guide points at a live
-            free model.
+            Coding Agent build step1-${{ github.run_number }}. After installing,
+            the top of the app shows the same version (CODING AGENT v${{ github.run_number }}).
+            If the numbers don't match, the new version isn't installed yet.
 
             **Install on the phone:**
-            1. Download `CodingAgent.apk` below
+            1. Download `CodingAgent-step1-${{ github.run_number }}.apk` below
+               (each build has its own file name, so old downloads can't hide the new one)
             2. Tap it → allow "install unknown apps" for your browser when asked
-            3. Launch **Coding Agent**, open Model settings, enter the free
-               key and model, press Test
+            3. Launch **Coding Agent** and check the version at the top
 
             Commit: ${{ github.sha }}
-          files: ./CodingAgent.apk
+          files: ./CodingAgent-step1-${{ github.run_number }}.apk
           make_latest: "true"

@@ -330,6 +330,27 @@ private fun CodingAgentApp(privateDir: File) {
         }
     }
 
+    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, ImportFlags) }
+            .onFailure { status = AgentStatus.STOPPED; detail = "Folder permission failed" }
+        scope.launch(Dispatchers.IO) {
+            runCatching { backupProjects(context, privateDir, uri) }
+                .onSuccess { count ->
+                    withContext(Dispatchers.Main) {
+                        status = AgentStatus.READY
+                        detail = if (count == 0) "No projects yet — nothing to back up" else "Backed up $count file(s). Safe to reinstall."
+                    }
+                }
+                .onFailure {
+                    withContext(Dispatchers.Main) {
+                        status = AgentStatus.STOPPED
+                        detail = "Backup failed: ${it.message.orEmpty()}"
+                    }
+                }
+        }
+    }
+
 
     fun onChangeApplied(result: MutationApprovalResult.Applied) {
         val paths = result.changeSet.changes.map { it.path }.distinct()
@@ -840,7 +861,7 @@ private fun CodingAgentApp(privateDir: File) {
                         pendingApproval = true
                         approvalCount = proposal.approvalCount
                         pendingReason = proposal.request
-                    })
+                    }, onBackup = { backupPicker.launch(null) })
                     SurfaceTab.REVIEW -> ReviewSurface(
                         pendingApproval,
                         approvalCount,
