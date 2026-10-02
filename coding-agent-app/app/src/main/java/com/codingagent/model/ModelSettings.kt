@@ -39,7 +39,7 @@ data class ModelSettings(
         extraHeaders = extraHeaders.trim()
     )
 
-    /** Primary model plus distinct fallbacks, order preserved. */
+    /** Primary model plus distinct fallbacks, order preserved. Owner entries first, then built-in provider backups. */
     fun allModelIds(): List<String> {
         val s = normalized()
         val primary = s.modelName.takeIf { it.isNotBlank() }
@@ -47,7 +47,16 @@ data class ModelSettings(
             .split(',', ';', '\n', '\r')
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-        return (listOfNotNull(primary) + fallbacks).distinct()
+        // Built-in backups, matched to the owner's configured provider — never guessed.
+        // distinct() drops any repeats of the primary or owner entries.
+        val url = s.baseUrl.lowercase()
+        val builtIn = when {
+            "openrouter.ai" in url -> listOf("qwen/qwen3-coder:free", "cohere/north-mini-code:free", "nvidia/nemotron-3-ultra-550b-a55b:free")
+            "groq.com" in url -> listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b")
+            "generativelanguage.googleapis.com" in url -> listOf("gemini-3.1-flash-lite")
+            else -> emptyList()
+        }
+        return (listOfNotNull(primary) + fallbacks + builtIn).distinct()
     }
 
     /** Parse user-supplied extra headers. Lines: "Name: value" or "Name=value". */
