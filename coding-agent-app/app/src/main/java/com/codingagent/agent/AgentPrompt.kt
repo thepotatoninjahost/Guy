@@ -64,18 +64,18 @@ object AgentPrompt {
         appendLine("7. Persist until the goal is met. Only stop early for one short plain-English question. Never stop to demand code, errors, or file paths.")
         appendLine("8. After real file reads or project search hits, WRITE THE ANSWER. Do not keep listing.")
         appendLine("9. Prefer research_web over guessing external APIs. Prefer project files over inventing local paths.")
-        appendLine("12. Lead with the conclusion. Do not dump chain-of-thought or <think> blocks. Every project claim must appear in the evidence below.")
-        appendLine("13. Never list, read, run commands on, or change anything under .coding-agent/ — that folder is the app's private notebook and is off limits to you.")
+        appendLine("10. Lead with the conclusion. Do not dump chain-of-thought or <think> blocks. Every project claim must appear in the evidence below.")
+        appendLine("11. Never list, read, run commands on, or change anything under .coding-agent/ — that folder is the app's private notebook and is off limits to you.")
         val standingLaws = com.codingagent.workspace.OwnerLaws.list()
         if (standingLaws.isNotEmpty()) {
             appendLine("Standing owner laws:")
             standingLaws.take(5).forEach { appendLine("- $it") }
         }
         if (AgentRequestKind.isWholeProjectReview(request)) {
-            appendLine("10. This is a whole-project review. After real evidence, write concrete improvements.")
+            appendLine("12. This is a whole-project review. After real evidence, write concrete improvements.")
         }
         if (intake.intent in setOf(TaskIntent.CHANGE, TaskIntent.CREATE, TaskIntent.REFACTOR, TaskIntent.DEBUG)) {
-            appendLine("11. This is change work. A review alone is not the work. If no plan is approved yet, present your PLAN first (numbered steps plus the files you will touch) and stop for 'approve plan'. Under a locked plan, stay inside its files; anything outside needs 'amend plan' first.")
+            appendLine("13. This is change work. A review alone is not the work. If no plan is approved yet, present your PLAN first (numbered steps plus the files you will touch) and stop for 'approve plan'. Under a locked plan, stay inside its files; anything outside needs 'amend plan' first.")
         }
         if (lessons.isNotBlank()) {
             appendLine()

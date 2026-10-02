@@ -521,4 +521,29 @@ class OwnerLawRoutingTest {
         assertEquals(1, laws.size)
         assertTrue(laws.any { it.contains("red buttons") })
     }
+
+    @Test fun `global laws follow the owner across projects`() {
+        val home = java.nio.file.Files.createTempDirectory("laws-global").toFile()
+        val projectA = java.nio.file.Files.createTempDirectory("laws-proj-a").toFile()
+        val projectB = java.nio.file.Files.createTempDirectory("laws-proj-b").toFile()
+        com.codingagent.workspace.OwnerLaws.setGlobalDir(home)
+        try {
+            assertTrue(com.codingagent.workspace.OwnerLaws.add(projectA, "never use red buttons anywhere"))
+            val lawsB = com.codingagent.workspace.OwnerLaws.list(projectB)
+            assertTrue(lawsB.any { it.contains("red buttons") })
+        } finally {
+            com.codingagent.workspace.OwnerLaws.setGlobalDir(null)
+        }
+    }
+
+    @Test fun `unbound owner still stores laws globally`() {
+        val home = java.nio.file.Files.createTempDirectory("laws-unbound").toFile()
+        com.codingagent.workspace.OwnerLaws.setGlobalDir(home)
+        try {
+            assertTrue(com.codingagent.workspace.OwnerLaws.add(null, "always confirm deletes everywhere"))
+            assertTrue(com.codingagent.workspace.OwnerLaws.stored(null).any { it.contains("confirm deletes") })
+        } finally {
+            com.codingagent.workspace.OwnerLaws.setGlobalDir(null)
+        }
+    }
 }

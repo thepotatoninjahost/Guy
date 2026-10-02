@@ -6,7 +6,6 @@ import com.codingagent.model.ModelResponse
 import com.codingagent.model.ModelSettings
 import com.codingagent.model.RotatingModelGateway
 import com.codingagent.workspace.OpenJobStore
-import com.codingagent.workspace.OwnerLaws
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

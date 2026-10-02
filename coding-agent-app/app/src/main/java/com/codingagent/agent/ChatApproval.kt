@@ -12,7 +12,7 @@ import com.codingagent.workspace.finishGuidance
  * Returns null when this turn is not an approval, so chat continues normally.
  */
 object ChatApproval {
-    private val phrases = setOf("approve", "approved", "confirm", "confirmed", "yes", "yeah", "apply", "applied", "ok", "okay")
+    private val phrases = setOf("approve", "approved", "confirm", "confirmed", "yes", "yeah", "apply", "applied")
 
     fun isApprovalPhrase(text: String): Boolean = text.lowercase().trim() in phrases
 

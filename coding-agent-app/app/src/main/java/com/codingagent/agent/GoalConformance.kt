@@ -16,21 +16,40 @@ object GoalConformance {
         "makes", "made", "let", "lets", "s", "t", "ve", "re", "ll", "d", "m"
     )
 
-    /** Content words of the goal: lowercase, len>=3, not stopwords. */
+    /** Content words of the goal: lowercase, stemmed, len>=3, not stopwords. */
     fun goalTerms(goal: String): List<String> =
         goal.lowercase().split(Regex("[^a-z0-9]+"))
+            .map { stem(it) }
             .filter { it.length >= 3 && it !in STOPWORDS }
             .distinct()
 
     /**
-     * True when the reply contains at least one goal term. A goal with no
-     * content words passes (nothing to check).
+     * True when the reply shares at least one stemmed term with the goal.
+     * A goal with no content words passes (nothing to check).
      */
     fun conforms(reply: String, goal: String): Boolean {
-        val terms = goalTerms(goal)
+        val terms = goalTerms(goal).toSet()
         if (terms.isEmpty()) return true
-        val body = reply.lowercase()
-        return terms.any { it in body }
+        val words = reply.lowercase().split(Regex("[^a-z0-9]+")).map { stem(it) }.toSet()
+        return terms.any { it in words }
+    }
+
+    /**
+     * Light stemmer: strips common suffixes so fixed/fix, built/build,
+     * compilers/compiler compare equal. Stems need not be pretty (compiler ->
+     * compil) — only consistent, since both sides stem identically.
+     */
+    fun stem(word: String): String {
+        var w = word.lowercase()
+        if (w == "built") return "build"
+        if (w.length > 3 && w.endsWith("s")) w = w.dropLast(1)
+        for (suffix in listOf("ing", "ers", "er", "es", "ed", "ly")) {
+            if (w.length > suffix.length + 1 && w.endsWith(suffix)) {
+                w = w.dropLast(suffix.length)
+                break
+            }
+        }
+        return w
     }
 
     /** Build/change intents are judged; open-ended answers cannot be checked lexically. */

@@ -123,7 +123,7 @@ private fun CodingAgentApp(privateDir: File) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { LocalStore(context) }
-    val knowledgeBase = remember { KnowledgeBase(context) }
+    val knowledgeBase = remember { com.codingagent.workspace.OwnerLaws.setGlobalDir(java.io.File(context.filesDir, "coding-agent-laws")); KnowledgeBase(context) }
     var workspace by remember { mutableStateOf<ProjectWorkspace?>(null) }
     var tab by remember { mutableStateOf(SurfaceTab.CHAT) }
     var status by remember { mutableStateOf(AgentStatus.READY) }
@@ -1008,6 +1008,7 @@ private fun CodingAgentApp(privateDir: File) {
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("API key", color = SoftGreen) },
                             singleLine = true,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                             colors = fieldColors()
                         )
                         Spacer(Modifier.height(8.dp))

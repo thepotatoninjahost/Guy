@@ -25,8 +25,21 @@ class GoalConformanceTest {
     }
 
     @Test fun `goal terms skip stopwords and short words`() {
-        assertEquals(listOf("build", "compiler"), GoalConformance.goalTerms("Build me a compiler"))
+        // Light stemmer: compiler -> compil, consistent on both sides.
+        assertEquals(listOf("build", "compil"), GoalConformance.goalTerms("Build me a compiler"))
         assertEquals(listOf("fix", "bug"), GoalConformance.goalTerms("fix the bug"))
+    }
+
+    @Test fun `stem turns inflections into shared roots`() {
+        assertEquals("fix", GoalConformance.stem("fixed"))
+        assertEquals("build", GoalConformance.stem("building"))
+        assertEquals("build", GoalConformance.stem("built"))
+        assertEquals("compil", GoalConformance.stem("compilers"))
+        assertEquals("compil", GoalConformance.stem("compiler"))
+    }
+
+    @Test fun `built work conforms to build goal`() {
+        assertTrue(GoalConformance.conforms("Built the login screen.", "build me a login"))
     }
 
     @Test fun `empty terms always pass`() {

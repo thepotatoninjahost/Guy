@@ -143,9 +143,9 @@ class AutonomousAgent(
         val focus = currentRequestFocus(normalized)
         val intake = TaskIntakeParser(root).parse(focus)
         val plan = AgentPlanner(workspace).plan(intake)
-        // Wired in: was previously dead code. Every call below is defensively wrapped
-        // (runCatching) — PlanningLoop can at worst no-op, never crash a live run, since
-        // this file can't be compiled/tested in this environment before shipping.
+        // PlanningLoop tracks plan-step outcomes each turn. On repeated tool failure,
+        // ToolCallOutcomeHandler injects its pending steps as SYSTEM guidance — it can
+        // redirect the turn, never crash it: every call is runCatching-wrapped.
         val planningLoop = PlanningLoop(plan)
         // Wired in: was previously dead code. Tracks the model's actual tool calls against
         // an ideal fixed tool sequence for observability/journaling only — it never drives

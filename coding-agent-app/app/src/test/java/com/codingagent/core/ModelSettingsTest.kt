@@ -88,4 +88,16 @@ class ModelSettingsTest {
         assertFalse(defaults.isRemoteConfigured())
         assertTrue(defaults.statusSummary().contains("Remote"))
     }
+
+    @Test
+    fun plainHttpRemoteRequiresHttpsError() {
+        val s = ModelSettings(baseUrl = "http://192.168.1.5:8080/v1", modelName = "m", apiKey = "k", onboarded = true)
+        assertTrue(s.validationErrors().any { it.contains("https") })
+    }
+
+    @Test
+    fun localhostHttpHasNoHttpsError() {
+        val s = ModelSettings(baseUrl = "http://127.0.0.1:8080/v1", modelName = "m", onboarded = true)
+        assertTrue(s.validationErrors().none { it.contains("https") })
+    }
 }

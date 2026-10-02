@@ -48,7 +48,7 @@ data class ModelSettings(
             .map { it.trim() }
             .filter { it.isNotEmpty() }
         // Built-in backups, matched to the owner's configured provider — never guessed.
-        // distinct() drops any repeats of the primary or owner entries.
+        // distinctBy(lowercase) drops any repeats of the primary or owner entries, case-insensitively.
         val url = s.baseUrl.lowercase()
         val builtIn = when {
             "openrouter.ai" in url -> listOf("qwen/qwen3-coder:free", "cohere/north-mini-code:free", "nvidia/nemotron-3-ultra-550b-a55b:free")
@@ -56,7 +56,7 @@ data class ModelSettings(
             "generativelanguage.googleapis.com" in url -> listOf("gemini-3.1-flash-lite")
             else -> emptyList()
         }
-        return (listOfNotNull(primary) + fallbacks + builtIn).distinct()
+        return (listOfNotNull(primary) + fallbacks + builtIn).distinctBy { it.lowercase() }
     }
 
     /** Parse user-supplied extra headers. Lines: "Name: value" or "Name=value". */
@@ -83,13 +83,15 @@ data class ModelSettings(
 
     fun validationErrors(): List<String> {
         val s = normalized()
+        val local = s.baseUrl.startsWith("http://127.0.0.1") || s.baseUrl.startsWith("http://localhost")
         return buildList {
             if (s.baseUrl.isBlank()) add("Base URL is required for remote models")
-            else if (!s.baseUrl.startsWith("http://") && !s.baseUrl.startsWith("https://")) {
+            else if (!s.baseUrl.startsWith("https://") && !local) {
+                add("Base URL must use https:// (http would send your API key in cleartext)")
+            } else if (!s.baseUrl.startsWith("http://") && !s.baseUrl.startsWith("https://")) {
                 add("Base URL must start with http:// or https://")
             }
             if (s.modelName.isBlank()) add("Model name is required")
-            val local = s.baseUrl.startsWith("http://127.0.0.1") || s.baseUrl.startsWith("http://localhost")
             if (s.apiKey.isBlank() && !local) add("API key is required (except localhost endpoints)")
         }
     }

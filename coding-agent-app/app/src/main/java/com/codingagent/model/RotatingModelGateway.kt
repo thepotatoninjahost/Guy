@@ -124,7 +124,7 @@ class RotatingModelGateway(
             connectionFactory: ((String) -> java.net.HttpURLConnection)? = null,
             onRotated: ((fromModel: String, toModel: String, reason: String) -> Unit)? = null
         ): ModelGateway {
-            val unique = modelIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            val unique = modelIds.map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
             require(unique.isNotEmpty()) { "At least one model id is required" }
             val entries = unique.map { id ->
                 val gw = if (connectionFactory != null) {
