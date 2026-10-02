@@ -133,6 +133,9 @@ object OpenJobStore {
                 return existing
             }
         }
+        // A genuinely new goal also ends any pending question — the old Q&A must
+        // not fuse onto it. (Short answers aren't new goals, so they still fuse.)
+        clearPending()
         val job = OpenJob(
             id = UUID.randomUUID().toString(),
             goal = goal.trim(),
@@ -236,7 +239,7 @@ object OpenJobStore {
     }
 
     const val BANNED_REPLY_NOTICE =
-        "I broke your hello-world ban in my reply, so it was withheld. Nothing was created. Tell me what to build and I'll do it properly."
+        "I broke your standing law in my reply, so it was withheld. Nothing was created. Tell me what to build and I'll do it properly."
 
     @Volatile
     private var pendingGoal: String? = null
@@ -285,7 +288,7 @@ object OpenJobStore {
     @Synchronized
     fun scrubReply(text: String): String {
         if (!OwnerLaws.containsHelloWorld(text)) return text
-        FailureJournal.note("Withheld an agent reply that broke your hello-world ban. Nothing was created.")
+        FailureJournal.note("Withheld an agent reply that broke your standing law. Nothing was created.")
         return BANNED_REPLY_NOTICE
     }
 }
