@@ -382,33 +382,6 @@ class AutonomousAgent(
                         state.lastEvidence = missing + "\n\n" + state.lastEvidence.take(config.maxOutputCharacters / 2)
                         continue
                     }
-                    // This project root's job only — never a leaked binding from elsewhere.
-                    val judgeGoal = com.codingagent.workspace.OpenJobStore.load(root)?.goal?.takeIf { it.isNotBlank() }
-                    val judgeIntent = judgeGoal?.let { runCatching { TaskIntakeParser(root).parse(it).intent }.getOrNull() }
-                    if (judgeGoal != null && judgeIntent != null && GoalConformance.judgesIntent(judgeIntent) &&
-                        !GoalConformance.conforms(response.content, judgeGoal)
-                    ) {
-                        goalMisses++
-                        val rotator = activeGateway as? com.codingagent.model.RotatingModelGateway
-                        val limit = (rotator?.modelIds()?.size ?: 1).coerceAtLeast(2)
-                        if (goalMisses >= limit) {
-                            val msg = "Tried $limit model(s) and none produced work matching your goal ('${judgeGoal.take(120)}'). " +
-                                "Narrow the request to one file or one step, or switch model in Model settings, then try again."
-                            val task = failedTask(taskId, normalized, plan, msg, changeSets.flatMap { it.changes })
-                            emit(AutonomousAgentEvent.Failed(task, msg))
-                            recordTask(task)
-                            return events
-                        }
-                        val next = rotator?.advancePastCurrent("reply missed the goal") ?: "same model"
-                        emit(AutonomousAgentEvent.Phase("MODEL", "Off-goal reply — stepping to $next (miss $goalMisses/$limit)"))
-                        transcript += com.codingagent.model.ModelMessage("assistant", response.content.take(1_200))
-                        transcript += com.codingagent.model.ModelMessage(
-                            "user",
-                            "SYSTEM: Your last reply did not address the owner's goal. Goal: ${judgeGoal.take(500)} " +
-                                "Address ONLY this goal in your next reply."
-                        )
-                        continue
-                    }
                     val report = workspace.verify()
                     // Listing requests: prefer real tool evidence over model prose (which is often spam).
                     val useListingEvidence = isListingRequest(currentRequestFocus(normalized)) &&
@@ -445,6 +418,36 @@ class AutonomousAgent(
                         val knownTargets = (intake.contract.targetPaths + state.readPaths).distinct()
                         ModelCodeExtractor.decide(response.content, intake.intent, knownTargets)
                     } else null
+                    // Prose answers to build/change goals must address the goal. Replies with
+                    // stageable code skip this judge — the human approval gate judges those.
+                    val judgeGoal = if (stagedCode == null) {
+                        com.codingagent.workspace.OpenJobStore.load(root)?.goal?.takeIf { it.isNotBlank() }
+                    } else null
+                    val judgeIntent = judgeGoal?.let { runCatching { TaskIntakeParser(root).parse(it).intent }.getOrNull() }
+                    if (judgeGoal != null && judgeIntent != null && GoalConformance.judgesIntent(judgeIntent) &&
+                        !GoalConformance.conforms(response.content, judgeGoal)
+                    ) {
+                        goalMisses++
+                        val rotator = activeGateway as? com.codingagent.model.RotatingModelGateway
+                        val limit = (rotator?.modelIds()?.size ?: 1).coerceAtLeast(2)
+                        if (goalMisses >= limit) {
+                            val msg = "Tried $limit model(s) and none produced work matching your goal ('${judgeGoal.take(120)}'). " +
+                                "Narrow the request to one file or one step, or switch model in Model settings, then try again."
+                            val task = failedTask(taskId, normalized, plan, msg, changeSets.flatMap { it.changes })
+                            emit(AutonomousAgentEvent.Failed(task, msg))
+                            recordTask(task)
+                            return events
+                        }
+                        val next = rotator?.advancePastCurrent("reply missed the goal") ?: "same model"
+                        emit(AutonomousAgentEvent.Phase("MODEL", "Off-goal reply — stepping to $next (miss $goalMisses/$limit)"))
+                        transcript += com.codingagent.model.ModelMessage("assistant", response.content.take(1_200))
+                        transcript += com.codingagent.model.ModelMessage(
+                            "user",
+                            "SYSTEM: Your last reply did not address the owner's goal. Goal: ${judgeGoal.take(500)} " +
+                                "Address ONLY this goal in your next reply."
+                        )
+                        continue
+                    }
                     if (stagedCode != null && com.codingagent.workspace.PlanScope.check(root, listOf(stagedCode.path)) == null) {
                         val current = runCatching { files.read(stagedCode.path).content }.getOrNull()
                         val op = if (current != null) {
