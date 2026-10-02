@@ -58,7 +58,7 @@ class AgentToolDispatch(
                     if (".coding-agent" in command) {
                         "ERROR: ${com.codingagent.workspace.NotebookGuard.refusal()}"
                     } else {
-                        val entry = terminal.execute(command)
+                        val entry = com.codingagent.workspace.RestrictedShell(workspace.projectRoot()).execute(command)
                         "exit=${entry.exitCode} timeout=${entry.timedOut}\n${entry.stdout}\n${entry.stderr}"
                             .take(maxOutputCharacters)
                     }

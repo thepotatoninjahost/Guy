@@ -29,7 +29,7 @@ object ToolPurpose {
             "create_file" ->
                 "Purpose: stage a new file at ${path.ifBlank { "the requested path" }} (tap + typed word still required)"
             "run_command" ->
-                "Purpose: run in the project terminal: ${command.ifBlank { "(command)" }}"
+                "Purpose: run a read-only project check: ${command.ifBlank { "(command)" }}"
             "verify" ->
                 "Purpose: run static verification on the current tree"
             "approve_change" ->
