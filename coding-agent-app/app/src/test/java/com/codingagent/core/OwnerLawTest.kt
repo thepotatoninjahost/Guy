@@ -539,7 +539,7 @@ class OwnerBanLawTest {
             )
         }.exceptionOrNull()
         assertNotNull(pathErr)
-        assertTrue(pathErr!!.message!!.contains("banned hello-world"))
+        assertTrue(pathErr!!.message!!.contains("standing law"))
         val contentErr = runCatching {
             workspace.preview(
                 listOf(com.codingagent.intake.TaskOperation(com.codingagent.intake.OperationKind.CREATE_FILE, path = "src/Real.kt", text = "println(\"Hello World\")\n")),
@@ -547,6 +547,6 @@ class OwnerBanLawTest {
             )
         }.exceptionOrNull()
         assertNotNull(contentErr)
-        assertTrue(contentErr!!.message!!.contains("banned hello-world"))
+        assertTrue(contentErr!!.message!!.contains("standing law"))
     }
 }
