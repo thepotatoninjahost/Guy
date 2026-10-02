@@ -238,9 +238,6 @@ object OpenJobStore {
         file(root).delete()
     }
 
-    const val BANNED_REPLY_NOTICE =
-        "I broke your standing law in my reply, so it was withheld. Nothing was created. Tell me what to build and I'll do it properly."
-
     @Volatile
     private var pendingGoal: String? = null
 
@@ -281,14 +278,4 @@ object OpenJobStore {
         append("Use the answer and keep working on the ORIGINAL GOAL. Do not replace it.")
     }
 
-    /**
-     * ONE JOB: Withhold any agent reply that breaks the owner's hello-world ban.
-     * Returns the original text when clean.
-     */
-    @Synchronized
-    fun scrubReply(text: String): String {
-        if (!OwnerLaws.containsHelloWorld(text)) return text
-        FailureJournal.note("Withheld an agent reply that broke your standing law. Nothing was created.")
-        return BANNED_REPLY_NOTICE
-    }
 }

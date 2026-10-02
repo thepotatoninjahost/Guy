@@ -40,7 +40,7 @@ class SelfRepairTest {
     }
 
     @Test
-    fun agentTreeGetsContractStampNotHelloWorld() {
+    fun agentTreeGetsContractStamp() {
         val root = Files.createTempDirectory("self-repair-agent").toFile()
         val target = root.resolve("ChatWorkspace.kt")
         target.writeText("package com.codingagent.agent\nclass ChatWorkspace\n")
@@ -51,7 +51,6 @@ class SelfRepairTest {
         assertEquals(OperationKind.REPLACE, op.kind)
         assertEquals("ChatWorkspace.kt", op.path)
         assertTrue(op.newText.orEmpty().contains("SELF_REPAIR_CONTRACT"))
-        assertFalse(op.newText.orEmpty().contains("Hello, World"))
     }
 
     @Test

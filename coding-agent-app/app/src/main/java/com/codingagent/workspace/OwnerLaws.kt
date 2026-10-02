@@ -14,7 +14,6 @@ object OwnerLaws {
     private const val MAX_LAW_CHARS = 300
     private val LAW_START = Regex("""^\s*(never|always|from now on)\b""", RegexOption.IGNORE_CASE)
     private val NEVER_MIND = Regex("""^\s*never\s*mind\b""", RegexOption.IGNORE_CASE)
-    private val NON_LETTERS = Regex("[^a-z]")
 
     fun file(root: File): File = File(root, ".coding-agent/owner-laws.json")
 
@@ -26,9 +25,6 @@ object OwnerLaws {
         return LAW_START.containsMatchIn(t)
     }
 
-    /** True when [text] contains the banned hello-world in any spacing. */
-    fun containsHelloWorld(text: String): Boolean =
-        text.lowercase().replace(NON_LETTERS, "").contains("helloworld")
 
     /** All laws — only what the owner has typed. Nothing hardcoded. */
     fun list(root: File? = OpenJobStore.boundRoot()): List<String> = stored(root)

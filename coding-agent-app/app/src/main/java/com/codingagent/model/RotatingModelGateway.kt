@@ -26,6 +26,18 @@ class RotatingModelGateway(
 
     fun modelIds(): List<String> = entries.map { it.modelId }
 
+    /**
+     * Step past the current model after an off-goal reply. Returns the model id
+     * now in force. With a single entry this is a no-op (same model retries).
+     */
+    fun advancePastCurrent(reason: String): String {
+        val cur = index.get().coerceIn(0, entries.lastIndex)
+        val next = (cur + 1) % entries.size
+        index.set(next)
+        onRotated?.invoke(entries[cur].modelId, entries[next].modelId, reason)
+        return entries[next].modelId
+    }
+
     override fun complete(request: ModelRequest): ModelResponse =
         runWithRotation { it.complete(request) }
 

@@ -52,18 +52,6 @@ class GoalMemoryRotationTest {
         assertNull(OpenJobStore.peekPending())
     }
 
-    @Test fun `clean replies pass through untouched`() {
-        val text = "Here is your plan for the compiler."
-        assertEquals(text, OpenJobStore.scrubReply(text))
-    }
-
-    @Test fun `banned replies are withheld without speaking the ban`() {
-        val dirty = "Step 1: write HelloWorld.kt with println(\"Hello, World\")"
-        val out = OpenJobStore.scrubReply(dirty)
-        assertEquals(OpenJobStore.BANNED_REPLY_NOTICE, out)
-        assertTrue(!OwnerLaws.containsHelloWorld(out))
-    }
-
     @Test fun `rotation steps in when models fail`() {
         val calls = mutableListOf<String>()
         fun gw(id: String, fail: String?): ModelGateway = object : ModelGateway {

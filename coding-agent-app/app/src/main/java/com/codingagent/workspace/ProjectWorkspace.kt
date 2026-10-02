@@ -61,9 +61,7 @@ class ProjectWorkspace(private val root: File) {
         require(operations.isNotEmpty()) { "At least one operation is required" }
         operations.forEach { require(!NotebookGuard.isNotebookPath(it.path ?: "")) { NotebookGuard.refusal() } }
         operations.forEach {
-            require(!OwnerLaws.containsHelloWorld(it.path ?: "")) { "Blocked: that breaks your standing law. Pick another name." }
             val newContent = it.newText ?: it.text.orEmpty()
-            require(!OwnerLaws.containsHelloWorld(newContent)) { "Blocked: that breaks your standing law. Write the real thing instead." }
         }
         val transaction = Transaction("Preview: $reason")
         return try {

@@ -57,10 +57,8 @@ class ChatWorkspace(
         store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = trimmed))
         if (com.codingagent.workspace.OwnerLaws.isLawMessage(trimmed)) {
             val fresh = com.codingagent.workspace.OwnerLaws.add(OpenJobStore.boundRoot(), trimmed)
-            val mentionsBanned = com.codingagent.workspace.OwnerLaws.containsHelloWorld(trimmed)
             val ack = when {
                 !fresh -> "That's already one of my standing laws. I won't break it."
-                mentionsBanned -> "Locked in. That's now one of my standing laws — I won't break it."
                 else -> "Locked in — standing law: \"$trimmed\". I won't break it."
             }
             val task = AgentTask(
@@ -185,10 +183,10 @@ class ChatWorkspace(
             }
         }
         val response = when (result) {
-            is AgentRuntimeResult.Completed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task.copy(summary = OpenJobStore.scrubReply(result.task.summary)), journaled), taskId = result.task.id)
-            is AgentRuntimeResult.NeedsInput -> ChatMessage(role = ChatRole.AGENT, content = OpenJobStore.scrubReply(result.question), taskId = result.task.id)
-            is AgentRuntimeResult.NeedsApproval -> ChatMessage(role = ChatRole.AGENT, content = OpenJobStore.scrubReply(result.question), taskId = result.task.id)
-            is AgentRuntimeResult.Failed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task.copy(summary = OpenJobStore.scrubReply(result.task.summary)), journaled), taskId = result.task.id)
+            is AgentRuntimeResult.Completed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, journaled), taskId = result.task.id)
+            is AgentRuntimeResult.NeedsInput -> ChatMessage(role = ChatRole.AGENT, content = result.question, taskId = result.task.id)
+            is AgentRuntimeResult.NeedsApproval -> ChatMessage(role = ChatRole.AGENT, content = result.question, taskId = result.task.id)
+            is AgentRuntimeResult.Failed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, journaled), taskId = result.task.id)
             null -> ChatMessage(role = ChatRole.SYSTEM, content = unavailableMessageProvider())
         }
         store.recordChatMessage(response)
