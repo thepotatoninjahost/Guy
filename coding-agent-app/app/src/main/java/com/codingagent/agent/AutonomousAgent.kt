@@ -382,7 +382,8 @@ class AutonomousAgent(
                         state.lastEvidence = missing + "\n\n" + state.lastEvidence.take(config.maxOutputCharacters / 2)
                         continue
                     }
-                    val judgeGoal = com.codingagent.workspace.OpenJobStore.loadBound()?.goal?.takeIf { it.isNotBlank() }
+                    // This project root's job only — never a leaked binding from elsewhere.
+                    val judgeGoal = com.codingagent.workspace.OpenJobStore.load(root)?.goal?.takeIf { it.isNotBlank() }
                     val judgeIntent = judgeGoal?.let { runCatching { TaskIntakeParser(root).parse(it).intent }.getOrNull() }
                     if (judgeGoal != null && judgeIntent != null && GoalConformance.judgesIntent(judgeIntent) &&
                         !GoalConformance.conforms(response.content, judgeGoal)
