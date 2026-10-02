@@ -52,23 +52,37 @@ class ChatWorkspace(
     fun history(limit: Int = 100): List<ChatMessage> = store.recentChatMessages(limit).asReversed()
 
     fun send(request: String): ChatTurn {
-        val trimmed = request.trim()
+        var trimmed = request.trim()
         require(trimmed.isNotEmpty()) { "A message is required" }
         store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = trimmed))
         if (com.codingagent.workspace.OwnerLaws.isLawMessage(trimmed)) {
-            val fresh = com.codingagent.workspace.OwnerLaws.add(OpenJobStore.boundRoot(), trimmed)
-            val ack = when {
-                !fresh -> "That's already one of my standing laws. I won't break it."
-                else -> "Locked in — standing law: \"$trimmed\". I won't break it."
+            val workPart = extractTrailingWork(trimmed)
+            if (workPart == null) {
+                val fresh = com.codingagent.workspace.OwnerLaws.add(OpenJobStore.boundRoot(), trimmed)
+                val ack = when {
+                    !fresh -> "That's already one of my standing laws. I won't break it."
+                    else -> "Locked in — standing law: \"$trimmed\". I won't break it."
+                }
+                val task = AgentTask(
+                    UUID.randomUUID().toString(), trimmed, "completed",
+                    AgentPlan(trimmed, emptyList(), emptyList()), emptyList(),
+                    VerificationReport(true, emptyList()),
+                    listOf("${java.time.Instant.now()}: owner law recorded"),
+                    ack
+                )
+                return persist(result = AgentRuntimeResult.Completed(task))
             }
-            val task = AgentTask(
-                UUID.randomUUID().toString(), trimmed, "completed",
-                AgentPlan(trimmed, emptyList(), emptyList()), emptyList(),
-                VerificationReport(true, emptyList()),
-                listOf("${java.time.Instant.now()}: owner law recorded"),
-                ack
-            )
-            return persist(result = AgentRuntimeResult.Completed(task))
+            // Mixed "law + work" order: store the law part, then fall through
+            // and run the work part below. The law is never swallowed, and the
+            // work is never swallowed either.
+            val lawPart = trimmed.substring(0, trimmed.length - workPart.length).trim().trimEnd(',', ';', '.', '!', '?').trim()
+            com.codingagent.workspace.OwnerLaws.add(OpenJobStore.boundRoot(), lawPart)
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Locked in — standing law: \"$lawPart\". Now on with the work."))
+            trimmed = workPart
+        } else {
+            // Work-shaped messages can still carry law clauses ("build it, never use red"):
+            // store those too; the full text still runs as work below.
+            storeLawClauses(trimmed)
         }
         val agent = runtimeProvider()
         if (agent != null && looksLikeNewGoal(trimmed)) {
@@ -191,6 +205,35 @@ class ChatWorkspace(
         }
         store.recordChatMessage(response)
         return ChatTurn(response, result)
+    }
+
+    /**
+     * Splits a law-shaped message ("never X, build Y") into its trailing work
+     * request. Returns null for pure laws. A trailing clause counts as work
+     * when it is not itself law-shaped and reads as a new goal.
+     */
+    private fun extractTrailingWork(text: String): String? {
+        val sentences = text.split(Regex("[.!?;\n]+")).map { it.trim() }.filter { it.isNotEmpty() }
+        if (sentences.size > 1) {
+            val tail = sentences.last()
+            if (!com.codingagent.workspace.OwnerLaws.isLawMessage(tail) && looksLikeNewGoal(tail)) return tail
+            return null
+        }
+        val idx = text.indexOf(',')
+        if (idx < 0) return null
+        val tail = text.substring(idx + 1).trim().trimEnd(',', '.', '!', '?', ';').trim()
+        if (tail.isEmpty() || com.codingagent.workspace.OwnerLaws.isLawMessage(tail)) return null
+        return if (looksLikeNewGoal(tail)) tail else null
+    }
+
+    /** Stores any law-shaped clauses inside work text ("build it, never use red"). */
+    private fun storeLawClauses(text: String) {
+        val clauses = text.split(Regex("[.!?;\n,]+")).map { it.trim() }.filter { it.isNotEmpty() }
+        val fresh = clauses.filter { com.codingagent.workspace.OwnerLaws.isLawMessage(it) }
+            .filter { com.codingagent.workspace.OwnerLaws.add(OpenJobStore.boundRoot(), it) }
+        if (fresh.isNotEmpty()) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Noted — also saved as a standing law: \"${fresh.joinToString("; ")}\"."))
+        }
     }
 
     private fun looksLikeNewGoal(text: String): Boolean {

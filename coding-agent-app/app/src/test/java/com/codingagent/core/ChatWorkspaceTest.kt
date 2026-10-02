@@ -57,6 +57,61 @@ class ChatWorkspaceTest {
         )
     }
 
+    @Test
+    fun mixedLawAndWorkStoresLawAndRunsWork() {
+        val root = Files.createTempDirectory("chat-law-work").toFile()
+        root.resolve("Main.kt").writeText("fun main() = 1\n")
+        com.codingagent.workspace.OpenJobStore.bind(root)
+        val store = MemoryChatStore()
+        val agent = AutonomousAgent(root, emptyKnowledge, gateway = null)
+        val workspace = ChatWorkspace(store, runtimeProvider = { agent })
+
+        workspace.send("never use red buttons, build the login")
+
+        val laws = com.codingagent.workspace.OwnerLaws.list(root)
+        assertTrue(laws.any { it.contains("red buttons") })
+        val history = workspace.history()
+        // user + law ack + work reply: both halves happened.
+        assertTrue(history.size >= 3)
+        assertTrue(history[1].role == ChatRole.AGENT && history[1].content.contains("standing law"))
+    }
+
+    @Test
+    fun pureLawStillAcksWithoutWork() {
+        val root = Files.createTempDirectory("chat-law-pure").toFile()
+        root.resolve("Main.kt").writeText("fun main() = 1\n")
+        com.codingagent.workspace.OpenJobStore.bind(root)
+        val store = MemoryChatStore()
+        val agent = AutonomousAgent(root, emptyKnowledge, gateway = null)
+        val workspace = ChatWorkspace(store, runtimeProvider = { agent })
+
+        workspace.send("never use red buttons")
+
+        val laws = com.codingagent.workspace.OwnerLaws.list(root)
+        assertTrue(laws.any { it.contains("red buttons") })
+        val history = workspace.history()
+        assertEquals(2, history.size)
+        assertTrue(history.last().content.contains("Locked in"))
+    }
+
+    @Test
+    fun workTextWithLawClauseStoresBoth() {
+        val root = Files.createTempDirectory("chat-work-law").toFile()
+        root.resolve("Main.kt").writeText("fun main() = 1\n")
+        com.codingagent.workspace.OpenJobStore.bind(root)
+        val store = MemoryChatStore()
+        val agent = AutonomousAgent(root, emptyKnowledge, gateway = null)
+        val workspace = ChatWorkspace(store, runtimeProvider = { agent })
+
+        workspace.send("build the login, never use red buttons")
+
+        val laws = com.codingagent.workspace.OwnerLaws.list(root)
+        assertTrue(laws.any { it.contains("red buttons") })
+        val history = workspace.history()
+        assertTrue(history.size >= 3)
+        assertTrue(history.any { it.role == ChatRole.AGENT && it.content.contains("standing law") })
+    }
+
     private class MemoryChatStore : ChatMessageStore {
         private val messages = mutableListOf<ChatMessage>()
 
