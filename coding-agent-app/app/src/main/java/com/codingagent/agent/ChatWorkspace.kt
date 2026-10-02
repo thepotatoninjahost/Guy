@@ -88,7 +88,9 @@ class ChatWorkspace(
             return persist(result = resumed)
         }
         progressListener?.onProgress("PLANNING", "Starting request")
-        val packaged = packageWithMemory(trimmed)
+        val pending = OpenJobStore.peekPending()
+        val fused = if (pending != null) OpenJobStore.fuseAnswer(pending.first, pending.second, trimmed) else trimmed
+        val packaged = packageWithMemory(fused)
         val workLog = mutableListOf<String>()
         val result = if (agent == null) {
             null
@@ -160,25 +162,33 @@ class ChatWorkspace(
         val root = OpenJobStore.boundRoot()
         if (root != null) {
             when (result) {
-                is AgentRuntimeResult.NeedsApproval -> OpenJobStore.markWaiting(
-                    root,
-                    result.proposalId,
-                    result.task.changes.map { it.path }.distinct(),
-                    result.task.request
-                )
+                is AgentRuntimeResult.NeedsApproval -> {
+                    OpenJobStore.clearPending()
+                    OpenJobStore.markWaiting(
+                        root,
+                        result.proposalId,
+                        result.task.changes.map { it.path }.distinct(),
+                        result.task.request
+                    )
+                }
+                is AgentRuntimeResult.NeedsInput -> {
+                    val goal = OpenJobStore.loadBound()?.goal?.takeIf { it.isNotBlank() } ?: result.task.request
+                    OpenJobStore.noteQuestion(goal, result.question)
+                }
                 is AgentRuntimeResult.Completed -> {
+                    OpenJobStore.clearPending()
                     if (result.task.status.contains("applied", ignoreCase = true)) {
                         OpenJobStore.markApplied(root)
                     }
                 }
-                else -> Unit
+                else -> OpenJobStore.clearPending()
             }
         }
         val response = when (result) {
-            is AgentRuntimeResult.Completed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, journaled), taskId = result.task.id)
-            is AgentRuntimeResult.NeedsInput -> ChatMessage(role = ChatRole.AGENT, content = result.question, taskId = result.task.id)
-            is AgentRuntimeResult.NeedsApproval -> ChatMessage(role = ChatRole.AGENT, content = result.question, taskId = result.task.id)
-            is AgentRuntimeResult.Failed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task, journaled), taskId = result.task.id)
+            is AgentRuntimeResult.Completed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task.copy(summary = OpenJobStore.scrubReply(result.task.summary)), journaled), taskId = result.task.id)
+            is AgentRuntimeResult.NeedsInput -> ChatMessage(role = ChatRole.AGENT, content = OpenJobStore.scrubReply(result.question), taskId = result.task.id)
+            is AgentRuntimeResult.NeedsApproval -> ChatMessage(role = ChatRole.AGENT, content = OpenJobStore.scrubReply(result.question), taskId = result.task.id)
+            is AgentRuntimeResult.Failed -> ChatMessage(role = ChatRole.AGENT, content = formatTask(result.task.copy(summary = OpenJobStore.scrubReply(result.task.summary)), journaled), taskId = result.task.id)
             null -> ChatMessage(role = ChatRole.SYSTEM, content = unavailableMessageProvider())
         }
         store.recordChatMessage(response)

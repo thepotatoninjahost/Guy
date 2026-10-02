@@ -234,4 +234,58 @@ object OpenJobStore {
     fun clear(root: File) {
         file(root).delete()
     }
+
+    const val BANNED_REPLY_NOTICE =
+        "I broke your hello-world ban in my reply, so it was withheld. Nothing was created. Tell me what to build and I'll do it properly."
+
+    @Volatile
+    private var pendingGoal: String? = null
+
+    @Volatile
+    private var pendingQuestion: String? = null
+
+    /**
+     * ONE JOB: Remember what the agent asked the owner so the answer is fused
+     * back onto the ORIGINAL goal. The goal is never replaced by the answer.
+     */
+    @Synchronized
+    fun peekPending(): Pair<String, String>? {
+        val goal = pendingGoal
+        val question = pendingQuestion
+        return if (goal != null && question != null) goal to question else null
+    }
+
+    @Synchronized
+    fun noteQuestion(goal: String, question: String) {
+        if (pendingGoal.isNullOrBlank()) pendingGoal = goal
+        pendingQuestion = question
+    }
+
+    @Synchronized
+    fun clearPending() {
+        pendingGoal = null
+        pendingQuestion = null
+    }
+
+    @Synchronized
+    fun fuseAnswer(goal: String, question: String, answer: String): String = buildString {
+        append("ORIGINAL GOAL - do this and nothing else:\n")
+        append(goal.take(1_200).trim()).append("\n\n")
+        append("You asked the owner this question:\n")
+        append(question.take(800).trim()).append("\n\n")
+        append("The owner answered:\n")
+        append(answer.take(800).trim()).append("\n\n")
+        append("Use the answer and keep working on the ORIGINAL GOAL. Do not replace it.")
+    }
+
+    /**
+     * ONE JOB: Withhold any agent reply that breaks the owner's hello-world ban.
+     * Returns the original text when clean.
+     */
+    @Synchronized
+    fun scrubReply(text: String): String {
+        if (!OwnerLaws.containsHelloWorld(text)) return text
+        FailureJournal.note("Withheld an agent reply that broke your hello-world ban. Nothing was created.")
+        return BANNED_REPLY_NOTICE
+    }
 }
