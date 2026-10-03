@@ -1,0 +1,1084 @@
+package com.codingagent.ui
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.documentfile.provider.DocumentFile
+import com.codingagent.agent.AgentKnowledge
+import com.codingagent.agent.AgentTools
+import com.codingagent.agent.AutonomousAgent
+import com.codingagent.agent.ChatMessage
+import com.codingagent.agent.ChatRole
+import com.codingagent.agent.ChatWorkspace
+import com.codingagent.workspace.DeepResearchProgress
+import com.codingagent.research.DurableDeepResearchProvider
+import com.codingagent.workspace.EditorDocument
+import com.codingagent.knowledge.KnowledgeBase
+import com.codingagent.core.LocalStore
+import com.codingagent.model.ModelBackend
+import com.codingagent.model.ModelDownloadProgress
+import com.codingagent.model.ModelGateway
+import com.codingagent.model.ModelSettings
+import com.codingagent.workspace.ApprovalType
+import com.codingagent.workspace.MutationApprovalResult
+import com.codingagent.workspace.MutationCoordinator
+import com.codingagent.workspace.OpenJobStore
+import com.codingagent.workspace.PendingChangeProposal
+import com.codingagent.workspace.PlanScope
+import com.codingagent.workspace.ProjectWorkspace
+import com.codingagent.workspace.finishGuidance
+import com.codingagent.workspace.nextStepGuidance
+import com.codingagent.research.ResearchDisplayState
+import com.codingagent.workspace.ResearchHit
+import com.codingagent.research.ResearchModeDetector
+import com.codingagent.workspace.TerminalEntry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import com.codingagent.agent.AgentRuntimeResult
+import com.codingagent.model.ModelConnectionProbe
+import com.codingagent.model.ProbeResult
+
+/**
+ * ONE JOB: Host activity and system entry for the coding workbench.
+ */
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { CodingAgentApp(filesDir) }
+    }
+}
+
+/**
+ * ONE JOB: Top-level workbench state and navigation between surfaces.
+ */
+@Composable
+private fun CodingAgentApp(privateDir: File) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val store = remember { LocalStore(context) }
+    val knowledgeBase = remember { com.codingagent.workspace.OwnerLaws.setGlobalDir(java.io.File(context.filesDir, "coding-agent-laws")); KnowledgeBase(context) }
+    var workspace by remember { mutableStateOf<ProjectWorkspace?>(null) }
+    var tab by remember { mutableStateOf(SurfaceTab.CHAT) }
+    var status by remember { mutableStateOf(AgentStatus.READY) }
+    var detail by remember { mutableStateOf("Talk freely — or New / Import a project") }
+    var chatInput by remember { mutableStateOf("") }
+    var chatMessages by remember { mutableStateOf(store.recentChatMessages().asReversed()) }
+    var researchQuery by remember { mutableStateOf("") }
+    var researchHits by remember { mutableStateOf(emptyList<ResearchHit>()) }
+    var researchError by remember { mutableStateOf<String?>(null) }
+    var researchState by remember { mutableStateOf(ResearchDisplayState()) }
+    var projectQuery by remember { mutableStateOf("") }
+    var editorPath by remember { mutableStateOf("") }
+    var editorDocument by remember { mutableStateOf<EditorDocument?>(null) }
+    var editorContent by remember { mutableStateOf("") }
+    var fileList by remember { mutableStateOf(emptyList<String>()) }
+    var projectList by remember { mutableStateOf(listProjects(privateDir)) }
+    var terminalCommand by remember { mutableStateOf("") }
+    var terminalHistory by remember { mutableStateOf(emptyList<TerminalEntry>()) }
+    var terminalLiveOutput by remember { mutableStateOf("") }
+    var terminalRunning by remember { mutableStateOf(false) }
+    var activeJob by remember { mutableStateOf<Job?>(null) }
+    var pendingApproval by remember { mutableStateOf(false) }
+    var approvalCount by remember { mutableStateOf(0) }
+    var pendingReason by remember { mutableStateOf("The agent proposes a transactional code change.") }
+    var pendingProposalId by remember { mutableStateOf<String?>(null) }
+    var pendingProposal by remember { mutableStateOf<PendingChangeProposal?>(null) }
+    val mutationCoordinator = remember(workspace) { workspace?.let { MutationCoordinator(it) } }
+    var messageQueue by remember { mutableStateOf(emptyList<String>()) }
+    var modelSettings by remember { mutableStateOf(store.loadModelSettings()) }
+    var modelGateway by remember { mutableStateOf<ModelGateway?>(null) }
+    var modelStatus by remember {
+        mutableStateOf(
+            if (modelSettings.isRemoteConfigured()) modelSettings.statusSummary()
+            else "Remote · set base URL, model, and API key"
+        )
+    }
+    var modelProgress by remember { mutableStateOf<ModelDownloadProgress?>(null) }
+    var modelLoadError by remember { mutableStateOf<String?>(null) }
+    var showModelSettings by remember { mutableStateOf(false) }
+    var draftApiKey by remember { mutableStateOf(modelSettings.apiKey) }
+    var draftModelName by remember { mutableStateOf(modelSettings.modelName) }
+    var draftRotationModels by remember { mutableStateOf(modelSettings.rotationModels) }
+    var draftBaseUrl by remember { mutableStateOf(modelSettings.baseUrl) }
+    var draftExtraHeaders by remember { mutableStateOf(modelSettings.extraHeaders) }
+    var probeMessage by remember { mutableStateOf<String?>(null) }
+
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+
+    fun applyModelSettings(settings: ModelSettings) {
+        val normalized = settings.normalized().copy(backend = ModelBackend.REMOTE)
+        store.saveModelSettings(normalized)
+        modelSettings = normalized
+        draftApiKey = normalized.apiKey
+        draftModelName = normalized.modelName
+        draftRotationModels = normalized.rotationModels
+        draftBaseUrl = normalized.baseUrl
+        draftExtraHeaders = normalized.extraHeaders
+        val gateway = normalized.remoteGateway(onRotated = { from, to, reason ->
+            modelStatus = "Remote · switched $from → $to (${reason.take(80)})"
+            com.codingagent.workspace.FailureJournal.note("Brain switched from $from to $to (${reason.take(200)})")
+        })
+        if (gateway != null) {
+            modelGateway = gateway
+            modelLoadError = null
+            modelStatus = normalized.statusSummary()
+        } else {
+            modelGateway = null
+            modelLoadError = normalized.validationErrors().joinToString("; ").ifBlank { "API key required" }
+            modelStatus = normalized.statusSummary()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        // Model settings first so gateway exists as soon as project mounts (avoids first-message race).
+        val loadedSettings = withContext(Dispatchers.IO) { store.loadModelSettings() }
+        applyModelSettings(loadedSettings)
+        val restored = withContext(Dispatchers.IO) {
+            val path = store.loadProjectPath() ?: return@withContext null
+            val dir = File(path)
+            if (!dir.isDirectory) {
+                store.saveProjectPath(null)
+                return@withContext null
+            }
+            runCatching {
+                val mounted = ProjectWorkspace(dir)
+                val files = listProjectFiles(dir)
+                store.loadLastResearchQuery() to (mounted to files)
+            }.getOrNull()
+        }
+        restored?.let { (lastQuery, pair) ->
+            val (mounted, files) = pair
+            workspace = mounted
+            fileList = files
+            status = AgentStatus.READY
+            detail = "Restored project · ${files.size} files"
+            if (!lastQuery.isNullOrBlank() && researchQuery.isBlank()) researchQuery = lastQuery
+        }
+        if (!modelSettings.isRemoteConfigured()) {
+            showModelSettings = true
+            if (workspace == null) {
+                detail = "Enter base URL, model name, and API key in Model settings."
+            }
+        }
+    }
+
+    val tools = remember(workspace) { workspace?.let(::AgentTools) }
+    // Single spine: AutonomousAgent only. Created once per workspace so the MutationCoordinator
+    // (and its pending-proposal map) is never replaced while a proposal is in flight.
+    // Gateway changes are applied via updateGateway() below — no agent recreation needed.
+    val agent = remember(workspace) {
+        workspace?.let { current ->
+            val coordinator = mutationCoordinator ?: MutationCoordinator(current)
+            AutonomousAgent(
+                root = current.projectRoot(),
+                knowledge = object : AgentKnowledge {
+                    override fun search(query: String, limit: Int) = knowledgeBase.search(query, limit)
+                },
+                gateway = modelGateway,
+                research = DurableDeepResearchProvider(current.projectRoot().resolve(".coding-agent/research")),
+                mutations = coordinator
+            )
+        }
+    }
+    // When the gateway changes (user saves model settings), update the existing agent in-place
+    // rather than recreating it. This preserves the MutationCoordinator and any pending proposals.
+    LaunchedEffect(modelGateway) {
+        agent?.updateGateway(modelGateway)
+    }
+    // Pending proposals live on disk: after a restart or project switch the UI
+    // must reflect them, or the Review tab lies about "no pending changes".
+    LaunchedEffect(mutationCoordinator) {
+        val binding = ReviewBinder.bind(mutationCoordinator, pendingProposalId)
+        if (binding.proposal != null) {
+            pendingProposal = binding.proposal
+            pendingProposalId = binding.proposalId
+            pendingApproval = true
+            approvalCount = binding.approvalCount
+            pendingReason = binding.proposal?.request ?: pendingReason
+        }
+    }
+    val progressEpoch = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+    val chat = remember(agent, workspace) {
+        ChatWorkspace(
+            store = store,
+            runtimeProvider = { agent },
+            unavailableMessageProvider = {
+                when {
+                    workspace == null ->
+                        "No project mounted. Import a folder, or restore a previous project, before coding requests."
+                    agent == null ->
+                        "Project is mounting — try again in a moment."
+                    modelLoadError != null ->
+                        "Model settings error: ${modelLoadError.orEmpty()}. Local commands (hello, list files, status, read) still work."
+                    else ->
+                        "Agent not ready."
+                }
+            },
+            progressListener = { phase, detailText ->
+                val epoch = progressEpoch.get()
+                scope.launch(Dispatchers.Main.immediate) {
+                    if (epoch != progressEpoch.get()) return@launch
+                    status = mapAgentPhase(phase)
+                    detail = detailText.take(140)
+                }
+            }
+        )
+    }
+
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, ImportFlags) }
+            .onFailure { status = AgentStatus.STOPPED; detail = "Folder permission failed" }
+        scope.launch(Dispatchers.IO) {
+            runCatching { importProject(context, privateDir, uri) }
+                .onSuccess { imported ->
+                    withContext(Dispatchers.Main) {
+                        // Inline mount: local fun mountProject is declared later in this composable
+                        // and is not in scope at folderPicker construction time.
+                        val mounted = ProjectWorkspace(imported)
+                        workspace = mounted
+                        fileList = listProjectFiles(imported)
+                        store.saveProjectPath(imported.absolutePath)
+                        pendingProposalId = null
+                        pendingProposal = null
+                        approvalCount = 0
+                        pendingApproval = false
+                        editorPath = ""
+                        editorContent = ""
+                        editorDocument = null
+                        terminalHistory = emptyList()
+                        terminalLiveOutput = ""
+                        terminalRunning = false
+                        status = AgentStatus.READY
+                        detail = "${fileList.size} files"
+                    }
+                }
+                .onFailure {
+                    withContext(Dispatchers.Main) {
+                        status = AgentStatus.STOPPED
+                        detail = "Import failed: ${it.message.orEmpty()}"
+                    }
+                }
+        }
+    }
+
+    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { context.contentResolver.takePersistableUriPermission(uri, ImportFlags) }
+            .onFailure { status = AgentStatus.STOPPED; detail = "Folder permission failed" }
+        scope.launch(Dispatchers.IO) {
+            runCatching { backupProjects(context, privateDir, uri) }
+                .onSuccess { count ->
+                    withContext(Dispatchers.Main) {
+                        status = AgentStatus.READY
+                        detail = if (count == 0) "No projects yet — nothing to back up" else "Backed up $count file(s). Safe to reinstall."
+                    }
+                }
+                .onFailure {
+                    withContext(Dispatchers.Main) {
+                        status = AgentStatus.STOPPED
+                        detail = "Backup failed: ${it.message.orEmpty()}"
+                    }
+                }
+        }
+    }
+
+
+    fun onChangeApplied(result: MutationApprovalResult.Applied) {
+        val paths = result.changeSet.changes.map { it.path }.distinct()
+        workspace?.let { ws ->
+            fileList = listProjectFiles(ws.projectRoot())
+        }
+        val openPath = editorPath
+        if (openPath.isNotBlank() && openPath in paths) {
+            runCatching { tools?.read(openPath) }.getOrNull()?.let { reloaded ->
+                editorContent = reloaded.content
+                editorDocument = reloaded
+            }
+        }
+        approvalCount = result.proposal.approvalCount
+        pendingApproval = false
+        pendingProposal = null
+        pendingProposalId = null
+        status = AgentStatus.READY
+        detail = "APPLIED ${paths.size} file(s): ${paths.joinToString().take(100)}"
+        store.recordChatMessage(
+            ChatMessage(
+                role = ChatRole.SYSTEM,
+                content = "APPLIED to disk after dual approval.\nFiles:\n" +
+                    paths.joinToString("\n") { "- $it" } +
+                    "\nRequest: ${result.proposal.request.take(200)}"
+            )
+        )
+        chatMessages = store.recentChatMessages().asReversed()
+    }
+
+    fun stopAgent() {
+        activeJob?.cancel()
+        activeJob = null
+        messageQueue = emptyList()
+        progressEpoch.incrementAndGet()
+        status = AgentStatus.STOPPED
+        detail = "Stopped. Any queued follow-ups were cleared."
+    }
+
+    fun mountProject(dir: File, detailText: String) {
+        val previous = workspace?.projectRoot()?.absolutePath
+        val mounted = ProjectWorkspace(dir)
+        workspace = mounted
+        fileList = listProjectFiles(dir)
+        store.saveProjectPath(dir.absolutePath)
+        pendingProposalId = null
+        pendingProposal = null
+        approvalCount = 0
+        pendingApproval = false
+        editorPath = ""
+        editorContent = ""
+        editorDocument = null
+        terminalHistory = emptyList()
+        terminalLiveOutput = ""
+        terminalRunning = false
+        projectList = listProjects(privateDir)
+        status = AgentStatus.READY
+        detail = detailText
+        if (previous != null && previous != dir.absolutePath) {
+            // Boundary marker: chat history is global, so stamp the switch or the old
+            // project keeps bleeding into the new one.
+            store.recordChatMessage(
+                ChatMessage(
+                    role = ChatRole.SYSTEM,
+                    content = "${ChatWorkspace.PROJECT_SWITCH_MARKER} now in ${dir.name}. " +
+                        "Earlier conversation was about a different project — ignore it and any old open job."
+                )
+            )
+            chatMessages = store.recentChatMessages().asReversed()
+        }
+    }
+
+    fun startNewProject(nameHint: String? = null) {
+        scope.launch(Dispatchers.IO) {
+            runCatching { createEmptyProject(privateDir, nameHint) }
+                .onSuccess { created ->
+                    withContext(Dispatchers.Main) {
+                        mountProject(created, "New empty project · ${created.name}")
+                        store.recordChatMessage(
+                            ChatMessage(
+                                role = ChatRole.SYSTEM,
+                                content = "Created empty project `${created.name}`. Files: ${fileList.size}. " +
+                                    "Ask me to add files, scaffold a structure, or import more code."
+                            )
+                        )
+                        chatMessages = store.recentChatMessages().asReversed()
+                    }
+                }
+                .onFailure {
+                    withContext(Dispatchers.Main) {
+                        status = AgentStatus.FAILED
+                        detail = "New project failed: ${it.message.orEmpty()}"
+                    }
+                }
+        }
+    }
+
+    fun dropOpenJob(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        val old = root?.let { runCatching { OpenJobStore.load(it) }.getOrNull() }
+        if (root != null) OpenJobStore.abandon(root)
+        store.recordChatMessage(
+            ChatMessage(
+                role = ChatRole.AGENT,
+                content = if (old != null) {
+                    "Dropped \"${old.goal.take(100)}\" — it's gone and won't bleed into anything else. Tell me what to work on instead, in your own words."
+                } else {
+                    "There's no open job right now — nothing to drop. Tell me what to work on, in your own words."
+                }
+            )
+        )
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Open job dropped"
+    }
+
+    fun approveLockedPlan(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root == null) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "No project is mounted, so there's no plan to lock. Mount a project first."))
+        } else {
+            val lastAgent = store.recentChatMessages().firstOrNull { it.role == ChatRole.AGENT }?.content
+            if (lastAgent == null || !lastAgent.contains("plan", ignoreCase = true)) {
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "There's no plan on the table yet. Ask me to make a plan first, then say 'approve plan'."))
+            } else {
+                val paths = PlanScope.extractPlanPaths(lastAgent)
+                OpenJobStore.lockPlan(root, paths)
+                val scope = if (paths.isEmpty()) "no file names found — I'll still ask before each change" else paths.take(8).joinToString()
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Plan locked: $scope. I'll stay inside it. Say 'amend plan' to widen it."))
+            }
+        }
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Plan approved"
+    }
+
+    fun amendLockedPlan(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root == null) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "No project is mounted, so there's no plan to amend."))
+        } else {
+            val paths = PlanScope.extractPlanPaths(request)
+            if (paths.isEmpty()) {
+                OpenJobStore.unlockPlan(root)
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "I couldn't spot file names in that, so I unlocked the plan instead. Name the files to add, like 'amend plan to include src/Other.kt'."))
+            } else {
+                OpenJobStore.addPlanPaths(root, paths)
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Plan widened to include: ${paths.joinToString()}."))
+            }
+        }
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Plan amended"
+    }
+
+    fun unlockLockedPlan(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root != null) OpenJobStore.unlockPlan(root)
+        store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Plan unlocked. I'll present a fresh plan before changing files."))
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Plan unlocked"
+    }
+
+    fun clearConversation(request: String) {
+        store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+        val root = OpenJobStore.boundRoot() ?: workspace?.projectRoot()
+        if (root != null) OpenJobStore.abandon(root)
+        store.clearChat()
+        store.recordChatMessage(
+            ChatMessage(
+                role = ChatRole.AGENT,
+                content = "Cleared our whole conversation and dropped the open job. Fresh page — what are we building?"
+            )
+        )
+        chatMessages = store.recentChatMessages().asReversed()
+        status = AgentStatus.READY
+        detail = "Conversation cleared"
+    }
+
+    fun deleteWorkspaceFile(path: String) {
+        val root = workspace?.projectRoot() ?: return
+        runCatching {
+            val rootFile = root.canonicalFile
+            val target = rootFile.resolve(path).canonicalFile
+            require(target.toPath().startsWith(rootFile.toPath())) { "Unsafe path" }
+            require(!target.toPath().startsWith(rootFile.resolve(".coding-agent").toPath())) { "The app's own notebook can't be deleted from here" }
+            require(target.isFile) { "File is already gone" }
+            require(target.delete()) { "Could not delete $path" }
+            if (editorPath == path) {
+                editorPath = ""
+                editorContent = ""
+                editorDocument = null
+            }
+            fileList = workspace?.let { listProjectFiles(it.projectRoot()) }.orEmpty()
+            store.recordChatMessage(ChatMessage(role = ChatRole.SYSTEM, content = "Deleted file $path."))
+            chatMessages = store.recentChatMessages().asReversed()
+            status = AgentStatus.READY
+            detail = "Deleted $path"
+        }.onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
+    }
+
+    fun clearProject() {
+        workspace = null
+        fileList = emptyList()
+        store.saveProjectPath(null)
+        pendingProposalId = null
+        pendingProposal = null
+        approvalCount = 0
+        pendingApproval = false
+        editorPath = ""
+        editorContent = ""
+        editorDocument = null
+        terminalHistory = emptyList()
+        terminalLiveOutput = ""
+        terminalRunning = false
+        status = AgentStatus.READY
+        detail = "No project — New, Import, or say create project"
+        store.recordChatMessage(
+            ChatMessage(
+                role = ChatRole.SYSTEM,
+                content = "Project cleared. You can still talk. Say `create project` or tap New for an empty workspace, or Import an existing folder."
+            )
+        )
+        chatMessages = store.recentChatMessages().asReversed()
+    }
+
+    // Declared after clearProject(): local functions cannot be forward-referenced.
+    fun deleteProjectByPath(path: String) {
+        scope.launch(Dispatchers.IO) {
+            val dir = File(path)
+            val mountedSame = workspace?.projectRoot()?.absolutePath == dir.absolutePath
+            withContext(Dispatchers.Main) {
+                if (mountedSame) clearProject()
+                runCatching { deleteProject(dir, privateDir) }
+                    .onSuccess {
+                        projectList = listProjects(privateDir)
+                        status = AgentStatus.READY
+                        detail = "Deleted project ${dir.name}"
+                    }
+                    .onFailure { status = AgentStatus.STOPPED; detail = it.message ?: "Delete failed" }
+            }
+        }
+    }
+
+    /** When no project is mounted, handle conversation + create/restart without requiring the agent root. */
+    fun handleNoProjectChat(request: String): String {
+        val t = request.lowercase().trim()
+        val createHints = listOf(
+            "create project", "new project", "start project", "start a project",
+            "create a project", "make a project", "empty project", "blank project",
+            "restart project", "reset project"
+        )
+        if (createHints.any { t == it || t.startsWith("$it ") || t.startsWith("$it:") }) {
+            val name = Regex("""(?:create|new|start|make|empty|blank|restart|reset)\s+project(?:\s+named)?\s+([A-Za-z0-9._-]+)""", RegexOption.IGNORE_CASE)
+                .find(request)?.groupValues?.getOrNull(1)
+            startNewProject(name)
+            return "Creating empty project${if (name != null) " `$name`" else ""}…"
+        }
+        if (t in listOf("hello", "hi", "hey", "yo", "sup", "ping", "help", "status", "what can you do")) {
+            return buildString {
+                append("Hello. Coding Agent is ready — no project is mounted yet.\n")
+                append("You can still talk to me.\n\n")
+                append("• Tap **New** or say `create project` — start an empty workspace\n")
+                append("• Tap **Import** — copy an existing folder into the app\n")
+                append("• Open **Model** — set base URL, model, API key for autonomous coding\n")
+                append("\nOnce a project exists I can list files, read, research, and propose code changes.")
+            }
+        }
+        return buildString {
+            append("No project is mounted yet, so I cannot read or edit code.\n\n")
+            append("Say `create project` (or tap **New**) for an empty workspace, ")
+            append("or **Import** an existing folder. ")
+            append("You can also say `hello` / `help` anytime.")
+        }
+    }
+
+    fun send() {
+        val request = chatInput.trim()
+        if (request.isBlank()) return
+        chatInput = ""
+
+        val lower = request.lowercase().trim()
+        // Forget / fresh-start commands work with or without a current project.
+        val forgetJobHints = listOf(
+            "forget this job", "forget the job", "drop this task", "drop the task",
+            "close this task", "cancel this task", "start fresh", "fresh start",
+            "new task", "different task", "switch tasks", "switch gears"
+        )
+        if (forgetJobHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            dropOpenJob(request)
+            return
+        }
+        val forgetAllHints = listOf(
+            "forget everything", "clear chat", "clear the chat",
+            "clear history", "wipe chat", "wipe the chat"
+        )
+        if (forgetAllHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            clearConversation(request)
+            return
+        }
+
+        // Plan lock: one approval freezes the file scope; amend widens it; unlock releases it.
+        val approvePlanHints = listOf("approve plan", "lock plan", "lock it in", "accept plan")
+        if (approvePlanHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            approveLockedPlan(request)
+            return
+        }
+        val amendPlanHints = listOf("amend plan", "widen plan", "expand plan")
+        if (amendPlanHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            amendLockedPlan(request)
+            return
+        }
+        val unlockPlanHints = listOf("unlock plan", "drop plan", "release plan")
+        if (unlockPlanHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            unlockLockedPlan(request)
+            return
+        }
+
+        // Create / new / restart project works with or without a current project.
+        val createHints = listOf(
+            "create project", "new project", "start project", "start a project",
+            "create a project", "make a project", "empty project", "blank project",
+            "restart project", "reset project"
+        )
+        if (createHints.any { lower == it || lower.startsWith("$it ") || lower.startsWith("$it:") }) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+            val name = Regex(
+                """(?:create|new|start|make|empty|blank|restart|reset)\s+project(?:\s+named)?\s+([A-Za-z0-9._-]+)""",
+                RegexOption.IGNORE_CASE
+            ).find(request)?.groupValues?.getOrNull(1)
+            store.recordChatMessage(
+                ChatMessage(
+                    role = ChatRole.AGENT,
+                    content = "Creating empty project${if (name != null) " `$name`" else ""}…"
+                )
+            )
+            chatMessages = store.recentChatMessages().asReversed()
+            startNewProject(name)
+            return
+        }
+
+        // No project: still conversational — help / explain, never a dead end.
+        if (workspace == null) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+            val reply = handleNoProjectChat(request)
+            store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = reply))
+            chatMessages = store.recentChatMessages().asReversed()
+            status = AgentStatus.READY
+            detail = reply.lineSequence().firstOrNull().orEmpty().take(120)
+            return
+        }
+
+        val approvalWords = setOf("approve", "approved", "confirm", "confirmed", "yes", "yeah", "apply", "applied", "ok", "okay")
+        if (pendingApproval && lower in approvalWords) {
+            store.recordChatMessage(ChatMessage(role = ChatRole.USER, content = request))
+            val coordinator = mutationCoordinator
+            val id = pendingProposalId ?: coordinator?.pending()?.firstOrNull()?.id
+            if (coordinator == null || id == null) {
+                store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "No pending proposal to approve."))
+                chatMessages = store.recentChatMessages().asReversed()
+                return
+            }
+            when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.WORD)) {
+                is MutationApprovalResult.AwaitingSecond -> {
+                    approvalCount = result.proposal.approvalCount
+                    val guidance = result.missingType?.finishGuidance() ?: "Confirm once more to write the files."
+                    detail = "Confirmation ${approvalCount}/2 recorded; $guidance"
+                    store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Approval recorded. $guidance"))
+                }
+                is MutationApprovalResult.Applied -> onChangeApplied(result)
+                is MutationApprovalResult.Rejected -> {
+                    status = AgentStatus.STOPPED
+                    detail = result.reason
+                    store.recordChatMessage(ChatMessage(role = ChatRole.AGENT, content = "Approval rejected: ${result.reason}"))
+                }
+            }
+            chatMessages = store.recentChatMessages().asReversed()
+            return
+        }
+
+        val currentChat = chat ?: return
+        if (activeJob != null) {
+            messageQueue = messageQueue + request
+            detail = "Working; queued ${messageQueue.size} follow-up message(s)"
+            return
+        }
+        activeJob = scope.launch {
+            progressEpoch.incrementAndGet()
+            status = AgentStatus.PLANNING
+            detail = "Starting request…"
+            val outcome = withContext(Dispatchers.IO) { runCatching { currentChat.send(request) } }
+            progressEpoch.incrementAndGet()
+            outcome.onSuccess {
+                chatMessages = currentChat.history()
+                val proposal = it.result?.let { result ->
+                    when (result) {
+                        is com.codingagent.agent.AgentRuntimeResult.NeedsApproval -> agent?.pendingProposals()?.firstOrNull { pending -> pending.id == result.proposalId }
+                        else -> null
+                    }
+                }
+                pendingProposal = proposal
+                pendingProposalId = proposal?.id
+                pendingApproval = proposal != null
+                if (proposal != null) tab = SurfaceTab.REVIEW
+                approvalCount = proposal?.approvalCount ?: 0
+                pendingReason = proposal?.request ?: pendingReason
+                status = when (it.result) {
+                    is com.codingagent.agent.AgentRuntimeResult.NeedsApproval -> AgentStatus.APPROVAL
+                    is com.codingagent.agent.AgentRuntimeResult.NeedsInput -> AgentStatus.STOPPED
+                    is com.codingagent.agent.AgentRuntimeResult.Failed -> AgentStatus.FAILED
+                    else -> AgentStatus.READY
+                }
+                detail = when (it.result) {
+                    is com.codingagent.agent.AgentRuntimeResult.Failed ->
+                        "Agent failed: ${it.response.content.lineSequence().firstOrNull().orEmpty().take(140)}"
+                    is com.codingagent.agent.AgentRuntimeResult.NeedsApproval ->
+                        "Waiting for two owner approvals before any file write"
+                    else ->
+                        it.response.content.lineSequence().firstOrNull().orEmpty().take(120)
+                }
+            }.onFailure {
+                val message = it.message.orEmpty().ifBlank { it.javaClass.simpleName }
+                store.recordChatMessage(ChatMessage(role = ChatRole.SYSTEM, content = "Request failed: $message"))
+                chatMessages = currentChat.history()
+                status = AgentStatus.FAILED
+                detail = "Request failed: ${message.take(140)}"
+            }
+            activeJob = null
+            if (messageQueue.isNotEmpty()) {
+                val next = messageQueue.first()
+                messageQueue = messageQueue.drop(1)
+                chatInput = next
+                status = AgentStatus.READY
+                detail = "Follow-up ready to send"
+            }
+        }
+    }
+
+    Surface(color = Canvas) {
+        Scaffold(
+            containerColor = Canvas,
+            topBar = {
+                CompactStatusBar(status, detail, workspace != null, modelStatus, modelProgress,
+                    onImport = { folderPicker.launch(null) },
+                    onNewProject = { startNewProject(null) },
+                    onModelImport = {
+                        draftApiKey = modelSettings.apiKey
+                        draftModelName = modelSettings.modelName
+                        draftRotationModels = modelSettings.rotationModels
+                        draftBaseUrl = modelSettings.baseUrl
+                        draftExtraHeaders = modelSettings.extraHeaders
+                        probeMessage = null
+                        showModelSettings = true
+                    },
+                    onStop = ::stopAgent)
+            },
+            bottomBar = {
+                if (!imeVisible) {
+                    NavigationBar(containerColor = Panel, contentColor = Ink) {
+                        SurfaceTab.entries.forEach { item ->
+                            NavigationBarItem(
+                                selected = tab == item,
+                                onClick = { tab = item },
+                                icon = { Text(item.label.take(1), fontWeight = FontWeight.Bold, color = if (tab == item) NeonGreen else SoftGreen) },
+                                label = { Text(item.label, fontSize = 10.sp, color = if (tab == item) NeonGreen else SoftGreen) }
+                            )
+                        }
+                    }
+                }
+            }
+        ) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
+                when (tab) {
+                    SurfaceTab.CHAT -> ChatSurface(
+                        messages = chatMessages,
+                        input = chatInput,
+                        onInput = { chatInput = it },
+                        onSend = ::send,
+                        busy = activeJob != null,
+                        onStop = ::stopAgent,
+                        pendingApproval = pendingApproval,
+                        approvalCount = approvalCount,
+                        reason = pendingReason,
+                        filesSummary = run {
+                            val p = pendingProposal ?: pendingProposalId?.let { mutationCoordinator?.get(it) }
+                            val files = p?.changeSet?.changes?.map { it.path }.orEmpty()
+                            if (files.isEmpty()) "Files: nothing staged." else "Files (${files.size}): ${files.take(4).joinToString()}${if (files.size > 4) "…" else ""}"
+                        },
+                        nextStep = nextStepGuidance(pendingProposalId?.let { mutationCoordinator?.approvalTypesFor(it) }.orEmpty()),
+                        onApprove = {
+                            val id = pendingProposalId ?: return@ChatSurface
+                            val coordinator = mutationCoordinator ?: return@ChatSurface
+                            when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.TAP)) {
+                                is MutationApprovalResult.AwaitingSecond -> { approvalCount = result.proposal.approvalCount; detail = "Confirmation ${approvalCount}/2 recorded; ${result.missingType?.finishGuidance().orEmpty()}" }
+                                is MutationApprovalResult.Applied -> onChangeApplied(result)
+                                is MutationApprovalResult.Rejected -> { status = AgentStatus.STOPPED; detail = result.reason }
+                            }
+                        }
+                    )
+                    SurfaceTab.FILES -> FilesSurface(fileList, projectQuery, { projectQuery = it }, editorPath, { editorPath = it }, editorContent, { editorContent = it }, editorDocument, tools, mutationCoordinator, onStatus = { status = it.first; detail = it.second }, onDelete = { deleteWorkspaceFile(it) }, projects = projectList, currentProjectPath = workspace?.projectRoot()?.absolutePath, onSwitchProject = { path -> mountProject(File(path), "Switched project · ${File(path).name}") }, onDeleteProject = { deleteProjectByPath(it) }, onDocument = { editorDocument = it }, onProposed = { proposal ->
+                        pendingProposal = proposal
+                        pendingProposalId = proposal.id
+                        pendingApproval = true
+                        approvalCount = proposal.approvalCount
+                        pendingReason = proposal.request
+                    }, onBackup = { backupPicker.launch(null) })
+                    SurfaceTab.REVIEW -> ReviewSurface(
+                        pendingApproval,
+                        approvalCount,
+                        pendingReason,
+                        proposal = pendingProposal ?: pendingProposalId?.let { mutationCoordinator?.get(it) },
+                        nextStep = nextStepGuidance(pendingProposalId?.let { mutationCoordinator?.approvalTypesFor(it) }.orEmpty()),
+                        onApprove = {
+                        val id = pendingProposalId ?: return@ReviewSurface
+                        val coordinator = mutationCoordinator ?: return@ReviewSurface
+                        when (val result = coordinator.approve(id, ownerVerified = true, ownerLabel = "owner", approvalType = ApprovalType.TAP)) {
+                            is MutationApprovalResult.AwaitingSecond -> { approvalCount = result.proposal.approvalCount; detail = "Confirmation ${approvalCount}/2 recorded; ${result.missingType?.finishGuidance().orEmpty()}" }
+                            is MutationApprovalResult.Applied -> onChangeApplied(result)
+                            is MutationApprovalResult.Rejected -> { status = AgentStatus.STOPPED; detail = result.reason }
+                        }
+                    }, onReject = { pendingProposalId?.let { mutationCoordinator?.reject(it) }; pendingProposal = null; pendingApproval = false; pendingProposalId = null; approvalCount = 0; status = AgentStatus.STOPPED; detail = "Proposed changes rejected" })
+                    SurfaceTab.TERMINAL -> TerminalSurface(
+                        command = terminalCommand,
+                        onCommand = { terminalCommand = it },
+                        history = terminalHistory,
+                        liveOutput = terminalLiveOutput,
+                        cwd = tools?.terminalWorkingDirectory()?.absolutePath ?: "(no project mounted)",
+                        shell = tools?.terminalShellPath ?: "(unavailable)",
+                        timeoutSeconds = tools?.terminalTimeoutSeconds() ?: 180L,
+                        running = terminalRunning,
+                        enabled = tools != null,
+                        onRun = { command ->
+                            terminalLiveOutput = ""
+                            terminalRunning = true
+                            activeJob = scope.launch(Dispatchers.IO) {
+                                status = AgentStatus.RUNNING
+                                val entry = runCatching {
+                                    tools?.runTerminal(
+                                        command.trim(),
+                                        onStdout = { chunk -> scope.launch(Dispatchers.Main.immediate) { terminalLiveOutput += chunk } },
+                                        onStderr = { chunk -> scope.launch(Dispatchers.Main.immediate) { terminalLiveOutput += chunk } }
+                                    )
+                                }.getOrNull()
+                                withContext(NonCancellable + Dispatchers.Main.immediate) {
+                                    entry?.let { terminalHistory = (terminalHistory + it).takeLast(40) }
+                                    terminalRunning = false
+                                    if (status == AgentStatus.RUNNING) {
+                                        status = AgentStatus.READY
+                                        detail = "Terminal finished"
+                                    }
+                                }
+                            }
+                        },
+                        onStop = { tools?.cancelTerminal(); stopAgent() },
+                        onClear = {
+                            tools?.clearTerminalHistory()
+                            terminalHistory = emptyList()
+                            terminalLiveOutput = ""
+                        }
+                    )
+                    SurfaceTab.RESEARCH -> ResearchSurface(researchQuery, { researchQuery = it }, researchHits, researchError, researchState, onSearch = { query ->
+                        researchError = null
+                        store.saveLastResearchQuery(query)
+                        activeJob = scope.launch {
+                            status = AgentStatus.RESEARCHING
+                            detail = "Reading distinct full sources"
+                            val researchRoot = workspace?.projectRoot()?.resolve(".coding-agent/research") ?: privateDir.resolve(".coding-agent/research")
+                            val result = withContext(Dispatchers.IO) {
+                                val provider = DurableDeepResearchProvider(researchRoot)
+                                runCatching {
+                                    provider.deepResearch(query, 12, ResearchModeDetector.detect(query)) { progress ->
+                                        scope.launch(Dispatchers.Main.immediate) { researchState = progress.toDisplayState() }
+                                    }
+                                }
+                            }
+                            result.onSuccess { session ->
+                                researchHits = session.sources.map { source -> ResearchHit(source.title, source.url, source.content.take(600)) }
+                                researchState = researchState.copy(phase = "learned", completed = session.sources.size, total = session.sources.size, fullSources = session.sources.size, laneCount = session.sources.map { it.lane }.distinct().size, wordCount = session.sources.sumOf { it.wordCount }, codeExamples = session.sources.sumOf { it.codeExamples.size }, canSend = true)
+                                status = AgentStatus.READY
+                                detail = "Learned ${session.sources.size} distinct full sources"
+                            }.onFailure { error ->
+                                val message = error.message.orEmpty().ifBlank { error.javaClass.simpleName }
+                                researchError = message
+                                researchState = researchState.copy(phase = "blocked", canSend = true)
+                                status = AgentStatus.STOPPED
+                                detail = "Research failed: ${message.take(140)}"
+                            }
+                            activeJob = null
+                        }
+                    })
+                }
+            }
+        }
+
+        if (showModelSettings) {
+            androidx.compose.ui.window.Dialog(onDismissRequest = { showModelSettings = false }) {
+                Surface(
+                    color = Panel,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, NeonGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .padding(4.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Remote model API", color = NeonGreen, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            "Remote API endpoint. Enter the base URL, model name, and API key for the provider you are using.",
+                            color = SoftGreen,
+                            fontSize = 11.sp
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = draftBaseUrl,
+                            onValueChange = { draftBaseUrl = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Base URL", color = SoftGreen) },
+                            singleLine = true,
+                            colors = fieldColors()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = draftModelName,
+                            onValueChange = { draftModelName = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Model", color = SoftGreen) },
+                            singleLine = true,
+                            colors = fieldColors()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = draftRotationModels,
+                            onValueChange = { draftRotationModels = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Backup models (optional)", color = SoftGreen) },
+                            placeholder = { Text("one per line — used when the main model is busy", color = SoftGreen.copy(alpha = 0.5f)) },
+                            minLines = 1,
+                            maxLines = 4,
+                            colors = fieldColors()
+                        )
+                        Text(
+                            "Same provider and key. When the main model is rate-limited or full, the app tries these in order.",
+                            color = SoftGreen,
+                            fontSize = 10.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = draftApiKey,
+                            onValueChange = { draftApiKey = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("API key", color = SoftGreen) },
+                            singleLine = true,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            colors = fieldColors()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = draftExtraHeaders,
+                            onValueChange = { draftExtraHeaders = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Extra headers (optional)", color = SoftGreen) },
+                            placeholder = { Text("HTTP-Referer: https://example.com\nX-Title: Coding-Agent", color = SoftGreen.copy(alpha = 0.5f)) },
+                            minLines = 2,
+                            maxLines = 5,
+                            colors = fieldColors()
+                        )
+                        Text(
+                            "Any provider. One header per line as Name: value. OpenRouter fills Referer/Title if left blank.",
+                            color = SoftGreen,
+                            fontSize = 10.sp
+                        )
+                        if (probeMessage != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(probeMessage.orEmpty(), color = SoftGreen, fontSize = 11.sp)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { showModelSettings = false }) {
+                                Text("Cancel", color = SoftGreen)
+                            }
+                            TextButton(onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    val candidate = ModelSettings(
+                                        backend = ModelBackend.REMOTE,
+                                        baseUrl = draftBaseUrl,
+                                        apiKey = draftApiKey,
+                                        modelName = draftModelName,
+                                        rotationModels = draftRotationModels,
+                                        extraHeaders = draftExtraHeaders,
+                                        onboarded = true
+                                    )
+                                    val result = com.codingagent.model.ModelConnectionProbe.probe(candidate)
+                                    withContext(Dispatchers.Main) {
+                                        probeMessage = when (result) {
+                                            is com.codingagent.model.ProbeResult.Ok -> result.detail
+                                            is com.codingagent.model.ProbeResult.Failed -> "Probe failed: ${result.reason}"
+                                        }
+                                    }
+                                }
+                            }) {
+                                Text("Test", color = FluoroOrange)
+                            }
+                            TextButton(onClick = {
+                                applyModelSettings(
+                                    ModelSettings(
+                                        backend = ModelBackend.REMOTE,
+                                        baseUrl = draftBaseUrl,
+                                        apiKey = draftApiKey,
+                                        modelName = draftModelName,
+                                        rotationModels = draftRotationModels,
+                                        extraHeaders = draftExtraHeaders,
+                                        onboarded = true
+                                    )
+                                )
+                                showModelSettings = false
+                                detail = if (modelGateway != null) "Remote model gateway ready" else "Remote model settings saved (incomplete)"
+                            }) {
+                                Text("Save", color = NeonGreen, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

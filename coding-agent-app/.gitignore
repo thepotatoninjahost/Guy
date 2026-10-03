@@ -1,0 +1,11 @@
+.gradle/
+.gradle-cache/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+.coding-agent/
+*.apk
+*.aab
+app/debug.keystore
