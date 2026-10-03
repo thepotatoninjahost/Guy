@@ -7,7 +7,7 @@ name: Build Coding Agent (repaired)
 
 on:
   push:
-    branches: ["arena/01a0da5b-guy"]
+    branches: ["arena/01a0da5b-guy", "main"]
     paths:
       - "coding-agent-app/**"
       - ".github/workflows/build-coding-agent.yml"

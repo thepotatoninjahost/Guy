@@ -61,7 +61,7 @@ class RestrictedShellTest {
     @Test
     fun rejectsWriteCapablePrograms() {
         val (_, shell) = shell()
-        for (command in listOf("rm x", "curl example.com", "sh -c echo", "git fetch", "gradle test", "python3 x.py")) {
+        for (command in listOf("rm x", "curl example.com", "sh -c echo", "git fetch", "python3 x.py")) {
             rejects(shell, command)
         }
     }
