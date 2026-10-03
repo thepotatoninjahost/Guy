@@ -431,7 +431,7 @@ class AutonomousAgent(
                         val rotator = activeGateway as? com.codingagent.model.RotatingModelGateway
                         val limit = (rotator?.modelIds()?.size ?: 1).coerceAtLeast(2)
                         if (goalMisses >= limit) {
-                            val msg = "Tried $limit model(s) and none produced work matching your goal ('${judgeGoal.take(120)}'). " +
+                            val msg = "After $limit attempt(s), no reply matched your goal ('${judgeGoal.take(120)}'). " +
                                 "Narrow the request to one file or one step, or switch model in Model settings, then try again."
                             val task = failedTask(taskId, normalized, plan, msg, changeSets.flatMap { it.changes })
                             emit(AutonomousAgentEvent.Failed(task, msg))

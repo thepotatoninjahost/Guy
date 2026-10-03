@@ -95,4 +95,29 @@ class RestrictedShellTest {
         val (_, shell) = shell()
         rejects(shell, "cat .coding-agent/x")
     }
+
+    @Test
+    fun allowsGradleWithPlainTasks() {
+        val (_, shell) = shell()
+        // No gradle binary in the unit-test sandbox: policy passes, spawn fails honest.
+        for (command in listOf("gradle --version", "gradlew assembleDebug", "./gradlew :app:testDebugUnitTest")) {
+            val result = shell.execute(command)
+            assertTrue(!result.timedOut)
+        }
+    }
+
+    @Test
+    fun rejectsGradleEscapeArgs() {
+        val (_, shell) = shell()
+        for (command in listOf(
+            "gradle build -I evil.init",
+            "gradle --init-script=x build",
+            "gradle -p /tmp build",
+            "gradle build --include-build ../other",
+            "gradle build; echo hi",
+            "gradle ../evil"
+        )) {
+            rejects(shell, command)
+        }
+    }
 }

@@ -12,14 +12,6 @@ import com.codingagent.workspace.KnowledgeHit
 class KnowledgeBase(context: Context) : KnowledgeProvider, AgentKnowledge {
     private val root = File(context.filesDir, "coding-agent/knowledge").apply { mkdirs() }
     private val index = KnowledgeIndex(root)
-    private val flagFile = File(root, "bundled.flag")
-
-    init {
-        // Legacy purge: very old installs may carry a bundled example document
-        // (and its flag) that the app no longer ships. Drop it once; the flag
-        // check keeps this a single stat on installs that never had it.
-        if (flagFile.isFile) purgeLegacyExample(root)
-    }
 
     fun importAsset(context: Context, assetPath: String, document: String): Int {
         val text = context.assets.open(assetPath).bufferedReader().use { it.readText() }
@@ -41,15 +33,4 @@ class KnowledgeBase(context: Context) : KnowledgeProvider, AgentKnowledge {
     fun stats(): Pair<Int, Int> = index.documentCount() to index.chunkCount()
 
     override fun search(query: String, limit: Int): List<KnowledgeHit> = index.search(query, limit)
-
-    companion object {
-        const val LEGACY_EXAMPLE_DOCUMENT = "Coding For Dummies (example)"
-
-        /** Removes the legacy bundled example, if present. Returns true when anything was purged. */
-        fun purgeLegacyExample(root: File): Boolean {
-            val removed = KnowledgeIndex(root).removeDocument(LEGACY_EXAMPLE_DOCUMENT)
-            File(root, "bundled.flag").delete()
-            return removed
-        }
-    }
 }
