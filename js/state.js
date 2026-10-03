@@ -6,7 +6,6 @@
    ============================================================ */
 
 import { MODELS } from "./models.js";
-import { createWorkspace, validateWorkspace } from "./workspace.js";
 
 const K = {
   keys: "gunther.keys.v1",
@@ -16,9 +15,6 @@ const K = {
   thread: "gunther.thread.v1",
   lines: "gunther.lines.v1",
   hold: "gunther.hold.v1",
-  tasks: "gunther.tasks.v1",
-  modelManifest: "gunther.models.v3",
-  workspace: "gunther.workspace.v1",
 };
 
 /* the GUY-era storage prefix — migrated once, then retired */
@@ -98,8 +94,6 @@ export const state = {
   thread: [],      // { role, content, at, model?, usage? }
   engine: { lastLine: null },
   hold: [], // letters held while the whole fleet is at ceiling — run the moment a line frees
-  tasks: [], // resumable autonomous work — plan, attempts, evidence, and learned corrections
-  workspace: null, // the operator's project files and reversible revision history
   busy: false,
 };
 
@@ -122,18 +116,6 @@ export function load() {
     state.keys = store.get(K.keys, {});
     for (const m of MODELS) if (typeof state.keys[m.id] !== "string") state.keys[m.id] = "";
   }
-  /* Line 05 was moved off Groq after its public developer tier retired
-     Compound Mini. Never send the old Groq key to OpenRouter; clear only
-     that slot, then restore the vendor's existing OpenRouter key below. */
-  if (store.get(K.modelManifest, "") !== "coding-v3") {
-    state.keys["groq-llama31-8b"] = "";
-    store.set(K.modelManifest, "coding-v3");
-  }
-  for (const m of MODELS) {
-    if ((state.keys[m.id] || "").trim()) continue;
-    const sibling = MODELS.find((other) => other.provider === m.provider && (state.keys[other.id] || "").trim());
-    if (sibling) state.keys[m.id] = state.keys[sibling.id];
-  }
   if (!state.linePatches) state.linePatches = store.get(K.lines, {});
   if (!state.dials) {
     const d = store.get(K.dials, {});
@@ -155,10 +137,6 @@ export function load() {
   }
   state.hold = store.get(K.hold, []);
   if (!Array.isArray(state.hold)) state.hold = [];
-  state.tasks = store.get(K.tasks, []);
-  if (!Array.isArray(state.tasks)) state.tasks = [];
-  const savedWorkspace = store.get(K.workspace, null);
-  state.workspace = validateWorkspace(savedWorkspace) ? savedWorkspace : createWorkspace("Gunther project");
   state.log = store.get(K.log, []);
   if (!Array.isArray(state.log)) state.log = [];
   state.thread = store.get(K.thread, []);
@@ -174,8 +152,6 @@ export function saveAll() {
   store.set(K.thread, state.thread.slice(-40).map((t) => ({ ...t, content: String(t.content || "").slice(0, 60000) })));
   store.set(K.lines, state.linePatches);
   store.set(K.hold, state.hold.slice(-10));
-  store.set(K.tasks, state.tasks.slice(-20));
-  store.set(K.workspace, state.workspace);
 }
 export function scheduleSave() {
   clearTimeout(saveTimer);

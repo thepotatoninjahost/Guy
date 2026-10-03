@@ -121,15 +121,9 @@ html {
     padding-bottom: env(safe-area-inset-bottom, 0px);
     bottom: var(--kb, 0px); /* rides above the IME whether the WebView moved it or not */
   }
-  /* the bottom menu keeps the ONLY view switch during normal use. While the
-     IME is open it is deliberately out of the way: the composer gets the
-     whole strip above the keyboard, and the view switch remains available
-     again as soon as typing ends. */
+  /* the bottom menu keeps the ONLY view switch — it wraps onto its own row
+     above the doors instead of being hidden (a hidden switch is a lost app) */
   .slab { flex-wrap: wrap; }
-  .has-keyboard .slab { visibility: hidden; pointer-events: none; }
-  .has-keyboard .room {
-    height: calc(100dvh - var(--crest-h) - 30px - var(--kb, 0px));
-  }
   .slab__doors { flex: 1 1 100%; } /* basis 100% — forces the second row (flex:1 with basis 0 just squashed the doors to zero width) */
   .slab__label {
     width: 100%; order: -1;

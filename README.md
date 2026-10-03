@@ -19,8 +19,8 @@ The house is the metaphor, and the metaphor is load-bearing:
 There is nothing to build:
 
 ```bash
-# serve this directory with any static file server, then open its URL
-npx serve .
+python3 server.py            # http://localhost:8000
+# then open http://localhost:8000
 ```
 
 Built mobile-first: on a phone (Galaxy S25 class) the crest folds into three compact rows, each fleet line

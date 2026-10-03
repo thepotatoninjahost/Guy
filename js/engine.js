@@ -29,7 +29,6 @@
 
 import { MODELS, byId, estimateTokens } from "./models.js";
 import { state, blankLedger, emit, addLog, scheduleSave, minutesToNextHour } from "./state.js";
-import { QUALIFICATION_VERSION } from "./qualification.js";
 import { call } from "./transport.js";
 
 export const QUOTA_BACKOFF = [60e3, 5 * 60e3, 30 * 60e3, 4 * 3600e3, 24 * 3600e3];
@@ -153,8 +152,6 @@ export function tripRemaining(m, now = new Date()) {
  * ~estTok tokens right now?
  */
 export function canAccept(m, estTok = 64, now = new Date()) {
-  const qualification = entry(m).qualification;
-  if (qualification && qualification.version === QUALIFICATION_VERSION && qualification.status !== "qualified") return false;
   if (!headroom(m, now).hasKey) return false;
   if (isTripped(m, now)) return false;
   const { dims } = headroom(m, now);

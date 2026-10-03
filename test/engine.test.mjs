@@ -21,9 +21,6 @@ const ok = (cond, name) => {
 };
 
 load();
-for (const m of MODELS) {
-  ok(m.tier === "FREE" && m.coding === true, "line " + String(m.line).padStart(2, "0") + " is explicitly free-tier and coding-qualified");
-}
 
 /* fresh slate */
 for (const m of MODELS) state.keys[m.id] = "";
@@ -177,12 +174,6 @@ const away = engine.select(64);
 ok(away && away.provider !== "openrouter", "duty moves to the next vendor while the OpenRouter account sleeps until midnight UTC");
 for (const id of orIds) state.ledger[id].day.req = 0;
 ok(engine.canAccept(byId("or-llama4-maverick"), 64) === true, "the instant the shared budget frees, its lines are admissible again");
-
-console.log("\n— coding qualification gate —");
-state.ledger["gemini-25-flash"].qualification = { version: 2, status: "not-qualified", passed: 1, total: 4 };
-state.ledger["gemini-25-flash-lite"].qualification = { version: 2, status: "qualified", passed: 4, total: 4 };
-ok(engine.canAccept(byId("gemini-25-flash")) === false, "a model that fails coding qualification cannot take coding work");
-ok(engine.canAccept(byId("gemini-25-flash-lite")) === true, "a model that passes coding qualification remains eligible");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

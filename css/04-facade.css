@@ -49,43 +49,6 @@ main {
    light, so the room reads as still, not as broken. fades out on its own
    the moment the first turn arrives */
 .room__body { position: relative; }
-.welcome {
-  position: absolute;
-  z-index: 2;
-  left: clamp(14px, 5vw, 60px);
-  right: clamp(14px, 5vw, 60px);
-  top: 50%;
-  transform: translateY(-50%);
-  padding: clamp(18px, 3vw, 30px);
-  border: 1px solid var(--brass-dim);
-  background: rgba(8, 12, 20, 0.82);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-}
-.welcome[hidden] { display: none; }
-.welcome__eyebrow {
-  color: var(--brass);
-  font-family: var(--f-display);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-}
-.welcome h2 {
-  margin: 8px 0 8px;
-  color: var(--bone);
-  font-family: var(--f-display);
-  font-size: clamp(18px, 3vw, 26px);
-  letter-spacing: 0.08em;
-}
-.welcome p, .welcome li {
-  color: var(--ink-2);
-  font-family: var(--f-mono);
-  font-size: 11px;
-  line-height: 1.6;
-}
-.welcome p { margin: 0 0 10px; }
-.welcome ol { margin: 0 0 16px; padding-left: 20px; }
-.welcome li { margin: 4px 0; }
-.welcome li b { color: var(--brass-2); font-weight: 500; }
 .room__body::before {
   content: "GUNTHER";
   position: absolute;
@@ -155,19 +118,6 @@ main {
 }
 .duty__model small { color: var(--brass-2); font-weight: 500; font-size: 0.55em; letter-spacing: 0.18em; margin-right: 10px; }
 .duty__sub { margin-top: 5px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
-.duty__open {
-  margin-top: 10px;
-  padding: 6px 10px 5px;
-  border: 1px solid var(--brass-dim);
-  background: rgba(240, 194, 110, 0.08);
-  color: var(--brass-2);
-  font-family: var(--f-display);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  cursor: pointer;
-}
-.duty__open:hover, .duty__open:focus-visible { background: rgba(240, 194, 110, 0.18); color: var(--bone); }
 
 /* the headroom ring — how much of this line's window is left */
 .ringwrap { position: relative; width: 52px; height: 52px; flex: none; }

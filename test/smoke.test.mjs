@@ -73,8 +73,6 @@ ok(!$("[data-on-duty]"), "the crest chip is retired — ONE duty indicator, in t
 ok(!$("#empty"), "the hero state is deleted — the conversation window owns the room");
 ok($("#feed").hidden === false, "the conversation window is visible from the very start (hero deleted)");
 ok($$("#lines .line.on-duty").length === 0, "no line on duty before keys exist");
-ok(!$("[data-welcome]").hidden, "a first-arrival guide appears when the house has no keyed line");
-ok($("[data-welcome] [data-open-credentials]"), "the first-arrival guide opens credentials directly");
 
 /* ---------- bay machinery ---------- */
 window.__gunther.bays.openBay("b");
@@ -108,10 +106,9 @@ g1.value = "gsk_autotest123";
 g1.dispatchEvent(new window.Event("input", { bubbles: true }));
 await until(() =>
   state.keys["groq-llama33-70b"] === "gsk_autotest123" &&
-  state.keys["groq-r1-70b"] === "gsk_autotest123" &&
-  state.keys["groq-llama31-8b"] !== "gsk_autotest123"
+  state.keys["groq-llama31-8b"] === "gsk_autotest123"
 );
-ok(true, "a pasted Groq key spreads across the two remaining Groq coding lines");
+ok(true, "a pasted Groq key spreads across all three Groq lines");
 
 const g2 = $('.keyrow[data-model="groq-llama31-8b"] .keyrow__in');
 g2.value = "AIzaSYNTHETIC";
@@ -561,8 +558,6 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
   location.hash = "#/console";
   await until(() => !document.querySelector("#view-console").hidden);
   ok(!!document.querySelector("#feed"), "console view returns with the conversation window");
-  const openCredentials = document.querySelector("[data-open-credentials]");
-  ok(openCredentials && openCredentials.hidden === true, "the empty fleet gives a direct path to BAY 01 without adding another menu");
 
   await new Promise((r) => setTimeout(r, 120));
   ok(errs.length === 0, "no uncaught errors while touring every surface" + (errs.length ? " — " + errs.join(" | ") : ""));
@@ -608,8 +603,6 @@ ok($$(".feed .codeblock").length >= 1, "step output rendered a fenced code block
       const wiring = readFileSync("js/main.js", "utf8");
       ok(/measureFurniture/.test(wiring) && /ResizeObserver/.test(wiring) && /visualViewport/.test(wiring), "the building measures its own bars — crest and slab heights are rendered truth, never hopeful constants");
       ok(/--kb/.test(wiring) && /var\(--kb, 0px\)/.test(mobileCss), "the keyboard's covered strip feeds the same subtraction — no IME can push the menu onto the composer");
-      ok(/has-keyboard/.test(wiring) && /has-keyboard \.slab/.test(mobileCss) && /visibility: hidden/.test(mobileCss), "the bottom menu gets out of the way while typing, then returns when the keyboard closes");
-      ok(/has-keyboard \.room/.test(mobileCss) && /100dvh - var\(--crest-h\) - 30px/.test(mobileCss), "typing reclaims the menu's strip for the composer instead of leaving a dead band");
       ok(!/env\(safe-area-inset-bottom, 0px\) - 30px/.test(mobileCss), "no double-subtraction of insets left in the room's height math");
     }
   }

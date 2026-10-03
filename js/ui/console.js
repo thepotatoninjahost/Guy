@@ -9,8 +9,6 @@ import { MODELS, byId, estimateTokens, VENDORS } from "../models.js";
 import { dispatch, headroom, select } from "../engine.js";
 import { getTurnContext } from "./archive.js";
 import { mdToHtml, toast, copyText, escapeHtml, fmtTok, fmtClockHM } from "./render.js";
-import { createTask, beginStep, completeStep, failStep, recordEvidence } from "../agent-runtime.js";
-import { runCodingStep } from "../agent-runner.js";
 
 const PLAN_SYSTEM = [
   "You are the planning engine of Gunther, an autonomous coding agent.",
@@ -416,10 +414,6 @@ async function runPlan(goal) {
   scrollFeed();
   addLog("info", "SESSION", "PLAN approved — " + plan.steps.length + " steps: " + plan.steps.map((s) => s.title).join(" → ").slice(0, 140));
 
-  const task = createTask(goal, plan.steps.map((s) => ({ title: s.title, instruction: s.prompt })), { origin: "plan" });
-  state.tasks.push(task);
-  state.tasks = state.tasks.slice(-20);
-  scheduleSave();
   const outputs = [];
   for (let i = 0; i < plan.steps.length; i++) {
     if (planAbort || (controller && controller.signal.aborted)) {
@@ -427,8 +421,6 @@ async function runPlan(goal) {
       continue;
     }
     setStep(pEl, i, "run");
-    beginStep(task, task.steps[i].id);
-    scheduleSave();
     scrollFeed();
     const stepShell = agentShell("STEP " + (i + 1) + "/" + plan.steps.length);
     f.appendChild(stepShell.el);
@@ -447,46 +439,38 @@ async function runPlan(goal) {
     ].join("\n");
 
     try {
-      const result = await runCodingStep({
-        workspace: state.workspace,
-        goal: plan.goal || goal,
-        instruction: prompt,
-        maxTurns: 6,
-        dispatch: (opts) => dispatch({ ...opts, signal: controller.signal, estTok: estimateTokens((opts.messages || []).map((m) => m.content).join(" ") + (opts.system || "")), onStatus: renderTurnbar }),
+      const res = await dispatch({
+        system: EXEC_SYSTEM,
+        messages: [{ role: "user", content: prompt }],
+        estTok: estimateTokens(prompt + EXEC_SYSTEM),
+        maxTokens: state.dials.maxTokens,
+        temperature: state.dials.temperature,
+        signal: controller.signal,
         onDelta: (t) => stepShell.appendDelta(t),
-        onTool: (call, toolResult) => {
-          renderTurnbar({ phase: toolResult.ok ? "tool" : "repair" });
-          addLog(toolResult.ok ? "info" : "warn", "TOOL", call.name + " → " + (toolResult.ok ? "ok" : toolResult.error));
-        },
+        onStatus: renderTurnbar,
       });
-      if (result.status === "limit") throw new Error("coding tool loop reached its safety limit without a final answer");
-      const res = {
-        text: result.text,
-        model: result.model || { id: "tool-loop", line: 0, name: "TOOL LOOP" },
-        usage: result.usage,
-        ms: 0,
-        attempts: result.turns,
-      };
       stepShell.setLine(res.model);
       finalizeAgent(stepShell, res);
-      setStep(pEl, i, "done", res.model.line ? "LINE " + String(res.model.line).padStart(2, "0") : "TOOLS");
-      completeStep(task, task.steps[i].id, { kind: "tool-loop", text: res.text.slice(0, 6000) });
-      scheduleSave();
+      setStep(pEl, i, "done", "LINE " + String(res.model.line).padStart(2, "0"));
       outputs.push(res.text.slice(0, 6000));
-      state.thread.push({ role: "assistant", content: res.text, at: Date.now(), model: res.model.id, usage: res.usage, step: i, tag: "STEP " + (i + 1) });
+      state.thread.push({
+        role: "assistant",
+        content: res.text,
+        at: Date.now(),
+        model: res.model.id,
+        usage: res.usage,
+        step: i,
+        tag: "STEP " + (i + 1),
+      });
       scheduleSave();
     } catch (err) {
       if (err.code === "ABORT") {
         finalizeAborted(stepShell);
         setStep(pEl, i, "halt");
-        failStep(task, task.steps[i].id, "stopped by operator", "partial output preserved");
-        scheduleSave();
         planAbort = true;
       } else {
         showError(stepShell, err);
         setStep(pEl, i, "fail");
-        failStep(task, task.steps[i].id, err.msg || err.note || err.code || "step failed");
-        scheduleSave();
         addLog("err", "SESSION", "step " + (i + 1) + " failed — " + (err.msg || err.note || err.code || "").slice(0, 140));
         planAbort = true;
       }
@@ -634,9 +618,6 @@ export function initConsole() {
   $("#sendBtn").addEventListener("click", () => send(input.value));
   $("#stopBtn").addEventListener("click", stop);
   const stopBtn = $("#stopBtn");
-  document.querySelectorAll("[data-open-credentials]").forEach((btn) => {
-    btn.addEventListener("click", () => window.__gunther?.bays?.openBay("a"));
-  });
   state.bus.addEventListener("busy", (e) => {
     stopBtn.hidden = !e.detail.b;
   });
@@ -686,8 +667,6 @@ export function initConsole() {
 function updateDuty() {
   const modelEl = document.querySelector("[data-duty-model]");
   const subEl = document.querySelector("[data-duty-sub]");
-  const credentialsBtn = document.querySelector("[data-open-credentials]");
-  const welcome = document.querySelector("[data-welcome]");
   const ring = document.querySelector(".ring");
   const ringC = document.querySelector(".ring__c");
 
@@ -710,9 +689,6 @@ function updateDuty() {
       modelEl.textContent = "NO LINE AVAILABLE";
       subEl.textContent = "add keys in BAY 01, or wait for a window to clear";
     }
-    if (credentialsBtn) credentialsBtn.hidden = Boolean(dm);
-    const feedEl = document.querySelector("#feed");
-    if (welcome) welcome.hidden = Boolean(dm) || Boolean(feedEl && feedEl.children.length);
   }
   if (ring) {
     const ratio = dm ? headroom(dm).ratio : 0;

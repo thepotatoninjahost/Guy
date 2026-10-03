@@ -56,9 +56,7 @@ function measureFurniture() {
   const kb = () => {
     let covered = 0;
     if (vv) covered = Math.round(window.innerHeight - vv.height - vv.offsetTop);
-    const keyboard = covered > 40;
-    doc.style.setProperty("--kb", (keyboard ? covered : 0) + "px");
-    doc.classList.toggle("has-keyboard", keyboard);
+    doc.style.setProperty("--kb", (covered > 40 ? covered : 0) + "px");
     sync();
   };
   if (vv) {

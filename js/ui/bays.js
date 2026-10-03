@@ -12,8 +12,6 @@ import { MODELS, byId, VENDORS } from "../models.js";
 import { headroom, isTripped, tripRemaining, manualTrip, clearTrip, storePing, select, availableCount, fmtDelay } from "../engine.js";
 import { ping } from "../transport.js";
 import { escapeHtml, fmtTok, fmtClock, toast } from "./render.js";
-import { CODING_QUALIFICATION, assessAnswer, qualifyAnswers } from "../qualification.js";
-import { call } from "../transport.js";
 
 const TITLES = {
   a: ["01", "CREDENTIALS", "one key per vendor lights its whole line group · stored on this device only"],
@@ -186,39 +184,6 @@ function openExternal(url) {
 const EYE =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
 
-const QUALIFY_SYSTEM = [
-  "You are being evaluated as a coding model for Gunther.",
-  "Follow the task exactly. Return complete code or a precise technical answer.",
-  "Do not use placeholders, omit code, claim tests you did not run, or substitute a general discussion for the requested artifact.",
-].join("\n");
-
-async function qualifyModel(m) {
-  const answers = {};
-  const failures = [];
-  for (const test of CODING_QUALIFICATION) {
-    try {
-      const res = await call(m, {
-        system: QUALIFY_SYSTEM,
-        messages: [{ role: "user", content: test.prompt }],
-        maxTokens: 2400,
-        temperature: 0.1,
-      });
-      answers[test.id] = res.text;
-    } catch (error) {
-      failures.push(test.id + ": " + (error.note || error.message || error.code || "call failed"));
-      answers[test.id] = "";
-    }
-  }
-  const result = qualifyAnswers(answers);
-  if (failures.length) {
-    result.status = "not-qualified";
-    result.results.push({ id: "transport", passed: false, missing: failures, evidence: [] });
-  }
-  state.ledger[m.id].qualification = { ...result, at: Date.now() };
-  addLog(result.status === "qualified" ? "ok" : "warn", "QUALIFY", "LINE " + String(m.line).padStart(2, "0") + " — " + result.status + " " + result.passed + "/" + result.total);
-  return result;
-}
-
 function buildKeyRows() {
   const grid = document.querySelector("#keygrid");
   if (!grid) return;
@@ -258,8 +223,6 @@ function buildKeyRows() {
     inp.value = state.keys[m.id] || "";
     const pg = (state.ledger[m.id] || {}).ping;
     if (pg && pg.at) setNote(row, pg.ok ? "answered — key is live" : pg.note || "ping failed", !!pg.ok);
-    const q = (state.ledger[m.id] || {}).qualification;
-    if (q && q.at) setNote(row, q.status === "qualified" ? "CODING QUALIFIED — " + q.passed + "/" + q.total : "NOT CODING QUALIFIED — " + q.passed + "/" + q.total, q.status === "qualified");
 
     let t = 0;
     inp.addEventListener("input", () => {
@@ -359,28 +322,6 @@ function buildKeyRows() {
       testAll.textContent = "PING ALL";
       const okN = MODELS.filter((m) => state.ledger[m.id].ping.ok).length;
       toast(okN + " of 10 lines answered", okN ? "ok" : "warn");
-    });
-
-  const qualifyAll = document.querySelector("[data-bay-action='qualifyall']");
-  if (qualifyAll)
-    qualifyAll.addEventListener("click", async () => {
-      qualifyAll.disabled = true;
-      qualifyAll.textContent = "QUALIFYING…";
-      let done = 0;
-      for (const m of MODELS) {
-        if (!(state.keys[m.id] || "").trim()) continue;
-        const row = grid.querySelector('.keyrow[data-model="' + m.id + '"]');
-        const note = row && row.querySelector(".keyrow__note");
-        if (note) note.textContent = "coding qualification running…";
-        const result = await qualifyModel(m);
-        if (note) setNote(row, result.status === "qualified"
-          ? "CODING QUALIFIED — " + result.passed + "/" + result.total
-          : "NOT CODING QUALIFIED — " + result.passed + "/" + result.total, result.status === "qualified");
-        done++;
-      }
-      qualifyAll.disabled = false;
-      qualifyAll.textContent = "QUALIFY CODERS";
-      toast(done + " keyed line(s) tested for coding", done ? "ok" : "warn");
     });
 
   const clearBtn = document.querySelector("[data-bay-action='clearkeys']");
